@@ -1,4 +1,4 @@
-#Wed May 25 21:45:57 EDT 2011
+#Sat May 28 20:45:30 EDT 2011
 eclipse.preferences.version=1
 encoding//src/lolram/__main__.py=utf8
 encoding//src/lolram/app.py=utf8
@@ -12,6 +12,7 @@ encoding//src/lolram/components/wui.py=utf8
 encoding//src/lolram/configloader.py=utf8
 encoding//src/lolram/database.py=utf8
 encoding//src/lolram/dataobject.py=utf8
+encoding//src/lolram/restpub.py=utf8
 encoding//src/lolram/tests/server_base.py=utf8
 encoding//src/lolram/tests/test-site/code/__main__.py=utf8
 encoding//src/lolram/tests/test_app.py=utf8

@@ -48,10 +48,11 @@ class WUIAgent(base.BaseComponentAgent):
 			fardel.conf.wui.styles_dir)
 		self._meta = dataobject.DataObject()
 		self._content = []
+		self._messages = []
 		self._render_cb_dict = {'html': self.to_html}
 	
 	def setup(self, fardel):
-		fardel.doc = self
+		pass
 	
 	def render(self, fardel):
 		fardel.resp.set_content_type('text/html')
@@ -129,6 +130,9 @@ class WUIAgent(base.BaseComponentAgent):
 	def meta(self):
 		return self._meta
 	
+	def add_message(self, title, subtitle=None, icon=None):
+		self._messages.append((title, subtitle, icon))
+		
 	def to_html(self):
 		head = HEAD(
 			E.meta(chartset='utf-8'),
@@ -158,7 +162,9 @@ class WUIAgent(base.BaseComponentAgent):
 		
 		site_header = E.header(id='site-header')
 		site_footer = E.footer(id='site-footer')
-		body_wrapper_element = DIV(site_header, site_footer, id='body-wrapper')
+		content_wrapper_element = DIV()
+		body_wrapper_element = DIV(site_header, content_wrapper_element,
+			site_footer, id='body-wrapper')
 		body_element = BODY(body_wrapper_element)
 		html = HTML(head, body_element)
 		
@@ -171,13 +177,31 @@ class WUIAgent(base.BaseComponentAgent):
 		if footer_content:
 			footer_content = site_footer.extend(footer_content)
 		
+		if self._meta.title:
+			content_wrapper_element.append(H1(self._meta.title))
+		
+		if self._meta.subtitle:
+			content_wrapper_element.append(H2(self._meta.subtitle))
+		
+		if self._messages:
+			messages_wrapper = E.aside(id='messages')
+			content_wrapper_element.append(messages_wrapper)
+			
+			for title, subtitle, icon in self._messages:
+				element = E.section(DIV(title, CLASS='messageTitle'), 
+					CLASS='messageBox')
+				if subtitle:
+					element.append(DIV(subtitle, CLASS='messageSubtitle'))
+				
+				messages_wrapper.append(element)
+				
 		if self._content and isinstance(self._content, list):
-			body_wrapper_element[1:1] = map(lambda e: e.render(format='html'), 
-				self._content)
+			content_wrapper_element.extend(map(lambda e: e.render(format='html'), 
+				self._content))
 		elif self._content:
-			body_wrapper_element.insert(1, self._content.render(format='html'))
+			content_wrapper_element.append(self._content.render(format='html'))
 		else:
-			body_wrapper_element.insert(1, 
+			content_wrapper_element.append( 
 				E.section(PRE(unicode(self._fardel.data))))
 		
 		return serializer.render_html_element(html, format='html')
@@ -304,6 +328,10 @@ class Form(WUIContent):
 			
 			return element
 	
+	TEXT = 'text'
+	PASSWORD = 'password'
+	HIDDEN = 'hidden'
+	
 	class Textbox(object):
 		def __init__(self, name, label, value=None, validation=None,
 		large=False, required=False):
@@ -316,14 +344,22 @@ class Form(WUIContent):
 		
 		def to_html(self):
 			form_element_id = 'form.%s.%s' 
-			element = DIV(
-				LABEL(self.label, FOR=self.name)
-			)
+			element = DIV()
 			
-			if self.large:
+			if self.validation != 'hidden':
+				element.append(LABEL(self.label, FOR=self.name))
+			
+			if self.validation == 'hidden':
+				element.append( INPUT(
+					name=self.name,
+					type=self.validation,
+					value=self.value or self.label) )
+			elif self.large:
 				element.append(TEXTAREA(self.value or '', name=self.name))
 			else:
-				input_element = INPUT(self.validation or 'text', 
+				input_element = INPUT(
+					name=self.name,
+					type=self.validation or 'text', 
 					value=self.value or '', placeholder=self.label)
 				
 				if self.required:

@@ -25,6 +25,7 @@ class SiteApp(lolram.app.SiteApp):
 		self.router.set('/article_file_test', self.article_file_test)
 		self.router.set('/address_test', self.address_test)
 		self.router.set('/article_tree_test', self.article_tree_test)
+		self.router.set('/account_basic_test', self.account_basic_test)
 	
 	def delete_data(self, fardel):
 		# TODO
@@ -207,4 +208,11 @@ class SiteApp(lolram.app.SiteApp):
 			fardel.cms.add_child(article_id, int(fardel.req.query.getfirst('child')))
 		elif action == 'delete':
 			fardel.cms.remove_child(article_id, int(fardel.req.query.getfirst('child')))
-
+			
+	def account_basic_test(self, fardel):
+		fardel.resp.ok()
+		
+		fardel.accounts.authenticate_testing_password(
+			fardel.req.query.getfirst('password'))
+		
+		return ['ok' if fardel.accounts.account_id else 'fail']

@@ -59,6 +59,7 @@ import components.wui
 import components.lolramvanity
 import components.staticfile
 import components.cms
+import components.accounts
 
 LT = '\r\n'
 HTTP_TIME_PARSE_STR = '%a, %d %b %Y %H:%M:%S %Z'
@@ -425,9 +426,10 @@ class SiteApp(object):
 		components.database.DatabaseManager, 
 		components.session.SessionManager,
 		components.serializer.SerializerManager,
+		components.accounts.AccountsManager,
+		components.cms.CMSManager,
 		components.wui.WUIManager,
 		components.lolramvanity.LolramVanityMgr,
-		components.cms.CMSManager,
 	]
 	
 	# TODO: object pooling

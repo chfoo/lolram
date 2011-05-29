@@ -28,6 +28,27 @@ import cStringIO
 import string
 import urln11n
 
+class ProtectedAttributeError(AttributeError):
+	pass
+
+class ProtectedObject(object):
+	'''Emulates protected member class object pattern'''
+	
+	def __getattr__(self, k):
+		if not k.startswith('_'):
+			raise ProtectedAttributeError()
+		else:
+			return self.__dict__[k]
+	
+	def __delattr__(self, k):
+		raise ProtectedAttributeError()
+	
+	def __setattr__(self, k, v):
+		if not k.startswith('_'):
+			raise ProtectedAttributeError()
+		else:
+			self.__dict__[k] = v
+
 class _SelfProxy(object):
 	def __init__(self, target):
 		
@@ -78,7 +99,7 @@ class DataObject(dict):
 	def __delattr__(self, k):
 		if k in self and not k.startswith('__'):
 			del self[k]
-		else:
+		elif k in self.__dict__:
 			del self.__dict__[k]
 
 	def __getattr__(self, k):
@@ -90,7 +111,7 @@ class DataObject(dict):
 		else:
 			return self.__dict__[k]
 
-class DirInfo(object):
+class DirInfo(ProtectedObject):
 	def __init__(self, app, code='code', www='www', var='var', db='db',
 	upload='upload'):
 		self._app = os.path.abspath(app)
@@ -124,7 +145,7 @@ class DirInfo(object):
 	def upload(self):
 		return self._upload 
 
-class RequestInfo(object):
+class RequestInfo(ProtectedObject):
 	def __init__(self, script_name=None, path_info=None, args=None,
 	form=None, url=None, headers=None, controller=None, script_path=None,
 	local_path=None):
@@ -136,6 +157,7 @@ class RequestInfo(object):
 		self._headers = headers
 		self._controller = controller
 		self._local_path = local_path
+		self._script_path = script_path
 	
 	@property
 	def args(self):
@@ -307,7 +329,7 @@ class RenderableDataObject(DataObject):
 	def render(self, *args, **kargs):
 		raise NotImplementedError()
 
-class Fardel(object):
+class Fardel(ProtectedObject):
 	def __init__(self, environ=None, request=None, response=None, 
 	config=None, dirs=None, db=None, data=None, component_managers=None,
 	component_agents=None, document=None):
@@ -324,6 +346,8 @@ class Fardel(object):
 	
 	def __getattr__(self, name):
 		return getattr(self._component_agents, name)
+	
+	
 	
 	@property
 	def env(self):
@@ -381,7 +405,9 @@ class Fardel(object):
 			url.params = self._request.params
 			url.query = copy.deepcopy(self._request.query)
 		
-		if paths:	
+		if paths and (isinstance(paths, str) or isinstance(paths, unicode)):
+			url.path = paths
+		elif paths:
 			url.path = '/'.join(paths)
 		
 		if params:
@@ -392,6 +418,9 @@ class Fardel(object):
 		
 		self.norm_url(url)
 		return url
+	
+	def str_url(self, *args, **kargs):
+		return str(self.make_url(*args, **kargs))
 	
 def normalize_header_name(name, capwords=True):
 	if capwords:

@@ -70,7 +70,8 @@ if __name__ == '__main__':
 	
 		# FIXME: lighttpd can spawn more than 1 process, need to get the new socket 
 		# name because it appends -N where N is a number from 0.
-	#	if socket_name and 'PHP_FCGI_CHILDREN':
+	#	# This is only true if lighttpd is responsible for spawning the process 
+		#if socket_name and 'PHP_FCGI_CHILDREN':
 	#		socket_name += int(os.environ['PHP_FCGI_CHILDREN']) - 1 # 0 base it
 	#	
 		logger.debug('Socket name %s', socket_name)

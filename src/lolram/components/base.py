@@ -34,7 +34,8 @@ class BaseComponentManager(object):
 	
 class BaseComponentAgent(object):
 	def __init__(self, fardel, manager):
-		pass
+		self._fardel = fardel
+		self._manager = manager
 		
 	def setup(self, fardel):
 		pass

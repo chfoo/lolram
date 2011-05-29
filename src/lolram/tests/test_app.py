@@ -154,7 +154,22 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		response = self.request('/zf/test.txt')
 		self.assertEqual(response.status, 200)
 		self.assertTrue(response.read().startswith('Hello world'))
-
+		
+	def test_account_basic_password(self):
+		'''It should accept our basic password'''
+		
+		response = self.request('/account_basic_test',
+			query={'password':'cake'})
+		self.assertEqual(response.status, 200)
+		self.assertEqual(response.read(), 'ok')
+		
+	def test_account_basic_password_fail(self):
+		'''It should reject our basic password'''
+		
+		response = self.request('/account_basic_test',
+			query={'password':'fish-shaped candy'})
+		self.assertEqual(response.status, 200)
+		self.assertEqual(response.read(), 'fail')
 
 class TestAppFuncs(unittest.TestCase):
 	
