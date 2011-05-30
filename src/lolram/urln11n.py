@@ -24,6 +24,7 @@ __doctype__ = 'restructuredtext en'
 import urlparse
 import urllib
 import copy
+import cStringIO
 
 DEFAULT_PORTS = {
 	'ftp' : 21,
@@ -85,15 +86,15 @@ class URL(object):
 	def __init__(self, string=None, scheme=None, username=None, 
 	password=None, hostname=None, port=None, path=None, params=None,
 	query=None, fragment=None):
-		self.scheme = scheme
-		self.username = username
-		self.password = password
-		self.hostname = hostname
-		self.port = port
-		self.path = path
-		self.params = params
-		self.query = URLQuery(query=query)
-		self.fragment = fragment
+		self._scheme = scheme
+		self._username = username
+		self._password = password
+		self._hostname = hostname
+		self._port = port
+		self._path = path
+		self._params = params
+		self._query = URLQuery(query=query)
+		self._fragment = fragment
 #		self.ajax_url = None
 #		self.query_first = None
 		
@@ -102,50 +103,127 @@ class URL(object):
 		if self.string is not None:
 			self.parse(self.string)
 	
+	@property
+	def scheme(self):
+		return self._scheme
+	
+	@scheme.setter
+	def scheme(self, s):
+		self._scheme = s
+	
+	@property
+	def username(self):
+		return self._username
+	
+	@username.setter
+	def username(self, s):
+		self._username = s
+	
+	@property
+	def password(self):
+		return self._password
+	
+	@password.setter
+	def password(self, s):
+		self._password = s
+	
+	@property
+	def hostname(self):
+		return self._hostname
+	
+	@hostname.setter
+	def hostname(self, s):
+		self._hostname = s
+	
+	@property
+	def port(self):
+		return self._port
+	
+	@port.setter
+	def port(self, n):
+		self._port = int(n)
+	
+	@property
+	def path(self):
+		return self._path
+	
+	@path.setter
+	def path(self, s):
+		self._path = collapse_path(s)
+	
+	@property
+	def params(self):
+		return self._params
+	
+	@params.setter
+	def params(self, s):
+		self._params = unquote(s)
+	
+	@property
+	def query(self):
+		return self._query
+	
+	@query.setter
+	def query(self, o):
+		if isinstance(o, str) or isinstance(o, unicode):
+			self._query = URLQuery(string=o)
+		else:
+			self._query = URLQuery(query=o)
+	
+	@property
+	def fragment(self):
+		return self._fragment
+	
+	@fragment.setter
+	def fragment(self, s):
+		self._fragment = s
+	
 	def __str__(self):
-		l = []
-		if self.scheme:
-			l.append(self.scheme)
-			l.append(':')
+		s = cStringIO.StringIO()
 		
-		if self.hostname:
-			l.append('//')
+		if self._scheme:
+			s.write(self.scheme)
+			s.write(':')
 		
-		if self.username:
-			l.append(urllib.quote_plus(self.username.encode('utf8')))
+		if self._hostname:
+			s.write('//')
+		
+		if self._username:
+			s.write(urllib.quote_plus(self._username.encode('utf8')))
 			
-		if self.password:
-			l.append(':')
-			l.append(urllib.quote_plus(self.password.encode('utf8')))
+		if self._password:
+			s.write(':')
+			s.write(urllib.quote_plus(self._password.encode('utf8')))
 		
-		if self.username:
-			l.append('@')
+		if self._username:
+			s.write('@')
 		
-		if self.hostname:
-			l.append(to_punycode_hostname(self.hostname))
+		if self._hostname:
+			s.write(to_punycode_hostname(self._hostname))
 		
-		if self.port and DEFAULT_PORTS.get(self.scheme) != self.port:
-			l.append(':')
-			l.append(str(self.port))
+		if self._port and DEFAULT_PORTS.get(self._scheme) != self._port:
+			s.write(':')
+			s.write(str(self._port))
 		
-		if self.path and not self.path.startswith('/') and self.path != '/':
-			l.append('/')
-		if self.path and self.path != '/':
-			l.append(urllib.quote(self.path.encode('utf8')))
+		if self._path and not self._path.startswith('/') and self._path != '/':
+			s.write('/')
+		if self._path and self._path != '/':
+			s.write(urllib.quote(self._path.encode('utf8')))
 		
-		if self.params:
-			l.append(';')
-			l.append(self.params)
+		if self._params:
+			s.write(';')
+			s.write(self._params)
 		
-		if self.query:
-			l.append('?')
-			l.append(str(self.query))
+		if self._query:
+			s.write('?')
+			s.write(str(self._query))
 		
-		if self.fragment:
-			l.append('#')
-			l.append(urllib.quote(self.fragment.encode('utf8')))
+		if self._fragment:
+			s.write('#')
+			s.write(urllib.quote(self._fragment.encode('utf8')))
 		
-		return ''.join(l)
+		s.seek(0)
+		return s.read()
 		
 	def __repr__(self):
 		return '<URL (%s) at 0x%x>' % (self.__str__(), id(self))
@@ -157,9 +235,9 @@ class URL(object):
 		p = urlparse.urlparse(string)
 		
 		self.scheme = p.scheme
-		self.path = collapse_path(p.path)
-		self.params = unquote(p.params)
-		self.query = URLQuery(p.query)
+		self.path = p.path
+		self.params = p.params
+		self.query = p.query
 		
 #		self.query_first = {}
 #		
@@ -173,9 +251,9 @@ class URL(object):
 		if p.hostname:
 			self.hostname = from_punycode_hostname(p.hostname)
 			
-		self.port = p.port
-		if self.port:
-			self.port = int(self.port)
+		self._port = p.port
+		if self._port:
+			self._port = int(self.port)
 	
 	def copy(self):
 		return copy.copy(self)

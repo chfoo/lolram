@@ -25,6 +25,7 @@ import random
 import os
 import os.path
 import shutil
+import uuid
 import hashlib
 import datetime
 
@@ -154,6 +155,7 @@ class CMSArticlesDef_1(database.TableDef):
 		upload = relationship(CMSUploadsDef_1.CMSUpload)
 		date = Column(DateTime, default=datetime.datetime.utcnow)
 		title = Column(Unicode)
+		uuid = Column(LargeBinary(length=16), default=lambda:uuid.uuid4().bytes)
 	
 	desc = 'new table'
 	model = CMSArticle
@@ -331,10 +333,15 @@ class Article(object):
 		self._model = model
 		self._fardel = fardel
 		self._agent = agent
+		self._uuid = None
 	
 	@property
 	def id(self):
 		return self._id
+	
+	@property
+	def uuid(self):
+		return self._uuid
 	
 	@property
 	def text(self):
@@ -551,6 +558,7 @@ class CMSAgent(base.BaseComponentAgent):
 			article._id = model.id
 			article._title = model.title
 			article._date = model.date
+			article._uuid = model.uuid
 			
 			if model.text:
 				article._text = model.text.text

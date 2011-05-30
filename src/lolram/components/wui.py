@@ -135,7 +135,7 @@ class WUIAgent(base.BaseComponentAgent):
 		
 	def to_html(self):
 		head = HEAD(
-			E.meta(chartset='utf-8'),
+			E.meta(charset='utf-8'),
 		)
 		
 		title_list = []
@@ -413,3 +413,11 @@ class Form(WUIContent):
 			self._group.append(o)
 		else:
 			self._data.append(o)
+
+class PlainText(WUIContent):
+	def __init__(self, text=''):
+		super(PlainText, self).__init__()
+		self._text = text
+	
+	def to_html(self):
+		return PRE(self._text)

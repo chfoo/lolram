@@ -396,7 +396,7 @@ class Launcher(object):
 		
 		for key, value in globals_dict.iteritems():
 			logger.debug(u'Search for callable: %s', key)
-			if inspect.isclass(value) and '__call__' in dir(value):
+			if inspect.isclass(value) and '__call__' in dir(value) and issubclass(value, SiteApp):
 				self.app = value(dirpath, script_name)
 				break
 		
@@ -489,6 +489,12 @@ class SiteApp(object):
 		url = urln11n.URL(recon_url)
 		request_headers = dataobject.HTTPHeaders(environ=environ)
 		path_list = urln11n.collapse_path(environ['PATH_INFO']).split('/')
+		script_path = urln11n.collapse_path(environ['SCRIPT_NAME'])
+		
+		request_uri = environ.get('REQUEST_URI')
+		if request_uri:
+			common, a, b = pathutil.common(script_path, request_uri)
+			script_path = urln11n.collapse_path(common) 
 		
 		controller = None
 		args = []
@@ -502,8 +508,8 @@ class SiteApp(object):
 			script_name=environ['SCRIPT_NAME'],
 			path_info=environ['PATH_INFO'],
 			url=url,
-			script_path=urln11n.collapse_path(environ['SCRIPT_NAME']),
-			local_path=urln11n.collapse_path(environ['PATH_INFO']),
+			script_path=script_path,
+			local_path=urln11n.collapse_path(environ['PATH_INFO'].split(';', 1)[0]),
 			controller=controller,
 			args=args,
 			form=cgi.FieldStorage(fp=environ['wsgi.input'], 

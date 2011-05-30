@@ -395,7 +395,7 @@ class Fardel(ProtectedObject):
 	
 	def norm_url(self, url):
 		if self._request.script_path:
-			url.path = '%s/%s' % (self._request.path_name, url.path)
+			url.path = '%s/%s' % (self._request.script_path, url.path)
 
 	def make_url(self, paths=None, params=None, query=None, fill=False):
 		url = urln11n.URL()
@@ -403,24 +403,24 @@ class Fardel(ProtectedObject):
 		if fill:
 			url.path = self._request.path
 			url.params = self._request.params
-			url.query = copy.deepcopy(self._request.query)
+			url.query = self._request.query
 		
 		if paths and (isinstance(paths, str) or isinstance(paths, unicode)):
 			url.path = paths
 		elif paths:
 			url.path = '/'.join(paths)
 		
-		if params:
+		if params is not None:
 			url.params = params
 		
-		if query:
+		if query is not None:
 			url.query = query
 		
 		self.norm_url(url)
 		return url
 	
 	def str_url(self, *args, **kargs):
-		return str(self.make_url(*args, **kargs))
+		return str(self.make_url(*args, **kargs)) or '/'
 	
 def normalize_header_name(name, capwords=True):
 	if capwords:
