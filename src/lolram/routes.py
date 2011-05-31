@@ -38,7 +38,16 @@ class Router(object):
 		if default is None:
 			default = self.default
 		
-		return self.data.get(route, default)
+		if isinstance(route, str) or isinstance(route, unicode):
+			parts = route.split('/')
+			for i in reversed(range(1, len(parts) + 1)):
+				result = self.data.get('/'.join(parts[:i]))
+				
+				if result is not None:
+					return result
+			return default
+		else:
+			return self.data.get(route, default)
 	
 	def set(self, route, data):
 		if isinstance(route, str) or isinstance(route, unicode):

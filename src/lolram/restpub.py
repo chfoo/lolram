@@ -99,7 +99,7 @@ class Publisher(object):
 			destination_path=docutils.io.NullOutput.default_destination_path, 
 			reader=None, reader_name='standalone', 
 			parser=None, parser_name='restructuredtext', 
-			writer=None, writer_name='null', 
+			writer=None, writer_name='html', 
 			settings=None, settings_spec=None, settings_overrides=settings, 
 			config_section=None, enable_exit_status=None) 
 		
@@ -121,6 +121,8 @@ class Publisher(object):
 		doc_info['refs'] = {}
 		for name, node_list in document.refnames.iteritems():
 			doc_info['refs'][name] = map(self.format_tree, node_list)
+		
+		doc_info['html-parts'] = publisher.writer.parts
 		
 		return doc_info
 	
@@ -149,3 +151,6 @@ docutils.parsers.rst.directives.register_directive('math', MathDirective)
 def template_callback(name):
 	raise NotImplementedError()
 
+def publish_text(text):
+	p = Publisher()
+	return p.publish(text)

@@ -394,6 +394,7 @@ class Article(object):
 				text_id=model.text_id,
 				filename=model.upload_filename,
 				date=model.created,
+				version=i
 			) )
 			
 			i += 1

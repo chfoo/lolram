@@ -35,6 +35,7 @@ class TestRoutes(unittest.TestCase):
 		4. It should return a default value if not found
 		5. It should accept a default value and use that given value if not found
 		6. It should be matching for URL paths only
+		7. It should accept more specific paths first (ie, greater depths)
 		'''
 		
 		router = routes.Router()
@@ -43,6 +44,9 @@ class TestRoutes(unittest.TestCase):
 		router.set('/ccdd/', 'ccdd_data')
 		router.set('eeff/gghh', 'eeffgghh_data')
 		router.set('/', 'dcccc')
+		router.set('/a/', 'a')
+		router.set('/a/b/c/d', 'abcd')
+		router.set('/a/b/', 'ab')
 		self.assertEqual(router.get('aabb'), 'aabb_data')
 		self.assertEqual(router.get('aabb;asdf?dd=rr'), 'aabb_data')
 		self.assertEqual(router.get('/aabb'), 'aabb_data')
@@ -51,6 +55,9 @@ class TestRoutes(unittest.TestCase):
 		self.assertEqual(router.get('/eeff/gghh'), 'eeffgghh_data')
 		self.assertEqual(router.get('/'), 'dcccc')
 		self.assertEqual(router.get(''), 'dcccc')
+		self.assertEqual(router.get('a'), 'a')
+		self.assertEqual(router.get('a/b'), 'ab')
+		self.assertEqual(router.get('a/b/c/d'), 'abcd')
 		self.assertTrue(router.get('dummy') is None)
 		router.set_default('5fjfj')
 		self.assertEqual(router.get('dummy', default=528491), 528491)

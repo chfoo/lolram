@@ -421,3 +421,71 @@ class PlainText(WUIContent):
 	
 	def to_html(self):
 		return PRE(self._text)
+
+class Table(WUIContent):
+	def __init__(self):
+		super(Table, self).__init__()
+		self._rows = []
+		self._names = []
+	
+	def set_names(self, *cols):
+		self._names = cols
+	
+	def add_row(self, *cols):
+		self._rows.append(tuple(cols))
+	
+	def to_html(self):
+		table = TABLE()
+		
+		if self._names:
+			tr = TR()
+			table.append(tr)
+			
+			for v in self._names:
+				tr.append(TH(v))
+		
+		for row in self._rows:
+			tr = TR()
+			table.append(tr)
+			
+			for v in row:
+				tr.append(TD(v))
+		
+		return table
+
+class Pager(WUIContent):	
+	def __init__(self, page=0, start=0, end=None, has_more=None,
+	items_per_page=20, url=None):
+		super(Pager, self).__init__()
+		self._page = page
+		self._start = start
+		self._end = end
+		self._has_more = has_more
+		self._items_per_page = items_per_page
+		self._url = url
+	
+	def to_html(self):
+		ul = UL(CLASS='pager')
+		
+		max_page = end / items_per_page
+		self._page = max_page
+		
+		def add(label, page):
+			self._url.query['page'] = page
+			ul.append(LI(A(label, href=str(url))))
+		
+		if self._page:
+			add(u'⇱', 0)
+		
+		if self._page > 1:
+			add(u'⇞', self._page - 1)
+		
+		add(str(self._page), self._page)
+		
+		if self._has_more:
+			add(u'⇟', self._page + 1)
+		
+		if self._end and self._page < max_page:
+			add(u'⇲', max_page)
+		
+		return ul
