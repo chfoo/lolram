@@ -24,11 +24,8 @@ __doctype__ = 'restructuredtext en'
 import base
 import lolram.app
 
-class LolramVanityAgent(base.BaseComponentAgent):
-	def setup(self, fardel):
-		fardel.resp.headers['X-Script'] = 'lolram/%s' % lolram.app.__version__
+class LolramVanity(base.BaseComponent):
+	def setup(self):
+		self.context.response.headers['X-Script'] = 'lolram/%s' % lolram.app.__version__
 
-class LolramVanityMgr(base.BaseComponentManager):
-	name = 'lolramvanity'
-	agent_class = LolramVanityAgent
 	

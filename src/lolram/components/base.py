@@ -23,6 +23,10 @@ __doctype__ = 'restructuredtext en'
 
 import imp
 
+from .. import dataobject
+
+class BaseComponent(dataobject.BaseMVC):
+	pass
 
 class BaseComponentManager(object):
 	default_config = None

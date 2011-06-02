@@ -51,16 +51,16 @@ import urln11n
 import dataobject
 import components.database
 import components.session
-import components.serializer
+#import components.serializer
 logger = mylogger.get_logger()
 import routes
 import pathutil
 import components.wui
 import components.lolramvanity
 import components.staticfile
-import components.cms
+#import components.cms
 import components.accounts
-import components.lion
+#import components.lion
 
 LT = '\r\n'
 HTTP_TIME_PARSE_STR = '%a, %d %b %Y %H:%M:%S %Z'
@@ -136,7 +136,7 @@ class Responder(object):
 		self.start_response = start_response
 		self._headers = dataobject.HTTPHeaders()
 		self.status_code = httplib.INTERNAL_SERVER_ERROR
-		self.status_msg = 'Internal server error'
+		self.status_msg = httplib.responses[self.status_code]
 		self.output = []
 		self.headers['content-type'] = 'text/plain'
 		self.chunked = True
@@ -145,8 +145,11 @@ class Responder(object):
 	def headers(self):
 		return self._headers
 	
-	def set_status(self, code, msg):
+	def set_status(self, code, msg=None):
 		'''Set the HTTP response status code and message'''
+		
+		if not msg:
+			msg = httplib.responses.get(code, 'undefined')
 		
 		logger.debug(u'Set status %s:%s', code, msg)
 		
@@ -313,6 +316,8 @@ class Responder(object):
 			
 		except TypeError, e:
 			logger.debug(e)
+		except StopIteration, e:
+			logger.debug(e)
 	
 	def respond(self):
 		'''Start a WSGI response and return an iterable response body
@@ -380,11 +385,16 @@ class BufferFile(object):
 		
 class Launcher(object):
 	def __init__(self, dirpath, script_name):
-		script_name = urln11n.collapse_path(script_name)
-		path = os.path.join(dirpath, 'code')
-#		globals_dict = runpy.run_path(path)
-		self.app = None
+		self._script_name = urln11n.collapse_path(script_name)
+		self._singleton_instances = {}
+		self._dirinfo = dataobject.DirInfo(dirpath)
+		self._confname = os.path.join(dirpath, 'site.conf')
+		self._conf = configloader.load(self._confname)
+		self._app = None
+		self._class = None
 		
+		path = self._dirinfo.code
+#		globals_dict = runpy.run_path(path)
 		# FIXME: runpy tries to restore state which means imports done
 		# by the application will be None
 		# Instead we'll just import it
@@ -397,98 +407,64 @@ class Launcher(object):
 		
 		for key, value in globals_dict.iteritems():
 			logger.debug(u'Search for callable: %s', key)
-			if inspect.isclass(value) and '__call__' in dir(value) and issubclass(value, SiteApp):
-				self.app = value(dirpath, script_name)
+			
+			if inspect.isclass(value):
+				try:
+					if not issubclass(value, SiteApp):
+						continue
+				except TypeError:
+					# The type error may occur if the instance is callable and
+					# has members typically of a class
+					# e.g., lxml.builder.ElementMaker()
+					continue
+				
+				context = self.make_context()
+				self._app = context.get_instance(value, True)
+				self._app._function_router = routes.Router()
+				self._class = value
 				break
 		
-		if not self.app:
+		if not self._app:
 			logger.error(u'Unable to launch site app')
 			logger.error(u'Ensure that __main__.py exists')
+			return
 		
-		self.script_name = script_name
-		if script_name:
-			self.shift_count = len(script_name.split('/'))
+		if self._script_name:
+			self._shift_count = len(script_name.split('/'))
 		else:
-			self.shift_count = 0
-	
-	def __call__(self, environ, start_response):
-		logger.debug(u'Shifting %s', self.shift_count)
-		for i in xrange(self.shift_count):
-			wsgiref.util.shift_path_info(environ)
-		return self.app(environ, start_response)
-
-class SiteApp(object):
-	default_config = configloader.DefaultSectionConfig('site',
-		create_missing_dirs=True,
-		debugging_tracebacks=True,
-	)
-	default_components = [
-		components.staticfile.StaticFileManager,
-		components.database.DatabaseManager, 
-		components.session.SessionManager,
-		components.serializer.SerializerManager,
-		components.lion.LionManager,
-		components.accounts.AccountsManager,
-		components.cms.CMSManager,
-		components.wui.WUIManager,
-		components.lolramvanity.LolramVanityMgr,
-	]
-	
-	# TODO: object pooling
-	
-	def __init__(self, dirpath, script_name):
-		self._function_router = routes.Router()
-		self._dirs = dataobject.DirInfo(dirpath)
-		self._confname = os.path.join(dirpath, 'site.conf')
-		self._conf = configloader.load(self._confname)
+			self._shift_count = 0
 		
 		if self._conf is None:
 			logger.error(u'Site configuration ‘%s’ not found', self._confname)
 			return
 		
-		self._conf.populate_section(self.default_config)
+		self._conf.populate_section(self._app.default_config)
 		
 		if self._conf.site and self._conf.site.create_missing_dirs:
 			self.create_dirs()
 		
-		self._component_manager_dict = dataobject.DataObject()
-		self._component_manager_list = []
-		
-		fardel = self.make_fardel()
-		self.init_component_managers(fardel)
-		self.init(fardel)
-		
-	def init_component_managers(self, fardel):
-		
-		for class_ in self.default_components:
-			logger.info(u'Initializing component ‘%s’ as ‘%s’', 
-				class_.__name__, class_.name)
-				
-			if class_.default_config:
-				self._conf.populate_section(class_.default_config)
-				
-			component_manager = class_(fardel)
-			self._component_manager_list.append(component_manager)
-			self._component_manager_dict[class_.name] = component_manager
+		self._app.init_components()
+		self._app.init()
 	
-	def init(self):
-		pass
-
-	def create_dirs(self):
-		logger.debug(u'Create dirs')
-		for dirname in (self.dirs.code, self.dirs.www, self.dirs.var,
-		self.dirs.db, self.dirs.upload):
-			if not os.path.exists(dirname):
-				logger.debug(u'Directory ‘%s’ does not exist, creating.',
-					dirname)
-				os.mkdir(dirname)
+	def make_context(self, **kargs):
+		return dataobject.Context(
+			config=self._conf,
+			dirinfo=self._dirinfo,
+			logger=logger,
+			singleton_instances=self._singleton_instances,
+			**kargs
+		)
 	
 	def __call__(self, environ, start_response):
+		logger.debug(u'Shifting %s', self._shift_count)
+		for i in xrange(self._shift_count):
+			wsgiref.util.shift_path_info(environ)
+		
 		logger.debug(u'Call')
 		
 		responder = Responder(environ, start_response)
 		recon_url = pathutil.request_uri(environ)
-		url = urln11n.URL(recon_url)
+		url = dataobject.URL(recon_url)
 		request_headers = dataobject.HTTPHeaders(environ=environ)
 		path_list = urln11n.collapse_path(environ['PATH_INFO']).split('/')
 		script_path = urln11n.collapse_path(environ['SCRIPT_NAME'])
@@ -517,65 +493,72 @@ class SiteApp(object):
 			form=cgi.FieldStorage(fp=environ['wsgi.input'], 
 				environ=environ, keep_blank_values=True),
 		)
-		component_agent_list = []
-		component_agent_dict = dataobject.DataObject()
-		fardel = self.make_fardel(request=request_info, response=responder,
-			data=dataobject.DataObject(), 
-			component_agents=component_agent_dict)
+	
+		context = self.make_context(request=request_info, response=responder)
+		app = context.get_instance(self._class)
 			
-		for manager in self._component_manager_list:
-			if manager.agent_class:
-				agent = manager.agent_class(fardel, manager)
-				component_agent_dict[manager.name] = agent
-				component_agent_list.append(agent)
+#		context.logger.debug(environ)
+		context.logger.debug(u'Reconstructed URL: %s', url)
 		
-#		logger.debug(environ)
-		logger.debug(u'Reconstructed URL: %s', url)
 		
+		component_list = []
+		for class_ in app.default_components:
+			component = context.get_instance(class_)
+			component_list.append(component)
+			
 		iterable = None
 		
 		try:
-			for c in component_agent_list:
-				logger.debug(u'Component agent ‘%s’ setup', c.__class__.__name__)
-				c.setup(fardel)
+			for c in component_list:
+				logger.debug(u'Component ‘%s’ setup', c.__class__.__name__)
+				c.setup()
 			
-			self.setup(fardel)
+			app.setup()
 			
-			for c in component_agent_list:
-				logger.debug(u'Component agent ‘%s’ control', c.__class__.__name__)
+			for c in component_list:
+				logger.debug(u'Component ‘%s’ control', c.__class__.__name__)
 				
-				iterable = c.control(fardel)
+				iterable = c.control()
 				
 				if iterable is not None:
 					break
 			
-			if iterable is None:
-				function = self.router.get(fardel.req.path)
-				
-				if function:
-					logger.debug(u'Got router serve ‘%s’', function)
-					iterable = function(fardel)
+			iterable = app.control()
 			
 			if iterable is None:
-				for c in component_agent_list:
-					logger.debug(u'Component agent ‘%s’ render', c.__class__.__name__)
-					iterable = c.render(fardel)
+				function = app.singleton.router.get(context.request.path)
+				
+				if function.__self__ == app.singleton:
+					logger.debug(u'Got router serve ‘%s’. Rebound to ‘%s’(app)', function, function.__func__)
+					iterable = function.__func__(app)
+				
+				elif function:
+					logger.debug(u'Got router serve ‘%s’', function)
+					iterable = function()
+			
+			if iterable is None:
+				for c in component_list:
+					logger.debug(u'Component ‘%s’ render', c.__class__.__name__)
+					iterable = c.render()
 				
 					if iterable is not None:
 						break
+			
+			if iterable is None:
+				iterable = app.render()
 			
 			if iterable is not None:
 				responder.set_output(iterable)
 				responder.pre_respond()
 			
-			self.cleanup(fardel)
+			app.cleanup()
 			
-			for c in reversed(component_agent_list):
-				logger.debug(u'Component agent ‘%s’ cleanup', c.__class__.__name__)
-				c.cleanup(fardel)
+			for c in reversed(component_list):
+				logger.debug(u'Component ‘%s’ cleanup', c.__class__.__name__)
+				c.cleanup()
 			
 		except Exception, e:
-			if fardel.conf.site.debugging_tracebacks: 
+			if context.config.site.debugging_tracebacks: 
 				logger.exception(u'Site app error ‘%s’', e)
 			
 			responder.set_status(500, 'Internal server error')
@@ -588,34 +571,65 @@ class SiteApp(object):
 			except:
 				pass
 			
-			if fardel.conf.site.debugging_tracebacks:
+			if context.config.site.debugging_tracebacks:
 				try:
-					self.do_traceback_error_page(fardel, exc_info)
+					app.do_traceback_error_page(exc_info)
 				except:
-					self.do_simple_error_page(fardel, tb_text)
+					app.do_simple_error_page(tb_text)
 			else:
-				self.do_simple_error_page(fardel, 'A system error has occured')
+				app.do_simple_error_page('A system error has occured')
 		
 		return responder.respond()
 	
-	def make_fardel(self, **kargs):
-		fardel = dataobject.Fardel(
-			config=self.conf, 
-			dirs=self.dirs,
-			component_managers=self._component_manager_dict, 
-			**kargs)
-		return fardel
+	def create_dirs(self):
+		logger.debug(u'Create dirs')
+		for dirname in (self._dirinfo.code, self._dirinfo.www, self._dirinfo.var,
+		self._dirinfo.db, self._dirinfo.upload):
+			if not os.path.exists(dirname):
+				logger.debug(u'Directory ‘%s’ does not exist, creating.',
+					dirname)
+				os.mkdir(dirname)
+
+class SiteApp(dataobject.BaseMVC):
+	default_config = configloader.DefaultSectionConfig('site',
+		create_missing_dirs=True,
+		debugging_tracebacks=True,
+	)
+	default_components = [
+		components.staticfile.StaticFile,
+		components.database.Database, 
+		components.session.Session,
+#		components.serializer.Serializer,
+#		components.lion.Lion,
+		components.accounts.Accounts,
+#		components.cms.CMS,
+		components.wui.WUI,
+		components.lolramvanity.LolramVanity,
+	]
 	
-	def do_simple_error_page(self, fardel, msg=''):
+	# TODO: object pooling
+	
+	def init_components(self):
+		for class_ in self.default_components:
+			self.context.logger.info(u'Initializing component ‘%s’', 
+				class_.__name__)
+				
+			if class_.default_config:
+				self.context.config.populate_section(class_.default_config)
+				
+			component = self.context.get_instance(class_, singleton=True)
+			component.init()
+	
+	def do_simple_error_page(self, msg=''):
 		'''Set a simple error page in the responder'''
 		
-		responder = fardel.resp
+		responder = self.context.response
 		# A page larger than 1 KB will show in the browser
 		responder.set_content_type('text/html')
 		responder.output_text('<html><body>')
 		responder.output_text('<h1>%s %s</h1>' % responder.get_status())
 		responder.output_text('<pre>')
-		responder.output_text(msg.encode('utf8'))
+		responder.output_text(cgi.escape(msg.encode('utf8')))
 		responder.output_text('</pre>')
 		responder.output_text('</body>')
 		responder.output_text('<!--')
@@ -623,48 +637,23 @@ class SiteApp(object):
 		responder.output_text('-->')
 		responder.output_text('</html>')
 	
-	def do_traceback_error_page(self, fardel, exc_info=None):
+	def do_traceback_error_page(self, exc_info=None):
 		'''Set a detailed trackback error page in the responder'''
 		
 		if exc_info is None:
 			exc_info = sys.exc_info()
 		
-		responder = fardel.response
+		responder = self.context.response
 		responder.set_content_type('text/html')
 		responder.output_text('<html><body>')
 		responder.output_text('<h1>%s %s</h1>' % responder.get_status())
 		responder.output_text(cgitb.html(exc_info))
 		responder.output_text('</body></html>')
 	
-	def setup(self, fardel):
-		pass
-	
-	def cleanup(self, fardel):
-		pass
-	
 	@property
 	def router(self):
-		return self._function_router
-	
-	@property
-	def component_router(self):
-		return self._component_router
-	
-	@property
-	def dirs(self):
-		return self._dirs
-	
-	@property
-	def conf(self):
-		return self._conf
-	
-	@property
-	def script_name(self):
-		return self._script_name
-	
-	@property
-	def component_managers(self):
-		return self._component_manager_dict
+		return self.singleton._function_router
+
 
 def compress(values):
 	file_obj = BufferFile()

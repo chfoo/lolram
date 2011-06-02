@@ -36,22 +36,100 @@ class ProtectedObject(object):
 	
 	def __getattr__(self, k):
 		if not k.startswith('_'):
-			raise ProtectedAttributeError()
+			raise ProtectedAttributeError(u'Member ‘%s’ is not accessible' % k)
 		else:
 			return self.__dict__[k]
 	
 	def __delattr__(self, k):
-		raise ProtectedAttributeError()
+		raise ProtectedAttributeError(u'Member ‘%s’ is not accessible' % k)
 	
 	def __setattr__(self, k, v):
+		for class_ in self.__class__.__bases__:
+			if isinstance(class_.__dict__.get(k), property):
+				class_.__dict__[k].setter(v)
+				return
+			
 		if not k.startswith('_'):
-			raise ProtectedAttributeError()
+			raise ProtectedAttributeError(u'Member ‘%s’ is not accessible' % k)
 		else:
 			self.__dict__[k] = v
 
+class Context(ProtectedObject):
+	def __init__(self, singleton_instances=None, id=None, request=None, 
+	response=None, environ=None, config=None, dirinfo=None, logger=None,):
+		self._context_aware_instances = {}
+		self._singleton_instances = singleton_instances
+		self._id = id
+		self._request = request
+		self._response = response
+		self._environ = environ
+		self._config = config
+		self._dirinfo = dirinfo
+		self._logger = logger
+	
+	def get_instance(self, class_, singleton=False):
+		if singleton:
+			d = self._singleton_instances 
+		else:
+			d = self._context_aware_instances
+		
+		if class_ not in d:
+			assert issubclass(class_, ContextAware)
+			instance = class_(context_checked=True, context=self)
+			instance.set_context(self)
+			d[class_] = instance
+		
+		return d[class_]
+	
+	@property
+	def id(self):
+		return self._id
+	
+	@property
+	def request(self):
+		return self._request
+	
+	@property
+	def response(self):
+		return self._response
+	
+	@property
+	def environ(self):
+		return self._environ
+	
+	@property
+	def config(self):
+		return self._config
+	
+	@property
+	def dirinfo(self):
+		return self._dirinfo
+	
+	@property
+	def logger(self):
+		return self._logger
+
+class ContextAwareInitError(Exception):
+	pass
+
+class ContextAware(object):
+	def __init__(self, context_checked=False, context=None):
+		self._context = context
+		if not context_checked:
+			raise ContextAwareInitError(u'Context aware classes must by '
+				+ 'initalized by a context instance. '
+				+ 'Use context.get_context(Class)')
+	
+	def set_context(self, context):
+		self._context = context
+	
+	@property
+	def context(self):
+		return self._context
+	
+
 class _SelfProxy(object):
 	def __init__(self, target):
-		
 		def __getattr__(self, k):
 			return target.__dict__[k]
 	
@@ -110,6 +188,41 @@ class DataObject(dict):
 				return self.get(k)
 		else:
 			return self.__dict__[k]
+
+class BaseMVC(ContextAware):
+	default_config = None
+	
+	@property
+	def singleton(self):
+		return self.context.get_instance(self.__class__, singleton=True)
+	
+	def init(self):
+		pass
+	
+	def setup(self):
+		pass
+	
+	def control(self):
+		pass
+	
+	def render(self):
+		pass
+	
+	def cleanup(self):
+		pass
+
+class BaseRenderer(object):
+	@staticmethod
+	def supports(format):
+		return 'to_%s' in dir(Renderer)
+	
+	@staticmethod
+	def render(context, model, format='html'):
+		return Renderer.__dict__['to_%s' % format](context, model)
+	
+class BaseModel(object):
+	renderer = NotImplemented
+	
 
 class DirInfo(ProtectedObject):
 	def __init__(self, app, code='code', www='www', var='var', db='db',
@@ -321,13 +434,6 @@ class HTTPHeader(object):
 		s.seek(0)
 		return s.read()
 
-class RenderableDataObject(DataObject):
-	def __init__(self, tag, data=None):
-		self.tag = tag
-		self.data = data
-	
-	def render(self, *args, **kargs):
-		raise NotImplementedError()
 
 class Fardel(ProtectedObject):
 	def __init__(self, environ=None, request=None, response=None, 
@@ -421,7 +527,25 @@ class Fardel(ProtectedObject):
 	
 	def str_url(self, *args, **kargs):
 		return str(self.make_url(*args, **kargs)) or '/'
+
+class URL(urln11n.URL, BaseModel, ProtectedObject):
+	class Renderer(BaseRenderer):
+		@staticmethod
+		def supports(format):
+			return True
+		
+		@staticmethod
+		def render(context, model, format='html'):
+			return str(model)
 	
+	renderer = Renderer
+	
+	def __init__(self, *args, **kargs):
+		urln11n.URL.__init__(self, *args, **kargs)
+		BaseModel.__init__(self)
+		ProtectedObject.__init__(self)
+
+
 def normalize_header_name(name, capwords=True):
 	if capwords:
 		return string.capwords(name.replace('_', '-'), '-')

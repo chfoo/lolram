@@ -27,26 +27,20 @@ import base
 from .. import configloader
 from .. import urln11n
 
-class StaticFileAgent(base.BaseComponentAgent):
-	def __init__(self, fardel, manager):
-		self._fardel = fardel
-	
-	def control(self, fardel):
-		if fardel.req.controller == fardel.conf.static_file.path_name:
-			fardel.resp.ok()
-			return fardel.resp.output_file(
-				os.path.join(fardel.dirs.www, 
-					urln11n.collapse_path('/'.join(fardel.req.args))))
+class StaticFile(base.BaseComponent):
+	default_config = configloader.DefaultSectionConfig('static_file',
+		path_name='zf',
+	)
+
+	def control(self):
+		if self.context.request.controller == self.context.config.static_file.path_name:
+			self.context.response.ok()
+			return self.context.response.output_file(
+				os.path.join(self.context.dirinfo.www, 
+					urln11n.collapse_path('/'.join(self.context.request.args))))
 	
 	@property
 	def name(self):
 		return self._fardel.conf.static_file.path_name
-
-class StaticFileManager(base.BaseComponentManager):
-	default_config = configloader.DefaultSectionConfig('static_file',
-		path_name='zf',
-	)
-	name = 'static_file'
-	agent_class = StaticFileAgent
 
 

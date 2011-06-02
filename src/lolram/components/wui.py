@@ -22,6 +22,7 @@
 __doctype__ = 'restructuredtext en'
 
 import os
+import glob
 
 
 from lxml.html.builder import *
@@ -33,35 +34,28 @@ from .. import resoptimizer
 from .. import configloader
 from .. import util
 
-class WUIAgent(base.BaseComponentAgent):
-	def __init__(self, fardel, manager):
-		self._manager = manager
-		self._fardel = fardel
-		self._title_suffix = fardel.conf.wui.title_suffix
-		self._scripts = []
-		self._styles = []
-		self._optimize_scripts = True
-		self._optimize_styles = True
-		self._scripts_dir = os.path.join(self._fardel.dirs.www, 
-			fardel.conf.wui.scripts_dir)
-		self._styles_dir = os.path.join(self._fardel.dirs.www,
-			fardel.conf.wui.styles_dir)
-		self._meta = dataobject.DataObject()
-		self._content = []
-		self._messages = []
-		self._render_cb_dict = {'html': self.to_html}
+class WUI(base.BaseComponent):
+	default_config = configloader.DefaultSectionConfig('wui',
+		title_suffix='',
+		optimize_scripts=True,
+		optimize_styles=True,
+		scripts_dir='scripts',
+		styles_dir='styles',
+	)
 	
-	def setup(self, fardel):
-		pass
+	HTML = 'html'
 	
-	def render(self, fardel):
-		fardel.resp.set_content_type('text/html')
-		return self._render_cb_dict['html']()
+	def setup(self):
+		self._content_type = 'text/html'
+		self._format = self.HTML
+		self._content = None
+	
+	def render(self):
+		if self._content is not None:
+			# TODO : other formats, ie rss
+			self.context.response.set_content_type('text/html')
+			return self._content.renderer.to_html(self.context, self._content)
 		
-	@property
-	def render_cb_dict(self):
-		return self._render_cb_dict
-	
 	@property
 	def content(self):
 		return self._content
@@ -70,6 +64,137 @@ class WUIAgent(base.BaseComponentAgent):
 	def content(self, o):
 		self._content = o
 	
+
+class Document(dataobject.ContextAware, dataobject.BaseModel, list):
+	class Renderer(dataobject.BaseRenderer):
+		@staticmethod
+		def to_html(context, model):
+			head = HEAD(
+				E.meta(charset='utf-8'),
+			)
+			
+			title_list = []
+			if model.meta.title:
+				title_list.append(model.meta.title)
+			
+			title_suffix = context.config.wui.title_suffix
+			if title_suffix:
+				if title_list:
+					title_list.append(u' – ')
+				title_list.append(title_suffix)
+			
+			if title_list:
+				title = ''.join(title_list)
+				head.append(TITLE(title))
+			
+			Document.Renderer._resource(context, head, filenames=model.styles,
+				optimize=context.config.wui.optimize_styles, format='css')
+			Document.Renderer._resource(context, head, filenames=model.scripts,
+				optimize=context.config.wui.optimize_scripts, format='js')
+			
+			for name in model.meta:
+				meta_element = E.meta(name=name, content=model.meta[name])
+				head.append(meta_element)
+			
+			site_header = E.header(id='site-header')
+			site_footer = E.footer(id='site-footer')
+			content_wrapper_element = DIV()
+			body_wrapper_element = DIV(site_header, content_wrapper_element,
+				site_footer, id='body-wrapper')
+			body_element = BODY(body_wrapper_element)
+			html = HTML(head, body_element)
+			
+			header_content = model.header_content
+			footer_content = model.footer_content
+			
+			if header_content:
+				site_header.extend(header_content)
+			
+			if footer_content:
+				site_footer.extend(footer_content)
+			
+			if model.meta.title:
+				content_wrapper_element.append(H1(model.meta.title))
+			
+			if model.meta.subtitle:
+				content_wrapper_element.append(H2(model.meta.subtitle))
+			
+			if model.messages:
+				messages_wrapper = E.aside(id='messages')
+				content_wrapper_element.append(messages_wrapper)
+				
+				for title, subtitle, icon in model.messages:
+					element = E.section(DIV(title, CLASS='messageTitle'), 
+						CLASS='messageBox')
+					if subtitle:
+						element.append(DIV(subtitle, CLASS='messageSubtitle'))
+					
+					messages_wrapper.append(element)
+			
+			for content in model:
+				c = content.renderer.to_html(context, content)
+				content_wrapper_element.append(c)
+			
+			return serializer.render_html_element(html, format='html')
+		
+		@staticmethod
+		def _resource(context, head, filenames=None, dirname=None, optimize=True,
+		format='js'):
+			element_class = None
+			
+			if format == 'js':
+				element_class = E.script
+			elif format == 'css':
+				element_class = E.style
+			else:
+				raise Exception('not supported')
+			
+			if optimize:
+				if filenames:
+					paths = map(lambda name: os.path.join(
+						context.dirinfo.www, name), filenames)
+					s = resoptimizer.optimize(paths, format=format)
+				else:
+					s = resoptimizer.optimize_dir(dirname, format=format)
+				head.append(element_class(s.read()))
+			else:
+				for p in filenames:
+					url = fardel.make_url(paths=(fardel.com.static_file.name, p))
+					href = unicode(url)
+					head.append(element_class(href=href))
+	
+	renderer = Renderer
+	
+	def __init__(self, *args, **kargs):
+		super(Document, self).__init__(*args, **kargs)
+		self._header_content = None
+		self._footer_content = None
+		
+		self._scripts = []
+		self._styles = []
+		self._meta = dataobject.DataObject()
+		self._messages = []
+		
+		# FIXME: expensive
+		scripts_dir = self.context.config.wui.scripts_dir
+		if scripts_dir:
+			scripts_dir = os.path.join(self.context.dirinfo.www, scripts_dir)
+			
+			for p in glob.glob('%s/*.js' % scripts_dir):
+				filename = p.replace(self.context.dirinfo.www, '')
+				self._scripts.append(p)
+		
+		styles_dir = self.context.config.wui.styles_dir
+		if styles_dir:
+			styles_dir = os.path.join(self.context.dirinfo.www, styles_dir)
+			
+			for p in glob.glob('%s/*.css' % styles_dir):
+				filename = p.replace(self.context.dirinfo.www, '')
+				self._styles.append(p)
+		
+		wui_component = self.context.get_instance(WUI)
+		wui_component.content = self
+		
 	@property
 	def title(self):
 		return self._meta.title
@@ -94,21 +219,21 @@ class WUIAgent(base.BaseComponentAgent):
 	def styles(self):
 		return self._styles
 	
-	@property
-	def optimize_scripts(self):
-		return self.optimize_scripts
-	
-	@optimize_scripts.setter
-	def optimize_scripts(self, b):
-		self._optimize_scripts = b
-	
-	@property
-	def optimize_styles(self):
-		return self._optimize_styles
-	
-	@optimize_styles.setter
-	def optimize_styles(self, b):
-		self._optimize_styles = b
+#	@property
+#	def optimize_scripts(self):
+#		return self.optimize_scripts
+#	
+#	@optimize_scripts.setter
+#	def optimize_scripts(self, b):
+#		self._optimize_scripts = b
+#	
+#	@property
+#	def optimize_styles(self):
+#		return self._optimize_styles
+#	
+#	@optimize_styles.setter
+#	def optimize_styles(self, b):
+#		self._optimize_styles = b
 	
 	@property
 	def scripts_dir(self):
@@ -130,146 +255,30 @@ class WUIAgent(base.BaseComponentAgent):
 	def meta(self):
 		return self._meta
 	
+	@property
+	def header_content(self):
+		return self._header_content
+	
+	@header_content.setter
+	def header_content(self, v):
+		self._header_content = v
+
+	@property
+	def footer_content(self):
+		return self._footer_content
+	
+	@footer_content.setter
+	def footer_content(self, v):
+		self._footer_content = v
+	
 	def add_message(self, title, subtitle=None, icon=None):
 		self._messages.append((title, subtitle, icon))
-		
-	def to_html(self):
-		head = HEAD(
-			E.meta(charset='utf-8'),
-		)
-		
-		title_list = []
-		if self._meta.title:
-			title_list.append(self._meta.title)
-		
-		if self._title_suffix:
-			if title_list:
-				title_list.append(u' – ')
-			title_list.append(self._title_suffix)
-		
-		if title_list:
-			title = ''.join(title_list)
-			head.append(TITLE(title))
-		
-		self._resource(self._fardel, head, self._styles, self._styles_dir,
-			self._optimize_styles, format='css')
-		self._resource(self._fardel, head, self._scripts, self._scripts_dir,
-			self._optimize_scripts, format='js')
-		
-		for name in self._meta:
-			meta_element = E.meta(name=name, content=self._meta[name])
-			head.append(meta_element)
-		
-		site_header = E.header(id='site-header')
-		site_footer = E.footer(id='site-footer')
-		content_wrapper_element = DIV()
-		body_wrapper_element = DIV(site_header, content_wrapper_element,
-			site_footer, id='body-wrapper')
-		body_element = BODY(body_wrapper_element)
-		html = HTML(head, body_element)
-		
-		header_content = self.get_header_content(self._fardel)
-		footer_content = self.get_footer_content(self._fardel)
-		
-		if header_content:
-			site_header.extend(header_content)
-		
-		if footer_content:
-			footer_content = site_footer.extend(footer_content)
-		
-		if self._meta.title:
-			content_wrapper_element.append(H1(self._meta.title))
-		
-		if self._meta.subtitle:
-			content_wrapper_element.append(H2(self._meta.subtitle))
-		
-		if self._messages:
-			messages_wrapper = E.aside(id='messages')
-			content_wrapper_element.append(messages_wrapper)
-			
-			for title, subtitle, icon in self._messages:
-				element = E.section(DIV(title, CLASS='messageTitle'), 
-					CLASS='messageBox')
-				if subtitle:
-					element.append(DIV(subtitle, CLASS='messageSubtitle'))
-				
-				messages_wrapper.append(element)
-				
-		if self._content and isinstance(self._content, list):
-			content_wrapper_element.extend(map(lambda e: e.render(format='html'), 
-				self._content))
-		elif self._content:
-			content_wrapper_element.append(self._content.render(format='html'))
-		else:
-			content_wrapper_element.append( 
-				E.section(PRE(unicode(self._fardel.data))))
-		
-		return serializer.render_html_element(html, format='html')
-
-	def _resource(self, fardel, head, filenames=None, dirname=None, optimize=True,
-	format='js'):
-		element_class = None
-		
-		if format == 'js':
-			element_class = E.script
-		elif format == 'css':
-			element_class = E.style
-		else:
-			raise Exception('not supported')
-		
-		if optimize:
-			if filenames:
-				paths = map(lambda name: os.path.join(
-					fardel.dirs.www, name), filenames)
-				s = resoptimizer.optimize(paths, format=format)
-			else:
-				s = resoptimizer.optimize_dir(dirname, format=format)
-			head.append(element_class(s.read()))
-		else:
-			for p in filenames:
-				url = fardel.make_url(paths=(fardel.com.static_file.name, p))
-				href = unicode(url)
-				head.append(element_class(href=href))
 	
-	def get_header_content(self, fardel):
-		# TODO: common website header stuff
-		# eg: user actions, login, logout, messages
-		# clients should override this function for now
-		pass
-	
-	def get_footer_content(self, fardel):
-		# TODO: common website footer stuff
-		# eg: copyright
-		# clients should override this function for now
-		pass
+	@property
+	def messages(self):
+		return self._messages
 
-class WUIManager(base.BaseComponentManager):
-	name = 'wui'
-	agent_class = WUIAgent
-	default_config = configloader.DefaultSectionConfig('wui',
-		title_suffix='',
-		optimize_scripts=True,
-		optimize_styles=True,
-		scripts_dir='scripts',
-		styles_dir='styles',
-	)
-
-class WUIContent(object):
-	def __init__(self):
-		self._cb_dict = {'html':self.to_html}
-		
-	def render(self, format='html'):
-		return self._cb_dict[format]()
-	
-	def to_html(self):
-		raise NotImplementedError()
-
-
-
-class Form(WUIContent):
-	GET = 'GET'
-	POST = 'POST'
-	
+class Form(dataobject.BaseModel):
 	class Options(list):
 		def __init__(self, name, label='', multi=False):
 			self.multi = multi
@@ -279,7 +288,7 @@ class Form(WUIContent):
 		def option(self, name, label, active=False):
 			self.append((name, label, active))
 		
-		def to_html(self):
+		def to_html(self, context):
 			element = DIV(DIV(self.label))
 			
 			for name, label, active in self:
@@ -290,8 +299,11 @@ class Form(WUIContent):
 				else:
 					input_type = 'radio'
 				
-				element.append(INPUT(type=input_type, name=self.name,
-					value=name))
+				input = INPUT(type=input_type, name=self.name, value=name)	
+				element.append(input)
+				
+				if context.request.form.getfirst(self.name) == name:
+					input.set('checked', 'checked')
 			
 			return element		
 	
@@ -302,7 +314,7 @@ class Form(WUIContent):
 			
 			self.label = label
 			
-		def to_html(self):
+		def to_html(self, context):
 			element = E.fieldset()
 			
 			if self.label:
@@ -320,17 +332,13 @@ class Form(WUIContent):
 			self.label = label
 			self.icon = icon
 		
-		def to_html(self):
+		def to_html(self, context):
 			element = E.button(self.label, name=self.name)
 			
 			if self.icon:
 				element.insert(0, IMG(src=self.icon))
 			
 			return element
-	
-	TEXT = 'text'
-	PASSWORD = 'password'
-	HIDDEN = 'hidden'
 	
 	class Textbox(object):
 		def __init__(self, name, label, value=None, validation=None,
@@ -342,9 +350,11 @@ class Form(WUIContent):
 			self.large = large
 			self.required = required
 		
-		def to_html(self):
+		def to_html(self, context):
 			form_element_id = 'form.%s.%s' 
 			element = DIV()
+			
+			value = context.request.form.getfirst(self.name, '')
 			
 			if self.validation != 'hidden':
 				element.append(LABEL(self.label, FOR=self.name))
@@ -355,12 +365,12 @@ class Form(WUIContent):
 					type=self.validation,
 					value=self.value or self.label) )
 			elif self.large:
-				element.append(TEXTAREA(self.value or '', name=self.name))
+				element.append(TEXTAREA(self.value or value, name=self.name))
 			else:
 				input_element = INPUT(
 					name=self.name,
 					type=self.validation or 'text', 
-					value=self.value or '', placeholder=self.label)
+					value=self.value or value, placeholder=self.label)
 				
 				if self.required:
 					input_element.set('required', 'required')
@@ -369,7 +379,25 @@ class Form(WUIContent):
 			
 			return element
 	
-	def __init__(self, method='GET', url='', fardel=None):
+	class Renderer(dataobject.BaseRenderer):
+		@staticmethod
+		def to_html(context, model):
+			form_element = FORM(method=model.method, action=model.url)
+			
+			for o in model._data:
+				form_element.append(o.to_html(context))
+			
+			return form_element
+	
+	renderer = Renderer
+	
+	GET = 'GET'
+	POST = 'POST'
+	TEXT = 'text'
+	PASSWORD = 'password'
+	HIDDEN = 'hidden'
+	
+	def __init__(self, method='GET', url=''):
 		super(Form, self).__init__()
 		self.method = method
 		self.url = url
@@ -400,92 +428,94 @@ class Form(WUIContent):
 		self._add(button)
 		return button
 	
-	def to_html(self):
-		form_element = FORM(method=self.method, action=self.url)
-		
-		for o in self._data:
-			form_element.append(o.to_html())
-		
-		return form_element
-	
 	def _add(self, o):
 		if self._group is not None:
 			self._group.append(o)
 		else:
 			self._data.append(o)
 
-class PlainText(WUIContent):
-	def __init__(self, text=''):
-		super(PlainText, self).__init__()
-		self._text = text
-	
-	def to_html(self):
-		return PRE(self._text)
 
-class Table(WUIContent):
+class Table(dataobject.BaseModel):
+	class Renderer(dataobject.BaseRenderer):
+		def _render_cell(self, context, cell):
+			if isinstance(cell, BaseModel):
+				value = cell.renderer.to_html(context, cell)
+			else:
+				value = cell
+			
+			return value
+		
+		def to_html(self, context, model):
+			table = TABLE()
+			
+			if model.get_headers():
+				tr = TR()
+				table.append(tr)
+				
+				for v in model.get_headers():
+					tr.append(TH(self._render_cell(context, v)))
+			
+			for row in model.get_rows():
+				tr = TR()
+				table.append(tr)
+				
+				for v in row:
+					tr.append(TD(self._render_cell(context, v)))
+			
+			return table
+	
+	renderer = Renderer
+	
 	def __init__(self):
 		super(Table, self).__init__()
 		self._rows = []
-		self._names = []
+		self._headers = []
 	
-	def set_names(self, *cols):
-		self._names = cols
+	def set_headers(self, *cols):
+		self._headers = cols
+	
+	def get_headers(self):
+		return self._headers
 	
 	def add_row(self, *cols):
 		self._rows.append(tuple(cols))
 	
-	def to_html(self):
-		table = TABLE()
-		
-		if self._names:
-			tr = TR()
-			table.append(tr)
-			
-			for v in self._names:
-				tr.append(TH(v))
-		
-		for row in self._rows:
-			tr = TR()
-			table.append(tr)
-			
-			for v in row:
-				tr.append(TD(v))
-		
-		return table
-
-class Pager(WUIContent):	
-	def __init__(self, page=0, start=0, end=None, has_more=None,
-	items_per_page=20, url=None):
-		super(Pager, self).__init__()
-		self._page = page
-		self._start = start
-		self._end = end
-		self._has_more = has_more
-		self._items_per_page = items_per_page
-		self._url = url
+	def get_rows(self):
+		return self._rows
 	
-	def to_html(self):
-		ul = UL(CLASS='pager')
-		
-		max_page = end / items_per_page
-		self._page = max_page
-		
-		def add(label, page):
-			self._url.query['page'] = page
-			ul.append(LI(A(label, href=str(url))))
-		
-		if self._page:
-			add(u'⇱', 0)
-		
-		if self._page > 1:
-			add(u'⇞', self._page - 1)
-		
-		add(str(self._page), self._page)
-		
-		if self._has_more:
-			add(u'⇟', self._page + 1)
-		
-		if self._end and self._page < max_page:
-			add(u'⇲', max_page)
-		
-		return ul
+#class Pager(WUIContent):	
+#	def __init__(self, page=0, start=0, end=None, has_more=None,
+#	items_per_page=20, url=None):
+#		super(Pager, self).__init__()
+#		self._page = page
+#		self._start = start
+#		self._end = end
+#		self._has_more = has_more
+#		self._items_per_page = items_per_page
+#		self._url = url
+#	
+#	def to_html(self):
+#		ul = UL(CLASS='pager')
+#		
+#		max_page = end / items_per_page
+#		self._page = max_page
+#		
+#		def add(label, page):
+#			self._url.query['page'] = page
+#			ul.append(LI(A(label, href=str(url))))
+#		
+#		if self._page:
+#			add(u'⇱', 0)
+#		
+#		if self._page > 1:
+#			add(u'⇞', self._page - 1)
+#		
+#		add(str(self._page), self._page)
+#		
+#		if self._has_more:
+#			add(u'⇟', self._page + 1)
+#		
+#		if self._end and self._page < max_page:
+#			add(u'⇲', max_page)
+#		
+#		return ul

@@ -98,10 +98,10 @@ class URL(object):
 #		self.ajax_url = None
 #		self.query_first = None
 		
-		self.string = string
+		self._string = string
 		
-		if self.string is not None:
-			self.parse(self.string)
+		if self._string is not None:
+			self.parse(self._string)
 	
 	@property
 	def scheme(self):

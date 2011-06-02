@@ -32,79 +32,85 @@ from sqlalchemy import *
 from sqlalchemy.orm import relationship
 
 import base
-from lolram import database
+import database
 from lolram import configloader
 from lolram import dataobject
-from lolram import mylogger
-logger = mylogger.get_logger()
 
-class SessionSecretsDef_1(database.TableDef):
-	class SessionSecret(database.TableDef.get_base()):
-		__tablename__ = 'session_secrets'
-		id = Column(Integer, primary_key=True)
-		key = Column(LargeBinary(length=16), unique=True, nullable=False,
-			index=True)
-		created = Column(DateTime, default=datetime.datetime.utcnow)
-	
-	desc = 'new table'
-	model = SessionSecret
-	
-	def upgrade(self, engine, session):
-		self.SessionSecret.__table__.create(engine)
-	
-	def downgrade(self, engine, session):
-		self.SessionSecret.__table__.drop(engine)
 
 class SessionSecretsMeta(database.TableMeta):
 	uuid = 'urn:uuid:a7df9e44-4c60-4589-8355-36abc8d5ddea'
 	
-	def init(self):
-		self.push(SessionSecretsDef_1)
-
-class SessionDataDef_1(database.TableDef):
-	class SessionData(database.TableDef.get_base()):
-		__tablename__ = 'session_data'
+	class D1(database.TableMeta.Def):
+		class SessionSecret(database.TableMeta.Def.base()):
+			__tablename__ = 'session_secrets'
+			
+			id = Column(Integer, primary_key=True)
+			key = Column(LargeBinary(length=16), unique=True, nullable=False,
+				index=True)
+			created = Column(DateTime, default=datetime.datetime.utcnow)
 		
-		id = Column(Integer, primary_key=True)
-		perm_secret_id = Column(ForeignKey(SessionSecretsDef_1.SessionSecret.id),
-			unique=True, nullable=True, index=True)
-		perm_secret = relationship(SessionSecretsDef_1.SessionSecret, 
-#			cascade='all, delete, delete-orphan',
-			primaryjoin=perm_secret_id==SessionSecretsDef_1.SessionSecret.id)
-		temp_secret_id = Column(ForeignKey(SessionSecretsDef_1.SessionSecret.id),
-			unique=True, nullable=False, index=True)
-		temp_secret = relationship(SessionSecretsDef_1.SessionSecret,
-#			cascade='all, delete, delete-orphan',
-			primaryjoin=temp_secret_id==SessionSecretsDef_1.SessionSecret.id)
-		data = Column(Unicode)
-		created = Column(DateTime, default=datetime.datetime.utcnow)
-		modified = Column(DateTime, default=datetime.datetime.utcnow,
-			onupdate=datetime.datetime.utcnow)
+		desc = 'new table'
+		model = SessionSecret
+		
+		def upgrade(self, engine, session):
+			self.model.__table__.create(engine)
+		
+		def downgrade(self, engine, session):
+			self.model.__table__.drop(engine)
 	
-	desc = 'new table'
-	model = SessionData
-	
-	def upgrade(self, engine, session):
-		self.SessionData.__table__.create(engine)
-	
-	def downgrade(self, engine, session):
-		self.SessionData.__table__.drop(engine)
+	defs = (D1,)
 
 class SessionDataMeta(database.TableMeta):
 	uuid = 'urn:uuid:38a4d8d3-e615-422d-a92c-c8de67197ee9'
 	
-	def init(self):
-		self.push(SessionDataDef_1)
+	class D1(database.TableMeta.Def):
+		class SessionData(database.TableMeta.Def.base()):
+			__tablename__ = 'session_data'
+			
+			id = Column(Integer, primary_key=True)
+			perm_secret_id = Column(
+				ForeignKey(SessionSecretsMeta.D1.SessionSecret.id),
+				unique=True, nullable=True, index=True)
+			perm_secret = relationship(SessionSecretsMeta.D1.SessionSecret, 
+	#			cascade='all, delete, delete-orphan',
+				primaryjoin=perm_secret_id==SessionSecretsMeta.D1.SessionSecret.id)
+			temp_secret_id = Column(
+				ForeignKey(SessionSecretsMeta.D1.SessionSecret.id),
+				unique=True, nullable=False, index=True)
+			temp_secret = relationship(SessionSecretsMeta.D1.SessionSecret,
+	#			cascade='all, delete, delete-orphan',
+				primaryjoin=temp_secret_id==SessionSecretsMeta.D1.SessionSecret.id)
+			data = Column(Unicode)
+			created = Column(DateTime, default=datetime.datetime.utcnow)
+			modified = Column(DateTime, default=datetime.datetime.utcnow,
+				onupdate=datetime.datetime.utcnow)
+		
+		desc = 'new table'
+		model = SessionData
+	
+		def upgrade(self, engine, session):
+			self.model.__table__.create(engine)
+		
+		def downgrade(self, engine, session):
+			self.model.__table__.drop(engine)
+	
+	defs = (D1,)
 
-class SessionAgent(base.BaseComponentAgent):
-	def __init__(self, fardel, manager):
-		self._manager = manager
+class Session(base.BaseComponent):
+	default_config = configloader.DefaultSectionConfig('session',
+		perm_cookie_name='lolramsid',
+		temp_cookie_name='lolramsidt',
+		cookie_max_age=23667695,
+		key_rotation_age=86400, # 1 day
+		key_max_age=1209600, # 2 weeks
+		key_stale_age=23667695, # 9 months
+	)
 	
-	def setup(self, fardel):
-		self._data, self._persistent = self._manager.get_session(fardel)
+	def setup(self):
+		self._data, self._persistent = self._get_session()
 	
-	def cleanup(self, fardel):
-		self._manager.save_session(fardel, self._data, self._persistent)
+	def cleanup(self):
+		self._save_session(self._data, self._persistent)
 	
 	@property
 	def persistent(self):
@@ -117,28 +123,16 @@ class SessionAgent(base.BaseComponentAgent):
 	@property
 	def data(self):
 		return self._data 
-
-class SessionManager(base.BaseComponentManager):
-	default_config = configloader.DefaultSectionConfig('session',
-		perm_cookie_name='lolramsid',
-		temp_cookie_name='lolramsidt',
-		cookie_max_age=23667695,
-		key_rotation_age=86400, # 1 day
-		key_max_age=1209600, # 2 weeks
-		key_stale_age=23667695, # 9 months
-	)
-	name = 'session'
-	agent_class = SessionAgent
 	
-	def __init__(self, fardel):
-		fardel.component_managers.database.add(SessionDataMeta())
-		fardel.component_managers.database.add(SessionSecretsMeta())
+	def init(self):
+		db = self.context.get_instance(database.Database)
+		map(lambda m: db.add(m), (SessionDataMeta, SessionSecretsMeta))
 	
-	def perform_maintenance(self, fardel):
-		self.clear_stale_sessions(fardel)
+	def perform_maintenance(self):
+		self._clear_stale_sessions()
 	
-	def set_cookie(self, fardel, name, value, max_age=None):
-		logger.debug(u'Set cookie %s', name)
+	def _set_cookie(self, name, value, max_age=None):
+		self.context.logger.debug(u'Set cookie %s', name)
 		
 		cookie_obj = Cookie.SimpleCookie()
 		cookie_obj[name] = value
@@ -146,19 +140,20 @@ class SessionManager(base.BaseComponentManager):
 		if max_age is not None:
 			cookie_obj[name]['max-age'] = max_age
 			
-		cookie_obj[name]['path'] = u'/%s' % fardel.req.script_name
+		cookie_obj[name]['path'] = u'/%s' % self.context.request.script_path
 		cookie_obj[name]['httponly'] = 'HttpOnly'
 		
-		fardel.resp.headers.add('set-cookie', 
+		self.context.response.headers.add('set-cookie', 
 			cookie_obj.output(header='', sep=''))
 			
-	def get_session(self, fardel):
-		logger.debug(u'Get session')
+	def _get_session(self):
+		db = self.context.get_instance(database.Database)
+		self.context.logger.debug(u'Get session')
 		
-		header_value = fardel.req.headers.get('cookie')
+		header_value = self.context.request.headers.get('cookie')
 		
-		perm_name = fardel.conf.session.perm_cookie_name
-		temp_name = fardel.conf.session.temp_cookie_name
+		perm_name = self.context.config.session.perm_cookie_name
+		temp_name = self.context.config.session.temp_cookie_name
 		session_data = dataobject.DataObject()
 		persistent = False
 		
@@ -173,7 +168,7 @@ class SessionManager(base.BaseComponentManager):
 				morsel = cookie_obj[perm_name]
 				try:
 					perm_key = base64.b64decode(morsel.value)
-					logger.debug(u'Got perm key')
+					self.context.logger.debug(u'Got perm key')
 				except TypeError:
 					pass
 			
@@ -181,97 +176,98 @@ class SessionManager(base.BaseComponentManager):
 				morsel = cookie_obj[temp_name]
 				try:
 					temp_key = base64.b64decode(morsel.value)
-					logger.debug(u'Got temp key')
+					self.context.logger.debug(u'Got temp key')
 				except TypeError:
 					pass
 			
 			key_max_date = datetime.datetime.utcfromtimestamp(
-				time.time() - fardel.conf.session.key_max_age)
+				time.time() - self.context.config.session.key_max_age)
 			
-			query = fardel.database.session.query(fardel.database.models.SessionData) \
-				.filter(fardel.database.models.SessionSecret.key==temp_key) \
+			query = db.session.query(db.models.SessionData) \
+				.filter(db.models.SessionSecret.key==temp_key) \
 				.filter(
-					fardel.database.models.SessionSecret.id== \
-					fardel.database.models.SessionData.temp_secret_id) \
-				.filter(fardel.database.models.SessionSecret.created>key_max_date)
+					db.models.SessionSecret.id== \
+					db.models.SessionData.temp_secret_id) \
+				.filter(db.models.SessionSecret.created>key_max_date)
 			model = query.first()
 			
 			if not model:
-				query = fardel.database.session.query(fardel.database.models.SessionData) \
-					.filter(fardel.database.models.SessionSecret.key==temp_key) \
+				query = db.session.query(db.models.SessionData) \
+					.filter(db.models.SessionSecret.key==temp_key) \
 					.filter(
-						fardel.database.models.SessionSecret.id== \
-						fardel.database.models.SessionData.temp_secret_id) \
-					.filter(fardel.database.models.SessionSecret.created>key_max_date)
+						db.models.SessionSecret.id== \
+						db.models.SessionData.temp_secret_id) \
+					.filter(db.models.SessionSecret.created>key_max_date)
 				model = query.first()
 			
 			if model:
 				session_data = dataobject.DataObject(json.loads(model.data))
 				session_data.__.id = model.id
-				logger.debug(u'Session found ‘%s’', model.id)
+				self.context.logger.debug(u'Session found ‘%s’', model.id)
 				persistent =  model.perm_secret is not None
 		
 		return (session_data, persistent)
 	
-	def save_session(self, fardel, data, persistent=False):
-		logger.debug(u'Save session')
+	def _save_session(self, data, persistent=False):
+		db = self.context.get_instance(database.Database)
+		self.context.logger.debug(u'Save session')
 		
 		model = None
-		perm_name = fardel.conf.session.perm_cookie_name
-		temp_name = fardel.conf.session.temp_cookie_name
+		perm_name = self.context.config.session.perm_cookie_name
+		temp_name = self.context.config.session.temp_cookie_name
 		
 		if getattr(data.__, 'id', None) is not None:
-			query = fardel.database.session.query(fardel.database.models.SessionData) \
+			query = db.session.query(db.models.SessionData) \
 				.filter_by(id=data.__.id)
 			
 			model = query.first()
 			
 			if not data:
-				logger.debug(u'Empty data and model. Remove from db.')
-				fardel.database.session.delete(model)
+				self.context.logger.debug(u'Empty data and model. Remove from db.')
+				db.session.delete(model)
 		
 		if not data:
-			logger.debug(u'Session data empty. Early return')
+			self.context.logger.debug(u'Session data empty. Early return')
 			return
 		
 		if not model:
-			model = fardel.database.models.SessionData()
-			fardel.database.session.add(model)
+			model = db.models.SessionData()
+			db.session.add(model)
 		
 		model.data = json.dumps(data)
 		
 		key_rotation_date = datetime.datetime.utcfromtimestamp(
-			time.time() - fardel.conf.session.key_rotation_age)
+			time.time() - self.context.config.session.key_rotation_age)
 		
 		if persistent:
 			if not model.perm_secret \
 			or model.perm_secret and model.perm_secret.created < key_rotation_date:
-				key_model = self.new_key(fardel)
+				key_model = self._new_key()
 				model.perm_secret = key_model
-				self.set_cookie(fardel, perm_name, 
-					base64.b64encode(key_model.key))
+				self._set_cookie(perm_name, base64.b64encode(key_model.key))
 		else:
 			if not model.temp_secret \
 			or model.temp_secret and model.temp_secret.created < key_rotation_date:
-				key_model = self.new_key(fardel)
+				key_model = self._new_key()
 				model.temp_secret = key_model
-				self.set_cookie(fardel, temp_name, 
-					base64.b64encode(key_model.key))
+				self._set_cookie(temp_name, base64.b64encode(key_model.key))
 		
-	def new_key(self, fardel):
-		logger.debug(u'New key requested')
+	def _new_key(self):
+		db = self.context.get_instance(database.Database)
+		self.context.logger.debug(u'New key requested')
 		bytes = os.urandom(16)
-		model = fardel.database.models.SessionSecret()
+		model = db.models.SessionSecret()
 		model.key = bytes
-		fardel.database.session.add(model)
+		db.session.add(model)
 		return model
 	
-	def clear_stale_sessions(self, fardel):
+	def _clear_stale_sessions(self):
+		db = self.context.get_instance(database.Database)
 		stale_date = datetime.datetime.utcfromtimestamp(
-			time.time() - fardel.conf.session.key_stale_age)
+			time.time() - self.context.config.session.key_stale_age)
 		
-		query = fardel.database.session.query(fardel.database.models.SessionSecrets) \
-			.filter(fardel.database.models.SessionSecrets.modified<stale_date)
+		query = db.session.query(db.models.SessionSecrets) \
+			.filter(db.models.SessionSecrets.modified<stale_date)
 		
 		query.delete()
 

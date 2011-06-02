@@ -31,6 +31,8 @@ import sys
 import warnings
 import random
 
+sys.path.append('.')
+
 from lolram import app
 from lolram import urllib3
 from lolram import urln11n
