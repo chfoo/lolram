@@ -169,6 +169,11 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 			query={'action':'get', 'address':'asdfasdf'})
 		self.assertEqual(response.read(), 'not found')
 		
+		
+		response = self.request('/article_text_test', 
+			query={'action':'new', 'text': 'asdf'})
+		article_id = response.read()
+		
 		# Make new one
 		response = self.request('/address_test', 
 			query={'action':'set', 'address': address1, 'id': article_id})

@@ -37,13 +37,16 @@ import tempfile
 import datetime
 import mimetypes
 import itertools
+import contextlib
 import runpy
+import logging
 try:
 	runpy.run_path
 except AttributeError, e:
 	warnings.warn(str(e))
 	from backports import runpy
 import cgi
+import cgitb
 
 import configloader
 import mylogger
@@ -58,7 +61,7 @@ import pathutil
 import components.wui
 import components.lolramvanity
 import components.staticfile
-#import components.cms
+import components.cms
 import components.accounts
 #import components.lion
 
@@ -382,7 +385,7 @@ class BufferFile(object):
 		self.buffer = StringIO.StringIO()
 		self.buffer_old.seek(0)
 		return self.buffer_old.read()
-		
+
 class Launcher(object):
 	def __init__(self, dirpath, script_name):
 		self._script_name = urln11n.collapse_path(script_name)
@@ -508,7 +511,7 @@ class Launcher(object):
 			
 		iterable = None
 		
-		try:
+		with self.error_handler(context, responder, app):
 			for c in component_list:
 				logger.debug(u'Component ‘%s’ setup', c.__class__.__name__)
 				c.setup()
@@ -550,14 +553,24 @@ class Launcher(object):
 			if iterable is not None:
 				responder.set_output(iterable)
 				responder.pre_respond()
-			
+		
+		with self.error_handler(context, responder, app):
 			app.cleanup()
 			
+		with self.error_handler(context, responder, app):
 			for c in reversed(component_list):
 				logger.debug(u'Component ‘%s’ cleanup', c.__class__.__name__)
 				c.cleanup()
-			
+		
+		return responder.respond()
+	
+	@contextlib.contextmanager
+	def error_handler(self, context, responder, app):
+		try:
+			yield
 		except Exception, e:
+			context.errors.append(e)
+			
 			if context.config.site.debugging_tracebacks: 
 				logger.exception(u'Site app error ‘%s’', e)
 			
@@ -568,8 +581,8 @@ class Launcher(object):
 			
 			try:
 				tb_text = cgitb.text(exc_info)
-			except:
-				pass
+			except Exception, e:
+				logger.debug(e)
 			
 			if context.config.site.debugging_tracebacks:
 				try:
@@ -579,8 +592,6 @@ class Launcher(object):
 			else:
 				app.do_simple_error_page('A system error has occured')
 		
-		return responder.respond()
-	
 	def create_dirs(self):
 		logger.debug(u'Create dirs')
 		for dirname in (self._dirinfo.code, self._dirinfo.www, self._dirinfo.var,
@@ -594,6 +605,7 @@ class SiteApp(dataobject.BaseMVC):
 	default_config = configloader.DefaultSectionConfig('site',
 		create_missing_dirs=True,
 		debugging_tracebacks=True,
+		log_level='info',
 	)
 	default_components = [
 		components.staticfile.StaticFile,
@@ -602,14 +614,24 @@ class SiteApp(dataobject.BaseMVC):
 #		components.serializer.Serializer,
 #		components.lion.Lion,
 		components.accounts.Accounts,
-#		components.cms.CMS,
+		components.cms.CMS,
 		components.wui.WUI,
 		components.lolramvanity.LolramVanity,
 	]
 	
+	LOG_LEVELS = {
+		'debug': logging.DEBUG,
+		'info': logging.INFO,
+		'warning': logging.WARNING,
+		'error': logging.ERROR,
+	}
 	# TODO: object pooling
 	
 	def init_components(self):
+		
+		lvl = self.LOG_LEVELS[self.context.config.site.log_level]
+		self.context.logger.setLevel(lvl)
+		
 		for class_ in self.default_components:
 			self.context.logger.info(u'Initializing component ‘%s’', 
 				class_.__name__)

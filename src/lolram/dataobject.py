@@ -27,6 +27,7 @@ import UserDict
 import cStringIO
 import string
 import urln11n
+import itertools
 
 class ProtectedAttributeError(AttributeError):
 	pass
@@ -44,9 +45,10 @@ class ProtectedObject(object):
 		raise ProtectedAttributeError(u'Member ‘%s’ is not accessible' % k)
 	
 	def __setattr__(self, k, v):
-		for class_ in self.__class__.__bases__:
-			if isinstance(class_.__dict__.get(k), property):
-				class_.__dict__[k].setter(v)
+		for class_ in itertools.chain((self.__class__,), self.__class__.__bases__):
+			if isinstance(class_.__dict__.get(k), property) \
+			and class_.__dict__[k].fset:
+				class_.__dict__[k].fset(self, v)
 				return
 			
 		if not k.startswith('_'):
@@ -66,6 +68,7 @@ class Context(ProtectedObject):
 		self._config = config
 		self._dirinfo = dirinfo
 		self._logger = logger
+		self._errors = []
 	
 	def get_instance(self, class_, singleton=False):
 		if singleton:
@@ -108,6 +111,10 @@ class Context(ProtectedObject):
 	@property
 	def logger(self):
 		return self._logger
+	
+	@property
+	def errors(self):
+		return self._errors
 
 class ContextAwareInitError(Exception):
 	pass

@@ -34,6 +34,8 @@ from sqlalchemy import *
 import base
 from .. import configloader
 from .. import dataobject
+from .. import mylogger 
+_logger = mylogger.get_logger()
 
 Base = sqlalchemy.ext.declarative.declarative_base()
 
@@ -57,7 +59,7 @@ class Database(base.BaseComponent):
 			username=conf.user, password=conf.password, host=conf.host,
 			port=conf.port, database=db_name)
 		
-		self.context.logger.info('Using SQLAlchemy DB URL %s', db_url)
+		_logger.info('Using SQLAlchemy DB URL %s', db_url)
 		engine = sqlalchemy.create_engine(db_url)
 		Session = sqlalchemy.orm.sessionmaker()
 		Session.configure(bind=engine)
@@ -70,12 +72,16 @@ class Database(base.BaseComponent):
 		self._Session = Session
 		self._models = models
 		self._table_meta_list = table_meta_list
+		self._migrated = False
 	
 	def migrate(self):
-		self.context.logger.info(u'Begin migrate')
+		_logger.info(u'Begin migrate')
+		session = self.singleton._Session()
 		for table_meta in self._table_meta_list:
-			table_meta.migrate(self.engine, self.session)
-		self.context.logger.info(u'End migrate')
+			table_meta.migrate(self.engine, session)
+		session.commit()
+		session.close()
+		_logger.info(u'End migrate')
 	
 	def add(self, table_meta_class):
 		assert issubclass(table_meta_class, TableMeta)
@@ -84,13 +90,13 @@ class Database(base.BaseComponent):
 		assert isinstance(table_meta_class.defs, tuple) or isinstance(table_meta_class.defs, list)
 		table_meta = table_meta_class()
 		
-		self.context.logger.debug(u'Add table meta ‘%s’', table_meta.__class__.__name__)
+		_logger.debug(u'Add table meta ‘%s’', table_meta.__class__.__name__)
 		self.singleton._table_meta_list.append(table_meta)
 		model = table_meta.get()
 		name = model.__class__.__name__
 		if name == 'DeclarativeMeta':
 			name = str(model).rsplit('.', 1)[-1].rsplit("'", 1)[0]
-		self.context.logger.debug(u'Add model ‘%s’', name)
+		_logger.debug(u'Add model ‘%s’', name)
 		model.metadata.bind = self.engine
 		setattr(self.models, name, model)
 		
@@ -114,12 +120,22 @@ class Database(base.BaseComponent):
 		return DatabaseTableMigration.metadata
 	
 	def setup(self):
-		self.context.logger.debug('New db session')
+		if not self.singleton._migrated:
+			self.singleton._migrated = True
+			self.singleton.migrate()
+		
+		_logger.debug('New db session')
 		self._session = self.singleton._Session()
 	
 	def cleanup(self):
-		self.context.logger.debug('DB Commit')
-		self._session.commit()
+		if self.context.errors:
+			_logger.debug('DB rollback')
+			self._session.rollback()
+		else:
+			_logger.debug('DB Commit')
+			self._session.commit()
+		
+		self._session.close()
 
 
 class DatabaseTableMigration(Base):
@@ -165,7 +181,7 @@ class TableMeta(dataobject.ContextAware):
 		assert self.uuid is not NotImplemented
 	
 	def migrate(self, engine, session, version=None):
-		self.context.logger.debug(u'Table data versions %s', len(self.data) - 1)
+		_logger.debug(u'Table data versions %s', len(self.defs) - 1)
 		
 		if version is None:
 			version = len(self.defs) - 1
@@ -181,27 +197,27 @@ class TableMeta(dataobject.ContextAware):
 			model = DatabaseTableMigration(uuid=self.uuid)
 			session.add(model)
 		
-		self.context.logger.info(u'Database migration for %s from %s to %s',
-			self.uuid, db_version, version)
+		_logger.info(u'Database migration for %s:%s from %s to %s',
+			self, self.uuid, db_version, version)
 		
 		if db_version < version:
 			new_version = db_version + 1
 			
-			self.context.logger.debug(u'Upgrading %s→%s', db_version, new_version)
+			_logger.debug(u'Upgrading %s→%s', db_version, new_version)
 			self.defs[new_version]().upgrade(engine, session)
 		elif db_version > version:
-			self.context.logger.debug(u'Downgrading %s', db_version)
+			_logger.debug(u'Downgrading %s', db_version)
 			self.defs[db_version]().downgrade(engine, session)
 			new_version = db_version - 1
 		else:
-			self.context.logger.debug(u'Migration done')
+			_logger.debug(u'Migration done')
 			return
 		
 		model.version = new_version
 		
-		self.context.logger.debug(u'Committing')
+		_logger.debug(u'Committing')
 		session.commit()
-		self.context.logger.debug(u'Recursive call')
+		_logger.debug(u'Recursive call')
 		self.migrate(engine, session, version)
 	
 	def get_version(self, session):

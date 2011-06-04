@@ -33,52 +33,46 @@ from sqlalchemy.orm import sessionmaker
 import migrate.versioning.util
 from migrate.changeset.schema import *
 
-from lolram import database
-
-class KittensDef_1(database.TableDef):
-	class Kitten(database.TableDef.get_base()):
-		__tablename__ = 'kittens'
-		id = Column(Integer, primary_key=True)
-		name = Column(Unicode)	
-	
-	desc = 'new table'
-	model = Kitten
-	
-	def upgrade(self, engine, session):
-		self.Kitten.__table__.create(engine)
-	
-	def downgrade(self, engine, session):
-		self.Kitten.__table__.drop(engine)
-
-
-class KittensDef_2(database.TableDef):
-	class Kitten(database.TableDef.get_base()):
-		__tablename__ = 'kittens'
-		id = Column(Integer, primary_key=True)
-		name = Column(Unicode)
-		birthdate = Column(Date)	
-	
-	desc = 'add column birthdate'
-	model = Kitten
-	
-	def upgrade(self, engine, session):
-		self.Kitten.metadata.bind = engine
-		self.Kitten.__table__.c.birthdate.create(self.Kitten.__table__,
-			alter_metadata=False)
-	
-	def downgrade(self, engine, session):
-		self.Kitten.metadata.bind = engine
-		self.Kitten.__table__.c.birthdate.drop(self.Kitten.__table__,
-			alter_metadata=False)
-
+from lolram.components import database
 
 class KittensMeta(database.TableMeta):
-	uuid = u'58f6070f-5891-4817-9ac9-35deca38ab02'
-	
-	def init(self):
-		self.push(KittensDef_1)
-		self.push(KittensDef_2)
+	class D1(database.TableMeta.Def):
+		class Kitten(database.TableMeta.Def.base()):
+			__tablename__ = 'kittens'
+			id = Column(Integer, primary_key=True)
+			name = Column(Unicode)	
+		
+		desc = 'new table'
+		model = Kitten
+		
+		def upgrade(self, engine, session):
+			self.model.__table__.create(engine)
+		
+		def downgrade(self, engine, session):
+			self.model.__table__.drop(engine)
 
+	class D2(database.TableMeta.Def):
+		class Kitten(database.TableMeta.Def.base()):
+			__tablename__ = 'kittens'
+			id = Column(Integer, primary_key=True)
+			name = Column(Unicode)
+			birthdate = Column(Date)	
+		
+		desc = 'add column birthdate'
+		model = Kitten
+		
+		def upgrade(self, engine, session):
+			self.model.metadata.bind = engine
+			self.model.__table__.c.birthdate.create(self.model.__table__,
+				alter_metadata=False)
+		
+		def downgrade(self, engine, session):
+			self.model.metadata.bind = engine
+			self.model.__table__.c.birthdate.drop(self.model.__table__,
+				alter_metadata=False)
+	
+	uuid = u'58f6070f-5891-4817-9ac9-35deca38ab02'
+	defs = (D1, D2, )
 
 class TestDatabaseBareMigration(unittest.TestCase):
 	def setUp(self):

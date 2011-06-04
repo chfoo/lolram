@@ -8,6 +8,8 @@ import os.path
 import lolram.app
 import lolram.components.wui
 import lolram.components.session
+import lolram.components.accounts
+import lolram.components.cms
 
 ABCD = 'abcd'
 
@@ -62,12 +64,12 @@ class SiteApp(lolram.app.SiteApp):
 	
 	def serializer_test(self):
 		self.context.response.ok()
-		fardel.data.nameStr = u'str ð'
-		fardel.data.nameNum = 123456
-		fardel.data.nameBool = True
-		fardel.data.nameNone = None
-		fardel.data.nameList = [1, 'a', False]
-		fardel.data.nameDict = {'asdf':'n'}
+#		fardel.data.nameStr = u'str ð'
+#		fardel.data.nameNum = 123456
+#		fardel.data.nameBool = True
+#		fardel.data.nameNone = None
+#		fardel.data.nameList = [1, 'a', False]
+#		fardel.data.nameDict = {'asdf':'n'}
 	
 	def not_found_test(self):
 		self.context.response.set_status(404)
@@ -100,29 +102,31 @@ class SiteApp(lolram.app.SiteApp):
 	
 	def text_test(self):
 		self.context.response.ok()
+		cms = self.context.get_instance(lolram.components.cms.CMS)
 		
 		action = self.context.request.query.getfirst('action')
 		
 		if action == 'get':
 			id = int(self.context.request.query.getfirst('id'))
-			text = fardel.cms.get_text(id)
+			text = cms._get_text(id)
 			yield text.encode('utf8') if text else 'not found'
 		elif action == 'new':
 			text = self.context.request.query.getfirst('text')
-			yield str(fardel.cms.set_text(None, text))
+			yield str(cms._set_text(None, text))
 		elif action == 'edit':
 			text = self.context.request.query.getfirst('text')
 			id = int(self.context.request.query.getfirst('id'))
-			yield str(fardel.cms.set_text(id, text))
+			yield str(cms._set_text(id, text))
 	
 	def file_test(self):
 		self.context.response.ok()
+		cms = self.context.get_instance(lolram.components.cms.CMS)
 		
 		action = self.context.request.query.getfirst('action')
 		
 		if action == 'get':
 			id = int(self.context.request.query.getfirst('id'))
-			file_obj = fardel.cms.get_file(id)
+			file_obj = cms._get_file(id)
 			
 			if file_obj:
 				return wsgiref.util.FileWrapper(file_obj)
@@ -131,92 +135,116 @@ class SiteApp(lolram.app.SiteApp):
 		
 		elif action == 'new':
 			file_obj = self.context.request.form['file'].file
-			id = int(fardel.cms.add_file(file_obj))
+			id = int(cms._add_file(file_obj))
 			return [str(id)]
 	
 	def article_text_test(self):
 		self.context.response.ok()
 		action = self.context.request.query.getfirst('action')
+		cms = self.context.get_instance(lolram.components.cms.CMS)
 		
 		if action == 'get':
 			id = int(self.context.request.query.getfirst('id'))
-			article = fardel.cms.get_article(id)
+			article = cms.get_article(id)
 			return [article.text.encode('utf8')]
 		elif action == 'new':
 			text = self.context.request.query.getfirst('text')
-			id = fardel.cms.save_article(None, text=text)
+			article = cms.new_article()
+			article.text = text
+			article.save('new')
+			id = article.id
 			return [str(id)]
 		elif action == 'edit':
 			text = self.context.request.query.getfirst('text')
 			id = int(self.context.request.query.getfirst('id'))
-			id = fardel.cms.save_article(id, text=text)
+			article = cms.get_article(id)
+			article.text = text
+			article.save('edit')
 			return [str(id)]
 		elif action == 'revision':
 			id = int(self.context.request.query.getfirst('id'))
 			revision = int(self.context.request.query.getfirst('revision'))
-			article = fardel.cms.get_article(id)
-			text = fardel.cms.get_text(
-				tuple(article.get_history(revision, revision+1))[0].text_id)
+			article = cms.get_histories(revision, 1, article_id=id)[0]
+			text = article.text
 			return [text.encode('utf8')]
 	
 	def article_file_test(self):
 		self.context.response.ok()
 		action = self.context.request.query.getfirst('action')
+		cms = self.context.get_instance(lolram.components.cms.CMS)
 		
 		if action == 'get':
 			id = int(self.context.request.query.getfirst('id'))
-			article = fardel.cms.get_article(id)
+			article = cms.get_article(id)
 			return wsgiref.util.FileWrapper(article.file)
 		elif action == 'new':
 			file_obj = self.context.request.form['file'].file
 			filename = self.context.request.form['file'].filename
-			id = fardel.cms.save_article(None, file_obj=file_obj, 
-				filename=filename)
+			article = cms.new_article()
+			article.set_file(file_obj=file_obj, upload_filename=filename)
+			article.save()
+			id = article.id
 			return [str(id)]
 		elif action == 'edit':
 			file_obj = self.context.request.form['file'].file
 			filename = self.context.request.form['file'].filename
 			id = int(self.context.request.query.getfirst('id'))
-			id = fardel.cms.save_article(id, file_obj=file_obj, 
-				filename=filename)
+			article = cms.get_article(id)
+			article.set_file(file_obj=file_obj, upload_filename=filename)
+			article.save()
+			id = article.id
 			return [str(id)]
 	
 	def address_test(self):
 		self.context.response.ok()
 		action = self.context.request.query.getfirst('action')
+		cms = self.context.get_instance(lolram.components.cms.CMS)
+		address = self.context.request.query.getfirst('address')
 		
 		if action == 'get':
-			address = fardel.cms.get_address(
-				self.context.request.query.getfirst('address'))
-			return [str(address) if address is not None else 'not found']
+			article = cms.get_article(address=address)
+			if article:
+				return [str(article.id)]
+			else:
+				return ['not found']
 		elif action == 'set':
-			fardel.cms.set_address(self.context.request.query.getfirst('address'),
-				int(self.context.request.query.getfirst('id')))
+			article = cms.get_article(int(self.context.request.query.getfirst('id')))
+			article.addresses = article.addresses | set([address])
+			article.save()
 			return ['ok']
 		elif action == 'delete':
-			fardel.cms.delete_address(self.context.request.query.getfirst('address'))
+			article = cms.get_article(address=address)
+			article.addresses = article.addresses - set([address])
+			article.save()
 			return ['ok']
 	
 	def article_tree_test(self):
 		self.context.response.ok()
 		
+		cms = self.context.get_instance(lolram.components.cms.CMS)
 		action = self.context.request.query.getfirst('action')
 		article_id = int(self.context.request.query.getfirst('id'))
-		article = fardel.cms.get_article(article_id)
+		article = cms.get_article(article_id)
 		
 		if action == 'get':
-			children = list(article.get_children())
-			
-			return [str(children[0]) if children else 'not found']
+			return [str(tuple(article.children)[0].id) if article.children else 'not found']
 		elif action == 'set':
-			fardel.cms.add_child(article_id, int(self.context.request.query.getfirst('child')))
+			child_id = int(self.context.request.query.getfirst('child'))
+			child = cms.get_article(child_id)
+			child.parents = child.parents | set([article])
+			child.save()
 		elif action == 'delete':
-			fardel.cms.remove_child(article_id, int(self.context.request.query.getfirst('child')))
+			child_id = int(self.context.request.query.getfirst('child'))
+			child = cms.get_article(child_id)
+			child.parents = child.parents - set([article])
+			child.save()
 			
 	def account_basic_test(self):
 		self.context.response.ok()
 		
-		fardel.accounts.authenticate_testing_password(
+		acc = self.context.get_instance(lolram.components.accounts.Accounts)
+		
+		acc.authenticate_testing_password(
 			self.context.request.query.getfirst('password'))
 		
-		return ['ok' if fardel.accounts.account_id else 'fail']
+		return ['ok' if acc.account_id else 'fail']
