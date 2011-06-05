@@ -29,6 +29,7 @@ import os
 import httplib
 import Cookie
 import subprocess
+import time
 
 import server_base
 from lolram import app
@@ -55,14 +56,16 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		confname = os.path.join(os.path.dirname(__file__), 'app.conf')
 		self.start_server(confname)
 		
+		time.sleep(1)
+		
+		response = self.request('/cleanup')
+		self.assertEqual(response.status, 200)
 		
 	def setUp(self):
 		server_base.ServerBase.setUp(self)
 	
 	def tearDown(self):
 		server_base.ServerBase.tearDown(self)
-		response = self.request('/cleanup')
-		self.assertEqual(response.status, 200)
 		
 	def test_basic(self):
 		'''It should not crash'''
@@ -123,16 +126,6 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		'''It should crash and return status code 500 and not 200'''
 		response = self.request('/crash_test')
 		self.assertEqual(response.status, 500)
-	
-	def test_serializer(self):
-		'''It should serialize to JSON and XML'''
-		response = self.request('/serializer_test?format=json')
-		self.assertEqual(response.status, 200)
-		print response.read()
-		
-		response = self.request('/serializer_test?format=xml')
-		self.assertEqual(response.status, 200)
-		print response.read()
 	
 	def test_not_found(self):
 		'''it should return 404 error if path does not exist'''

@@ -54,7 +54,6 @@ import urln11n
 import dataobject
 import components.database
 import components.session
-#import components.serializer
 logger = mylogger.get_logger()
 import routes
 import pathutil
@@ -526,7 +525,8 @@ class Launcher(object):
 				if iterable is not None:
 					break
 			
-			iterable = app.control()
+			if iterable is None:
+				iterable = app.control()
 			
 			if iterable is None:
 				function = app.singleton.router.get(context.request.path)
@@ -611,7 +611,6 @@ class SiteApp(dataobject.BaseMVC):
 		components.staticfile.StaticFile,
 		components.database.Database, 
 		components.session.Session,
-#		components.serializer.Serializer,
 #		components.lion.Lion,
 		components.accounts.Accounts,
 		components.cms.CMS,

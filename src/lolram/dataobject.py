@@ -28,6 +28,7 @@ import cStringIO
 import string
 import urln11n
 import itertools
+import copy
 
 class ProtectedAttributeError(AttributeError):
 	pass
@@ -115,6 +116,56 @@ class Context(ProtectedObject):
 	@property
 	def errors(self):
 		return self._errors
+	
+	
+	def norm_url(self, url):
+		if self._request.script_path:
+			url.path = '%s/%s' % (self._request.script_path, url.path)
+
+	def make_url(self, path=None, fill_path=False, 
+	controller=None, fill_controller=False,
+	args=None, fill_args=False,
+	params=None, fill_params=False,
+	query=None, fill_query=False):
+	
+		url = urln11n.URL()
+		
+		if path:
+			url.path = path
+		elif fill_path:
+			url.path = self._request.path
+		
+		path_parts = []
+		if controller:
+			path_parts.append(controller)
+		elif args or fill_args or fill_controller:
+			path_parts.append(self._request.controller)
+		
+		if args:
+			path_parts.extend(args)
+		elif fill_args:
+			path_parts.extend(self._request.args)
+		
+		if params is not None:
+			url.params = params
+		elif fill_params:
+			url.params = self._request.params
+		
+		if query is not None:
+			if url.query:
+				for key, value in query.iteritems():
+					url.query[key] = value
+			else:
+				url.query = query
+		elif fill_query:
+			url.query = copy.copy(self._request.query)
+		
+		self.norm_url(url)
+		return url
+	
+	def str_url(self, *args, **kargs):
+		return str(self.make_url(*args, **kargs)) or '/'
+
 
 class ContextAwareInitError(Exception):
 	pass
@@ -441,99 +492,6 @@ class HTTPHeader(object):
 		s.seek(0)
 		return s.read()
 
-
-class Fardel(ProtectedObject):
-	def __init__(self, environ=None, request=None, response=None, 
-	config=None, dirs=None, db=None, data=None, component_managers=None,
-	component_agents=None, document=None):
-		self._environ = environ
-		self._request = request
-		self._response = response	
-		self._config = config
-		self._dirs = dirs
-		self._db = db
-		self._data = data
-		self._component_managers = component_managers
-		self._component_agents = component_agents
-		self._document = document
-	
-	def __getattr__(self, name):
-		return getattr(self._component_agents, name)
-	
-	
-	
-	@property
-	def env(self):
-		return self._environ
-	
-	@property
-	def req(self):
-		return self._request
-	
-	@property
-	def resp(self):
-		return self._response
-	
-	@property
-	def conf(self):
-		return self._config
-	
-	@property
-	def dirs(self):
-		return self._dirs
-	
-	@property
-	def data(self):
-		return self._data
-	
-#	@property
-#	def doc(self):
-#		return self._document
-#	
-#	@doc.setter
-#	def doc(self, d):
-#		self._document = d
-	
-	@property
-	def component_managers(self):
-		return self._component_managers
-		
-	@property
-	def component_agents(self):
-		return self._component_agents
-	
-#	@property
-#	def db(self):
-#		return self._db
-	
-	def norm_url(self, url):
-		if self._request.script_path:
-			url.path = '%s/%s' % (self._request.script_path, url.path)
-
-	def make_url(self, paths=None, params=None, query=None, fill=False):
-		url = urln11n.URL()
-		
-		if fill:
-			url.path = self._request.path
-			url.params = self._request.params
-			url.query = self._request.query
-		
-		if paths and (isinstance(paths, str) or isinstance(paths, unicode)):
-			url.path = paths
-		elif paths:
-			url.path = '/'.join(paths)
-		
-		if params is not None:
-			url.params = params
-		
-		if query is not None:
-			url.query = query
-		
-		self.norm_url(url)
-		return url
-	
-	def str_url(self, *args, **kargs):
-		return str(self.make_url(*args, **kargs)) or '/'
 
 class URL(urln11n.URL, BaseModel, ProtectedObject):
 	class Renderer(BaseRenderer):

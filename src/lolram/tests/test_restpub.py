@@ -149,48 +149,45 @@ class TestRestPub(unittest.TestCase):
 				return TEMPLATE_1
 			
 		
-		self.pub = restpub.Publisher()
 		restpub.template_callback = template_lookup_fn
-		
-		self.pub2 = restpub.Publisher()
 	
 	def my_test_doc_info(self, doc_info):
 		self.assertTrue(doc_info)
-		self.assertTrue('tree' in doc_info)
-		self.assertTrue('errors' in doc_info)
-		self.assertFalse(doc_info['errors'])
+#		self.assertTrue('tree' in doc_info)
+#		self.assertTrue('errors' in doc_info)
+		self.assertFalse(doc_info.errors)
 	
 	def test_doc_publish(self):
-		doc_info = self.pub.publish(TEXT_1)
+		doc_info = restpub.publish_text(TEXT_1)
 		self.my_test_doc_info(doc_info)
-		self.assertEqual(doc_info['title'], u'Document Title')
-		self.assertEqual(doc_info['meta']['author'], u'author name')
+		self.assertEqual(doc_info.title, u'Document Title')
+		self.assertEqual(doc_info.meta['author'], u'author name')
 	
 	def test_template(self):
-		doc_info = self.pub.publish(TEXT_2)
+		doc_info = restpub.publish_text(TEXT_2)
 		self.my_test_doc_info(doc_info)
-		self.assertEqual(unicode(doc_info['tree']).find('{{0}}'), -1)
-		self.assertEqual(unicode(doc_info['tree']).find('{{1}}'), -1)
-		self.assertNotEqual(unicode(doc_info['tree']).find('AAAAA'), -1)
-		self.assertNotEqual(unicode(doc_info['tree']).find('BBBBB'), -1)
-		self.assertNotEqual(unicode(doc_info['tree']).find('ZZZZZZZZZ'), -1)
+		self.assertEqual(unicode(doc_info.tree).find('{{0}}'), -1)
+		self.assertEqual(unicode(doc_info.tree).find('{{1}}'), -1)
+		self.assertNotEqual(unicode(doc_info.tree).find('AAAAA'), -1)
+		self.assertNotEqual(unicode(doc_info.tree).find('BBBBB'), -1)
+		self.assertNotEqual(unicode(doc_info.tree).find('ZZZZZZZZZ'), -1)
 	
 	def test_nonexistng_template(self):
-		doc_info = self.pub.publish(TEXT_5)
-		self.assertTrue(doc_info['errors'])
+		doc_info = restpub.publish_text(TEXT_5)
+		self.assertTrue(doc_info.errors)
 	
-	def test_template_func(self):
-		self.assertRaises(NotImplementedError, lambda: self.pub2.publish(TEXT_1))
+#	def test_template_func(self):
+#		self.assertRaises(NotImplementedError, lambda: self.pub2.publish(TEXT_1))
 		
-	def test_simple_math(self):
-		doc_info = self.pub.publish(TEXT_3)
-		self.my_test_doc_info(doc_info)
-		self.assertNotEqual(unicode(doc_info['tree']).find(u'π'), -1)
-	
-	def test_complex_math(self):
-		doc_info = self.pub.publish(TEXT_4)
-		self.my_test_doc_info(doc_info)
-		self.assertNotEqual(unicode(doc_info['tree']).find(u'image'), -1)
+#	def test_simple_math(self):
+#		doc_info = restpub.publish_text(TEXT_3)
+#		self.my_test_doc_info(doc_info)
+#		self.assertNotEqual(unicode(doc_info.tree).find(u'π'), -1)
+#	
+#	def test_complex_math(self):
+#		doc_info = restpub.publish_text(TEXT_4)
+#		self.my_test_doc_info(doc_info)
+#		self.assertNotEqual(unicode(doc_info.tree).find(u'image'), -1)
 	
 	
 		

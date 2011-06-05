@@ -21,6 +21,7 @@
 
 __doctype__ = 'restructuredtext en'
 
+import collections
 import re
 import cStringIO as StringIO
 
@@ -30,10 +31,11 @@ import docutils.parsers.rst.directives
 import docutils.core
 import docutils.io
 
-import dataobject
 
 FIELD_RE = re.compile(r':(\w*):((?:[^\\][^:])*)')
 PLACEHOLDER_RE = re.compile(r'{{(\w+)}}')
+
+_template_callback = NotImplementedError
 
 class TemplateDirective(docutils.parsers.rst.Directive):
 	required_arguments = 1
@@ -82,75 +84,76 @@ class MathDirective(docutils.parsers.rst.Directive):
 		
 		return l
 
-class Publisher(object):
-	def publish(self, text):
-		error_stream = StringIO.StringIO()
-		settings = {
-			'halt_level' : 5,
-			'warning_stream' : error_stream,
-			'file_insertion_enabled' : False,
-			'raw_enabled' : False,
+def format_tree(document):
+	if isinstance(document, docutils.nodes.Text):
+		return document.astext()
+	elif isinstance(document, docutils.nodes.reference):
+		return {
+			'tag' : document.tagname,
+			'values' : [document.attributes['refuri']]
 		}
-		
-		output, publisher = docutils.core.publish_programmatically(
-			source_class=docutils.io.StringInput, source=text, 
-			source_path=None, 
-			destination_class=docutils.io.NullOutput, destination=None, 
-			destination_path=docutils.io.NullOutput.default_destination_path, 
-			reader=None, reader_name='standalone', 
-			parser=None, parser_name='restructuredtext', 
-			writer=None, writer_name='html', 
-			settings=None, settings_spec=None, settings_overrides=settings, 
-			config_section=None, enable_exit_status=None) 
-		
-		doc_info = {}
-		document = publisher.writer.document
-		doc_info['tree'] = self.format_tree(document)
-		error_stream.seek(0)
-		doc_info['errors'] = error_stream.read()
-		doc_info['title'] = document.get('title')
-		doc_info['subtitle'] = document.get('subtitle')
-		doc_info['meta'] = {}
-		i = publisher.document.first_child_matching_class(docutils.nodes.docinfo)
-		if i is not None:
-			docinfo = document[i]
-		
-			for node in docinfo:
-				doc_info['meta'][node.tagname] = node.astext()
-		
-		doc_info['refs'] = {}
-		for name, node_list in document.refnames.iteritems():
-			doc_info['refs'][name] = map(self.format_tree, node_list)
-		
-		doc_info['html-parts'] = publisher.writer.parts
-		
-		return doc_info
-	
-	def format_tree(self, document):
-		if isinstance(document, docutils.nodes.Text):
-			return document.astext()
-		elif isinstance(document, docutils.nodes.reference):
-			return {
-				'tag' : document.tagname,
-				'values' : [document.attributes['refuri']]
-			}
-		else:
-			d = {}
-			tag = document.tagname
-			d['tag'] = tag
-			d['values'] = []
-			for child in document.children:
-				value = self.format_tree(child)
-				d['values'].append(value)
-			return d
-	
+	else:
+		d = {}
+		tag = document.tagname
+		d['tag'] = tag
+		d['values'] = []
+		for child in document.children:
+			value = format_tree(child)
+			d['values'].append(value)
+		return d
+
 
 docutils.parsers.rst.directives.register_directive('template', TemplateDirective)
 docutils.parsers.rst.directives.register_directive('math', MathDirective)
 
-def template_callback(name):
-	raise NotImplementedError()
+@property
+def template_callback():
+	return _template_callback
+
+@template_callback.setter
+def template_callback(f):
+	_template_callback = f
 
 def publish_text(text):
-	p = Publisher()
-	return p.publish(text)
+	error_stream = StringIO.StringIO()
+	settings = {
+		'halt_level' : 5,
+		'warning_stream' : error_stream,
+		'file_insertion_enabled' : False,
+		'raw_enabled' : False,
+	}
+	
+	output, publisher = docutils.core.publish_programmatically(
+		source_class=docutils.io.StringInput, source=text, 
+		source_path=None, 
+		destination_class=docutils.io.NullOutput, destination=None, 
+		destination_path=docutils.io.NullOutput.default_destination_path, 
+		reader=None, reader_name='standalone', 
+		parser=None, parser_name='restructuredtext', 
+		writer=None, writer_name='html', 
+		settings=None, settings_spec=None, settings_overrides=settings, 
+		config_section=None, enable_exit_status=None) 
+	
+	doc_info = collections.namedtuple('restpub_doc_info', 
+		('errors', 'title', 'tree', 'subtitle', 'meta', 'refs', 'html_parts'))
+	document = publisher.writer.document
+	doc_info.tree = format_tree(document)
+	error_stream.seek(0)
+	doc_info.errors = error_stream.read()
+	doc_info.title = document.get('title')
+	doc_info.subtitle = document.get('subtitle')
+	doc_info.meta = {}
+	i = publisher.document.first_child_matching_class(docutils.nodes.docinfo)
+	if i is not None:
+		docinfo = document[i]
+	
+		for node in docinfo:
+			doc_info.meta[node.tagname] = node.astext()
+	
+#	doc_info['refs'] = {}
+#	for name, node_list in document.refnames.iteritems():
+#		doc_info['refs'][name] = map(format_tree, node_list)
+	
+	doc_info.html_parts = publisher.writer.parts
+	
+	return doc_info

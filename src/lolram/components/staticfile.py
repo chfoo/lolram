@@ -33,7 +33,7 @@ class StaticFile(base.BaseComponent):
 	)
 
 	def control(self):
-		if self.context.request.controller == self.context.config.static_file.path_name:
+		if self.context.request.controller == unicode(self.context.config.static_file.path_name):
 			self.context.response.ok()
 			return self.context.response.output_file(
 				os.path.join(self.context.dirinfo.www, 

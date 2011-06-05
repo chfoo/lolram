@@ -782,7 +782,6 @@ class Article(_ArticleView):
 	def save(self, reason=None):
 		history_model = self._db.models.CMSHistory()
 		model = self._model
-		self._db.session.add(history_model)
 		
 		if self.DATE in self.metadata:
 			o = self.metadata[self.DATE]
@@ -811,7 +810,11 @@ class Article(_ArticleView):
 		
 		query = self._db.session.query(self._db.models.CMSAddress)
 		query = query.filter_by(article_id=self._model.id)
-		query = query.filter(~self._db.models.CMSAddress.name.in_(self.addresses))
+		
+		if self.addresses:
+			# If this condition is removed, then contradictions may occur
+			query = query.filter(~self._db.models.CMSAddress.name.in_(self.addresses))
+		
 		query.delete(synchronize_session='fetch')
 		
 		for address in self.addresses:
@@ -824,14 +827,21 @@ class Article(_ArticleView):
 				model = self._db.models.CMSAddress()
 				self._db.session.add(model)
 				model.name = address
+				model.article = self._model
+			elif model.article_id != self._model.id:
+				raise Exception(u'Address ‘%s’ already used for article ‘%s’' \
+					% (address, self._model.id))
 			
-			model.article = self._model
 		
 		CMSArticleTree = self._db.models.CMSArticleTree
 		query = self._db.session.query(self._db.models.CMSArticleTree)
 		query = query.filter_by(child_id=self._model.id)
-		query = query.filter(~CMSArticleTree.article_id.in_(
-			map(lambda article: article._model.id, self.parents)))
+		
+		if self.parents:
+			# If this condition is removed, then contradictions may occur
+			query = query.filter(~CMSArticleTree.article_id.in_(
+				map(lambda article: article._model.id, self.parents)))
+		
 		query.delete(synchronize_session='fetch')
 		
 		for parent in self.parents:
@@ -853,6 +863,7 @@ class Article(_ArticleView):
 		history_model.reason = reason
 		history_model.text_id = self._model.text_id
 		history_model.upload_id = self._model.upload_id
+		self._db.session.add(history_model)
 		
 		self._db.session.flush()
 		

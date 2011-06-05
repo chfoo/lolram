@@ -10,6 +10,7 @@ import lolram.components.wui
 import lolram.components.session
 import lolram.components.accounts
 import lolram.components.cms
+import lolram.components.database
 
 ABCD = 'abcd'
 
@@ -18,7 +19,6 @@ class SiteApp(lolram.app.SiteApp):
 		self.router.set('/cleanup', self.delete_data)
 		self.router.set('/session_test', self.session_test)
 		self.router.set('/crash_test', self.crash_test)
-		self.router.set('/serializer_test', self.serializer_test)
 		self.router.set_default(self.not_found_test)
 		self.router.set('/wui_basic_test', self.wui_basic_test)
 		self.router.set('/form_test', self.form_test)
@@ -31,20 +31,26 @@ class SiteApp(lolram.app.SiteApp):
 		self.router.set('/account_basic_test', self.account_basic_test)
 	
 	def delete_data(self):
-		# TODO
+		self.context.logger.info(u'Request to delete test db rows and data')
 		self.context.response.ok()
-#		
-#		with contextlib.closing(fardel.database.engine.connect()) as con:
-#			trans = con.begin()
-#			for table in reversed(fardel.database.metadata.sorted_tables):
-#				con.execute(table.drop())
-#			trans.commit()
-#		
-#		upload_dir = fardel.dirs.upload
-#		
-#		if os.path.exists(upload_dir):
-#			shutil.rmtree(upload_dir)
+		db = self.context.get_instance(lolram.components.database.Database)
 		
+		for model_name in dir(db.models):
+			if model_name.startswith('_'):
+				continue
+			
+			model = db.models.__dict__[model_name]
+			self.context.logger.debug(u'Delete row %s' % model)
+			
+			db.session.query(model).delete()
+			
+			
+		
+		upload_dir = self.context.dirinfo.upload
+		
+		if os.path.exists(upload_dir):
+			shutil.rmtree(upload_dir)
+			os.mkdir(upload_dir)
 		
 	def session_test(self):
 		session = self.context.get_instance(lolram.components.session.Session)
@@ -61,15 +67,6 @@ class SiteApp(lolram.app.SiteApp):
 		def f():
 			yield 0 / 0
 		return f()
-	
-	def serializer_test(self):
-		self.context.response.ok()
-#		fardel.data.nameStr = u'str ð'
-#		fardel.data.nameNum = 123456
-#		fardel.data.nameBool = True
-#		fardel.data.nameNone = None
-#		fardel.data.nameList = [1, 'a', False]
-#		fardel.data.nameDict = {'asdf':'n'}
 	
 	def not_found_test(self):
 		self.context.response.set_status(404)

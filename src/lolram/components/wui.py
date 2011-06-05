@@ -96,11 +96,8 @@ class Document(dataobject.ContextAware, dataobject.BaseModel, list):
 				meta_element = E.meta(name=name, content=model.meta[name])
 				head.append(meta_element)
 			
-			site_header = E.header(id='site-header')
-			site_footer = E.footer(id='site-footer')
 			content_wrapper_element = DIV()
-			body_wrapper_element = DIV(site_header, content_wrapper_element,
-				site_footer, id='body-wrapper')
+			body_wrapper_element = DIV(content_wrapper_element, id='body-wrapper')
 			body_element = BODY(body_wrapper_element)
 			html = HTML(head, body_element)
 			
@@ -108,10 +105,10 @@ class Document(dataobject.ContextAware, dataobject.BaseModel, list):
 			footer_content = model.footer_content
 			
 			if header_content:
-				site_header.extend(header_content)
+				body_wrapper_element.insert(0, header_content.renderer.to_html(context, header_content))
 			
 			if footer_content:
-				site_footer.extend(footer_content)
+				body_wrapper_element.append(footer_content.renderer.to_html(context, header_content))
 			
 			if model.meta.title:
 				content_wrapper_element.append(H1(model.meta.title))
@@ -175,25 +172,33 @@ class Document(dataobject.ContextAware, dataobject.BaseModel, list):
 		self._meta = dataobject.DataObject()
 		self._messages = []
 		
-		# FIXME: expensive
-		scripts_dir = self.context.config.wui.scripts_dir
-		if scripts_dir:
-			scripts_dir = os.path.join(self.context.dirinfo.www, scripts_dir)
-			
-			for p in glob.glob('%s/*.js' % scripts_dir):
-				filename = p.replace(self.context.dirinfo.www, '')
-				self._scripts.append(p)
-		
-		styles_dir = self.context.config.wui.styles_dir
-		if styles_dir:
-			styles_dir = os.path.join(self.context.dirinfo.www, styles_dir)
-			
-			for p in glob.glob('%s/*.css' % styles_dir):
-				filename = p.replace(self.context.dirinfo.www, '')
-				self._styles.append(p)
-		
 		wui_component = self.context.get_instance(WUI)
 		wui_component.content = self
+		
+		if not '_doc_scriptsstyles' in wui_component.singleton.__dict__:
+			styles = []
+			scripts = []
+			scripts_dir = self.context.config.wui.scripts_dir
+			if scripts_dir:
+				scripts_dir = os.path.join(self.context.dirinfo.www, scripts_dir)
+				
+				for p in glob.glob('%s/*.js' % scripts_dir):
+					filename = p.replace(self.context.dirinfo.www, '')
+					scripts.append(p)
+		
+			styles_dir = self.context.config.wui.styles_dir
+			if styles_dir:
+				styles_dir = os.path.join(self.context.dirinfo.www, styles_dir)
+				
+				for p in glob.glob('%s/*.css' % styles_dir):
+					filename = p.replace(self.context.dirinfo.www, '')
+					styles.append(p)
+			
+			wui_component.singleton._doc_scriptsstyles = (scripts, styles)
+		
+		scripts, styles = wui_component.singleton._doc_scriptsstyles
+		self._scripts.extend(scripts)
+		self._styles.extend(styles)
 		
 	@property
 	def title(self):
