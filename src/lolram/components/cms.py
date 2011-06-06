@@ -34,11 +34,18 @@ from sqlalchemy import *
 from sqlalchemy.orm import relationship
 import sqlalchemy.sql
 
+
+import lxml.html.builder as lxmlbuilder
+import lxml.html
+
 import base
 import database
+import accounts
+import wui
 from .. import dataobject
 from .. import configloader
 from .. import iso8601
+from .. import restpub
 
 from .. import util
 
@@ -145,12 +152,17 @@ class CMSArticlesMeta(database.TableMeta):
 			
 			id = Column(Integer, primary_key=True)
 			text_id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id))
-			text = relationship(CMSTextsMeta.D1.CMSText)
+			text = relationship(CMSTextsMeta.D1.CMSText,
+				primaryjoin=text_id==CMSTextsMeta.D1.CMSText.id)
 			upload_id = Column(ForeignKey(CMSUploadsMeta.D1.CMSUpload.id))
 			upload = relationship(CMSUploadsMeta.D1.CMSUpload)
+			meta_id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id))
+			meta = relationship(CMSTextsMeta.D1.CMSText,
+				primaryjoin=meta_id==CMSTextsMeta.D1.CMSText.id)
 			date = Column(DateTime, default=datetime.datetime.utcnow)
 			title = Column(Unicode)
 			uuid = Column(LargeBinary(length=16), default=lambda:uuid.uuid4().bytes, index=True)
+			view_mode = Column(Integer)
 		
 		desc = 'new table'
 		model = CMSArticle
@@ -225,7 +237,11 @@ class CMSHistoryMeta(database.TableMeta):
 				index=True)
 			article = relationship(CMSArticlesMeta.D1.CMSArticle)
 			text_id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id))
-			text = relationship(CMSTextsMeta.D1.CMSText)
+			text = relationship(CMSTextsMeta.D1.CMSText, 
+				primaryjoin=text_id==CMSTextsMeta.D1.CMSText.id)
+			meta_id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id))
+			meta = relationship(CMSTextsMeta.D1.CMSText,
+				primaryjoin=meta_id==CMSTextsMeta.D1.CMSText.id)
 			upload_id = Column(ForeignKey(CMSUploadsMeta.D1.CMSUpload.id))
 			upload = relationship(CMSUploadsMeta.D1.CMSUpload)
 			reason = Column(Unicode)
@@ -555,13 +571,305 @@ class CMS(base.BaseComponent):
 			db.session.add(ref_model)
 			
 			return ref_model.id
+	
+	def serve(self):
+		self.context.response.ok()
+		ok = True
+		cms = self.context.get_instance(CMS)
+		acc = self.context.get_instance(accounts.Accounts)
+		doc = self.context.get_instance(wui.Document)
+		
+		if len(self.context.request.args) == 1:
+			arg1 = self.context.request.args[0]
+			
+			article = None
+			
+			if len(arg1) == 32:
+				try:
+					uuid_bytes = arg1.decode('hex')
+				except TypeError:
+					uuid_bytes = None
+				
+				article = cms.get_article(uuid=uuid_bytes)
+			
+			if not article:
+				article = cms.get_article(address=arg1)
+			
+			if article:
+				doc.title = article.title
+				doc.append(article)
+			else:
+				ok = False
+			
+		elif len(self.context.request.args) == 2:
+			action, arg2 = self.context.request.args
+			
+			if len(arg2) == 32: 
+				try:
+					uuid_bytes = arg2.decode('hex')
+				except TypeError:
+					uuid_bytes = None
+			else:
+				uuid_bytes = None
+			
+			if action in ('edit', 'new'):
+				if 'submit-preview' in self.context.request.form:
+					article = self._process_edit_form()
+					doc_info = article.parse_text()
+					
+					if doc_info.title:
+						doc.title = doc_info.title
+					
+					if doc_info.errors:
+						doc.add_message(u'There are syntax errors in the document',
+							doc_info.errors)
+					
+					doc.append(article)
+					
+				elif 'submit-publish' in self.context.request.form:
+					article = self._process_edit_form(save=True)
+					doc.add_message(u'Article successfully saved')
+					return
+				
+				if action == 'new':
+					if arg2 == 'upload':
+						doc.append(self._build_edit_form(type='upload'))
+					else:
+						doc.append(self._build_edit_form())
+				else:
+					article = cms.get_article(uuid=uuid_bytes)
+					
+					if article:
+						doc.append(self._build_edit_form(article))
+					else:
+						ok = False
+				
+				
+			elif action == 'history':
+				if arg2 == 'all':
+					history = cms.get_histories(0)
+				else:
+					article = cms.get_article(uuid=uuid_bytes)
+					history = article.get_history(0)
+					
+				table = wui.Table()
+				table.set_headers('Version', 'Date', 'Article')
+				for info in history:
+					table.add_row(str(info.number), str(info.created), 
+						lxmlbuilder.A('Article', href=self.context.str_url(fill_controller=True,
+							args=('gethistory', info.uuid.encode('hex')))))
+				
+				doc.append(table)
+			
+			elif action == 'browse':
+				if arg2 == 'text':
+					pass
+				elif arg2 == 'upload':
+					pass
+				elif arg2 == 'all':
+					articles = cms.get_articles(0)
+					table = wui.Table()
+					table.set_headers('Title', 'Date')
+					
+					for info in articles:
+						table.add_row(
+							lxmlbuilder.A(str(info.title), 
+								href=self.context.str_url(fill_controller=True,
+									args=(info.uuid.encode('hex'),))),
+							str(info.date), 
+						)
+					doc.append(table)
+				else:
+					ok = False
+			
+			elif action == 'gethistory':
+				article = cms.get_article_history(uuid=uuid_bytes)
+				if article:
+					doc.append(article)
+				else:
+					ok = False
+			
+		if not ok:
+			self.context.response.set_status(404)
 
-class _ArticleView(dataobject.ProtectedObject):
+	def _build_edit_form(self, article=None, type='article',
+	allow_metadata=True, allow_reason=True):
+		form = wui.Form(wui.Form.POST, self.context.str_url(fill_path=True, 
+			fill_args=True, fill_params=True, fill_query=True))
+		
+		addresses = None
+		date = None
+		parents = None
+		text = None
+		reason = None
+		title = None
+		
+		if article and 'addresses' not in self.context.request.form:
+			addresses = u'/'.join(article.addresses)
+		
+		if 'date' not in self.context.request.form:
+			if article:
+				date = str(article.date)
+#			else:
+#				date = str(datetime.datetime.utcnow())
+	
+		if 'title' not in self.context.request.form:
+			if article:
+				title = article.title
+		
+		if 'parents' not in self.context.request.form and article:
+			parents = ' '.join((s.encode('hex') for s in article.parents))
+		
+		if 'text' not in self.context.request.form and article and type == 'article':
+			text = article.text
+		
+		form.textbox('uuid', article.uuid.encode('hex') if article else '',
+			validation=form.HIDDEN)
+		
+		if allow_metadata:
+			form.textbox('title', u'Title (Leave blank for automatic generation):',
+				title)
+			form.textbox('date', 'Publish date (Leave blank for automatic generation):', 
+				date,)
+		
+		if type == 'article':
+			form.textbox('text', 'Article content:', text, large=True, required=True)
+		else:
+			form.textbox('file', 'File', validation=Form.FILE, required=True)
+		
+		if allow_metadata:
+			form.textbox('addresses', 
+				u'Addresses (Use the slash symbol / as a deliminator):', 
+				addresses)
+			form.textbox('parents', 'Parent UUIDs:', parents)
+		
+		if allow_reason:
+			form.textbox('reason', 'Reason for edit:', reason)
+		
+		form.button('submit-publish', 'Publish')
+		
+		if type == 'article':
+			form.button('submit-preview', 'Preview')
+		
+		return form
+		
+	def _process_edit_form(self, save=False, type='article', allow_metadata=True):
+		cms = self.context.get_instance(CMS)
+		uuid = self.context.request.form.getfirst('uuid')
+		addresses = self.context.request.form.getfirst('addresses', '').decode('utf8')
+		date = self.context.request.form.getfirst('date')
+		title = self.context.request.form.getfirst('title', '').decode('utf8')
+		parents = self.context.request.form.getfirst('parents')
+		reason = self.context.request.form.getfirst('reason', '').decode('utf8')
+		text = self.context.request.form.getfirst('text', '').decode('utf8')
+		
+		if save and uuid:
+			article = cms.get_article(uuid=uuid.decode('hex'))
+			
+			if not article:
+				raise Exception('Article not found')
+		else:
+			article = cms.new_article()
+		
+		if type == 'article':
+			article.text = text
+			doc_info = article.parse_text()
+			
+			if date and allow_metadata:
+				article.date = iso8601.parse_date(date)
+			elif 'date' in doc_info.meta and allow_metadata:
+				article.date = iso8601.parse_date(doc_info.meta['date'])
+			else:
+				article.date = datetime.datetime.utcnow()
+			
+			# XXX Make it naive in UTC
+			t = article.date.utctimetuple()
+			article.date = datetime.datetime(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec, article.date.microsecond)
+			
+			if title and allow_metadata:
+				article.title = title
+			elif doc_info.title:
+				article.title = doc_info.title
+			else:
+				article.title = text.lstrip().splitlines()[0][:50]
+		
+		if addresses and allow_metadata:
+			article.addresses = frozenset(addresses.split(u'/'))
+		
+		if parents and allow_metadata:
+			uuid_list = parents.split()
+			l = []
+			
+			for s in uuid_list:
+				a = cms.get_article(uuid=s.decode('hex'))
+				
+				if not a:
+					raise Exception('Parent does not exist')
+				
+				l.append(a)
+			
+			article.parents = frozenset(l)
+		
+		if type == 'upload':
+			f = self.context.request.form['file']
+			
+			article.set_file(file_obj=f.file, upload_filename=f.filename)
+		
+		if save:
+			article.save(reason)
+		
+		return article
+
+class _ArticleView(dataobject.ProtectedObject, dataobject.BaseModel):
 	TEXT = 'text'
 	PARENTS = 'parents'
 	ADDRESSES = 'addresses'
 	DATE = 'date'
 	TITLE = 'title'
+	
+	class Renderer(dataobject.BaseRenderer):
+		PLAIN_TEXT = 'plain'
+		RESTRUCTUREDTEXT = 'rest'
+		
+		@staticmethod
+		def to_html(context, model):
+			if not model._parsed_text_meta:
+				model.parse_text()
+			
+			doc_info = model._parsed_text_meta
+			meta_table = lxmlbuilder.TABLE()
+			
+			for n, v in doc_info.meta.iteritems():
+				tr = lxmlbuilder.TR(
+					lxmlbuilder.TH(n), lxmlbuilder.TD(v)
+				)
+				meta_table.append(tr)
+			
+			if doc_info.errors:
+				e = lxmlbuilder.PRE(model.text)
+			else:
+				e = lxml.html.fromstring(doc_info.html_parts['fragment'] or '<div></div>')
+			
+			ul = lxmlbuilder.UL(CLASS='articleContentActions')
+			
+			def add(label, url):
+				ul.append(lxmlbuilder.LI(lxmlbuilder.A(label, href=url)))
+			
+			add('Raw', '')
+			add('Edit', '')
+			add('History', '')
+			add('Reply', '')
+			
+		
+			
+			return lxmlbuilder.DIV(
+				'Posted by In reply to',
+				lxmlbuilder.E.section(meta_table), 
+				e,
+				lxmlbuilder.E.aside(ul),
+				)
+	
+	renderer = Renderer
 	
 	def __init__(self, context, cms, model):
 		self._context = context
@@ -572,6 +880,10 @@ class _ArticleView(dataobject.ProtectedObject):
 		self._file = None
 		self._metadata = None
 		self._dirty_articles = set()
+		self._text_format = self.Renderer.RESTRUCTUREDTEXT
+		self._parsed_text_meta = None
+		self._date = None
+		self._title = None
 	
 	def __hash__(self):
 		return self._model.__hash__()
@@ -597,6 +909,21 @@ class _ArticleView(dataobject.ProtectedObject):
 		return self._model.uuid
 	
 	@property
+	def text_format(self):
+		'''Get the format of the text'''
+		
+		return self._text_format
+	
+	@property
+	def text_format(self, v):
+		self._text_format = v
+	
+	def parse_text(self):
+		if not self._parsed_text_meta:
+			self._parsed_text_meta = restpub.publish_text(self.text)
+		return self._parsed_text_meta
+	
+	@property
 	def metadata(self):
 		'''Get the metadata
 		
@@ -604,13 +931,16 @@ class _ArticleView(dataobject.ProtectedObject):
 		'''
 		
 		if self._metadata is None:
-			self._metadata = json.loads(self.raw_text or '{}')
+			if self._model.meta:
+				self._metadata = json.loads(self._model.meta.text)
+			else:
+				self._metadata = {}
 			
 		return self._metadata
 	
 	@property
-	def raw_text(self):
-		'''Get the raw text
+	def text(self):
+		'''Get the text
 		
 		:rtype: `unicode`
 		'''
@@ -621,15 +951,6 @@ class _ArticleView(dataobject.ProtectedObject):
 		if self._model.text:
 			return self._model.text.text
 	
-	@property
-	def text(self):
-		'''Get the article text
-		
-		:rtype: `unicode`
-		'''
-		
-		return self.metadata.get('text')
-
 	@property
 	def filename(self):
 		'''Get the disk filename of this file
@@ -725,7 +1046,7 @@ class Article(_ArticleView):
 		
 		:rtype: `datetime.Datetime`
 		'''
-		return self._model.date
+		return  self.metadata.get(self.DATE) or self._model.date
 	
 	@property
 	def title(self):
@@ -738,7 +1059,15 @@ class Article(_ArticleView):
 		:rtype:`unicode`
 		'''
 		
-		return self._model.title
+		return self.metadata.get(self.TITLE) or self._model.title
+	
+	@date.setter
+	def date(self, d):
+		self.metadata[self.DATE] = d
+	
+	@title.setter
+	def title(self, s):
+		self.metadata[self.TITLE] = s
 	
 	@_ArticleView.parents.setter
 	def parents(self, parent_articles):
@@ -772,11 +1101,6 @@ class Article(_ArticleView):
 	@_ArticleView.text.setter
 	def text(self, t):
 		assert isinstance(t, unicode)
-		self.metadata[self.TEXT] = t
-	
-	@_ArticleView.raw_text.setter
-	def raw_text(self, t):
-		assert isinstance(t, unicode)
 		self._text = t
 	
 	def save(self, reason=None):
@@ -795,13 +1119,12 @@ class Article(_ArticleView):
 			
 			model.date = date_datetime
 			self.metadata[self.DATE] = date_str
+			
+		if self.metadata:
+			model.metadata_id = self._cms._get_pooled_text_id(
+				json.dumps(self.metadata), create=True)
 		
 		model.title = self.metadata.get('title')
-			
-		if self._text:
-			model.text_id = self._cms._get_pooled_text_id(self._text, create=True)
-		elif self._metadata:
-			model.text_id = self._cms._get_pooled_text_id(json.dumps(self._metadata), create=True)
 		
 		if self._file:
 			file_obj, path, upload_filename = self._file
@@ -832,7 +1155,6 @@ class Article(_ArticleView):
 				raise Exception(u'Address ‘%s’ already used for article ‘%s’' \
 					% (address, self._model.id))
 			
-		
 		CMSArticleTree = self._db.models.CMSArticleTree
 		query = self._db.session.query(self._db.models.CMSArticleTree)
 		query = query.filter_by(child_id=self._model.id)
@@ -859,10 +1181,16 @@ class Article(_ArticleView):
 			model.article_id = parent._model.id
 			model.child_id = self._model.id
 		
+		if self._text:
+			self._model.text_id = self._cms._get_pooled_text_id(self._text, create=True)
+		elif self._metadata:
+			self._model.meta_id = self._cms._get_pooled_text_id(json.dumps(self._metadata), create=True)
+		
 		history_model.article = self._model
 		history_model.reason = reason
 		history_model.text_id = self._model.text_id
 		history_model.upload_id = self._model.upload_id
+		history_model.meta_id = self._model.meta_id
 		self._db.session.add(history_model)
 		
 		self._db.session.flush()

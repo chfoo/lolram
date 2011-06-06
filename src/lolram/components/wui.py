@@ -442,15 +442,16 @@ class Form(dataobject.BaseModel):
 
 class Table(dataobject.BaseModel):
 	class Renderer(dataobject.BaseRenderer):
-		def _render_cell(self, context, cell):
-			if isinstance(cell, BaseModel):
-				value = cell.renderer.to_html(context, cell)
-			else:
-				value = cell
+		@staticmethod
+		def to_html(context, model):
+			def _render_cell(context, cell):
+				if isinstance(cell, dataobject.BaseModel):
+					value = cell.renderer.to_html(context, cell)
+				else:
+					value = cell
+				
+				return value
 			
-			return value
-		
-		def to_html(self, context, model):
 			table = TABLE()
 			
 			if model.get_headers():
@@ -458,14 +459,14 @@ class Table(dataobject.BaseModel):
 				table.append(tr)
 				
 				for v in model.get_headers():
-					tr.append(TH(self._render_cell(context, v)))
+					tr.append(TH(_render_cell(context, v)))
 			
 			for row in model.get_rows():
 				tr = TR()
 				table.append(tr)
 				
 				for v in row:
-					tr.append(TD(self._render_cell(context, v)))
+					tr.append(TD(_render_cell(context, v)))
 			
 			return table
 	

@@ -145,6 +145,9 @@ class Context(ProtectedObject):
 			path_parts.extend(args)
 		elif fill_args:
 			path_parts.extend(self._request.args)
+			
+		if path_parts:
+			url.path = '/'.join(path_parts)
 		
 		if params is not None:
 			url.params = params

@@ -613,8 +613,8 @@ class SiteApp(dataobject.BaseMVC):
 		components.session.Session,
 #		components.lion.Lion,
 		components.accounts.Accounts,
-		components.cms.CMS,
 		components.wui.WUI,
+		components.cms.CMS,
 		components.lolramvanity.LolramVanity,
 	]
 	

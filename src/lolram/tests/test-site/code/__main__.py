@@ -29,6 +29,7 @@ class SiteApp(lolram.app.SiteApp):
 		self.router.set('/address_test', self.address_test)
 		self.router.set('/article_tree_test', self.article_tree_test)
 		self.router.set('/account_basic_test', self.account_basic_test)
+		self.router.set('/manual_cms_test', self.manual_cms_test)
 	
 	def delete_data(self):
 		self.context.logger.info(u'Request to delete test db rows and data')
@@ -245,3 +246,7 @@ class SiteApp(lolram.app.SiteApp):
 			self.context.request.query.getfirst('password'))
 		
 		return ['ok' if acc.account_id else 'fail']
+	
+	def manual_cms_test(self):
+		cms = self.context.get_instance(lolram.components.cms.CMS)
+		return cms.serve()
