@@ -26,9 +26,11 @@ import os.path
 import UserDict
 import cStringIO
 import string
-import urln11n
 import itertools
 import copy
+import collections
+
+import urln11n
 
 class ProtectedAttributeError(AttributeError):
 	pass
@@ -37,9 +39,15 @@ class ProtectedObject(object):
 	'''Emulates protected member class object pattern'''
 	
 	def __getattr__(self, k):
-		if not k.startswith('_'):
+		if k in self.__dict__ and not k.startswith('_'):
 			raise ProtectedAttributeError(u'Member ‘%s’ is not accessible' % k)
 		else:
+			for class_ in itertools.chain((self.__class__,), self.__class__.__bases__):
+				if isinstance(class_.__dict__.get(k), property) \
+				and class_.__dict__[k].fget:
+					class_.__dict__[k].fget(self)
+					return
+			
 			return self.__dict__[k]
 	
 	def __delattr__(self, k):
@@ -58,6 +66,8 @@ class ProtectedObject(object):
 			self.__dict__[k] = v
 
 class Context(ProtectedObject):
+	'''Provides context information about the current request and response'''
+	 
 	def __init__(self, singleton_instances=None, id=None, request=None, 
 	response=None, environ=None, config=None, dirinfo=None, logger=None,):
 		self._context_aware_instances = {}
@@ -72,6 +82,11 @@ class Context(ProtectedObject):
 		self._errors = []
 	
 	def get_instance(self, class_, singleton=False):
+		'''Get a context aware instance
+		
+		:rtype: `ContextAware`
+		'''
+		
 		if singleton:
 			d = self._singleton_instances 
 		else:
@@ -91,22 +106,47 @@ class Context(ProtectedObject):
 	
 	@property
 	def request(self):
+		'''Get `RequestInfo`
+		
+		:rtype: `RequestInfo`
+		'''
+		
 		return self._request
 	
 	@property
 	def response(self):
+		'''Get `Responder`
+		
+		:rtype: `Responder`
+		'''
+		
 		return self._response
 	
 	@property
 	def environ(self):
+		'''Get environment information
+		
+		:rtype: `dict`
+		'''
+		
 		return self._environ
 	
 	@property
 	def config(self):
+		'''Get site configuration
+		
+		:rtype: `DataObject
+		'''
+		
 		return self._config
 	
 	@property
 	def dirinfo(self):
+		'''Get `DirInfo`
+		
+		:rtype: `DirInfo`
+		'''
+		
 		return self._dirinfo
 	
 	@property
@@ -115,10 +155,21 @@ class Context(ProtectedObject):
 	
 	@property
 	def errors(self):
+		'''Get list of error strings
+		
+		:rtype: `list`
+		'''
+		
 		return self._errors
 	
-	
 	def norm_url(self, url):
+		'''Append the SCRIPT_INFO path to the URL instance
+		
+		:parameters:
+			url : `URL`
+				The URL instance
+		'''
+		
 		if self._request.script_path:
 			url.path = '%s/%s' % (self._request.script_path, url.path)
 
@@ -127,6 +178,10 @@ class Context(ProtectedObject):
 	args=None, fill_args=False,
 	params=None, fill_params=False,
 	query=None, fill_query=False):
+		'''Build a URL instance
+		
+		:rtype: `URL`
+		'''
 	
 		url = urln11n.URL()
 		
@@ -155,11 +210,7 @@ class Context(ProtectedObject):
 			url.params = self._request.params
 		
 		if query is not None:
-			if url.query:
-				for key, value in query.iteritems():
-					url.query[key] = value
-			else:
-				url.query = query
+			url.query.update(query)
 		elif fill_query:
 			url.query = copy.copy(self._request.query)
 		
@@ -167,13 +218,38 @@ class Context(ProtectedObject):
 		return url
 	
 	def str_url(self, *args, **kargs):
+		'''The same as `build_url` but returns a string instead
+		
+		:see: `build_url`
+		
+		:rtype: `str`
+		'''
+		
 		return str(self.make_url(*args, **kargs)) or '/'
+	
+	def page_info(self, limit=10, all=None, more=False):
+		'''Compute pagination information
+		
+		:rtype:	`PageInfo`
+		'''
+		page = max(1, int(self.request.query.getfirst('page', 0)))
+		offset = (page - 1) * limit
+		page_min = 1
+		page_max = None
+		
+		if all is not None:
+			page_max = all // limit + 1
+		
+		return PageInfo(offset=offset, limit=limit, all=all, page=page, 
+			page_min=page_min, page_max=page_max, more=more)
 
 
 class ContextAwareInitError(Exception):
 	pass
 
 class ContextAware(object):
+	'''Base class for classes which bind to a context'''
+	
 	def __init__(self, context_checked=False, context=None):
 		self._context = context
 		if not context_checked:
@@ -186,6 +262,11 @@ class ContextAware(object):
 	
 	@property
 	def context(self):
+		'''Get the `Context`
+		
+		:rtype: `Context`
+		'''
+		
 		return self._context
 	
 
@@ -251,6 +332,13 @@ class DataObject(dict):
 			return self.__dict__[k]
 
 class BaseMVC(ContextAware):
+	'''Base MVC class
+	
+	:cvar:
+		default_config : `DefaultConfig`
+			Default configuration values
+	'''
+	
 	default_config = None
 	
 	@property
@@ -258,34 +346,33 @@ class BaseMVC(ContextAware):
 		return self.context.get_instance(self.__class__, singleton=True)
 	
 	def init(self):
+		'''Singleton instance operations'''
 		pass
 	
 	def setup(self):
+		'''Prepare for a request'''
+		
 		pass
 	
 	def control(self):
+		'''Perform operations to models'''
+		
 		pass
 	
 	def render(self):
+		'''Return views from models'''
+		
 		pass
 	
 	def cleanup(self):
+		'''Operations after a response has been prepared'''
+		
 		pass
 
-class BaseRenderer(object):
-	@staticmethod
-	def supports(format):
-		return 'to_%s' in dir(Renderer)
-	
-	@staticmethod
-	def render(context, model, format='html'):
-		return Renderer.__dict__['to_%s' % format](context, model)
-	
-class BaseModel(object):
-	renderer = NotImplemented
-	
 
 class DirInfo(ProtectedObject):
+	'''Disk directory paths'''
+	
 	def __init__(self, app, code='code', www='www', var='var', db='db',
 	upload='upload'):
 		self._app = os.path.abspath(app)
@@ -297,29 +384,44 @@ class DirInfo(ProtectedObject):
 	
 	@property
 	def app(self):
+		'''The path of the site directory which holds everything'''
+		
 		return self._app
 	
 	@property
 	def code(self):
+		'''The path of ``code`` directory'''
+		
 		return self._code
 	
 	@property
 	def www(self):
+		'''The path of the ``www`` directory'''
+		
 		return self._www
 	
 	@property
 	def var(self):
+		'''The path of the ``var`` directory'''
+		
 		return self._var
 	
 	@property
 	def db(self):
+		'''The path of the ``db`` directory'''
+		
 		return self._db
 	
 	@property
 	def upload(self):
+		'''The path of the ``upload`` directory'''
+		
 		return self._upload 
 
+
 class RequestInfo(ProtectedObject):
+	'''Information about the current request'''
+	
 	def __init__(self, script_name=None, path_info=None, args=None,
 	form=None, url=None, headers=None, controller=None, script_path=None,
 	local_path=None):
@@ -335,53 +437,120 @@ class RequestInfo(ProtectedObject):
 	
 	@property
 	def args(self):
+		'''The arguments passed to the controller
+		
+		:rtype: `list`
+		'''
+		
 		return self._args
 	
 	@property
 	def script_name(self):
+		'''The value of the environment variable ``SCRIPT_NAME``
+		
+		:rtype: `str`
+		'''
+		
 		return self._script_name
 	
 	@property
 	def path_info(self):
+		'''The value of the environment variable ``PATH_INFO``
+		
+		:rtype: `str`
+		'''
+		
 		return self._path_info
 	
 	@property
 	def path(self):
+		'''The URL path in which the site application is concerned about
+		
+		:rtype: `str`
+		'''
+		
 		return self._local_path
 	
 	@property
 	def script_path(self):
+		'''The base URL path in which the site application is running under
+		
+		:rtype: `str`
+		'''
+		
 		return self._script_path
 	
 	@property
 	def form(self):
+		'''HTTP POST request
+		
+		:rtype: `cgi.FieldStorage`
+		'''
+		
 		return self._form
 	
 	@property
 	def url(self):
+		'''The URL instance
+		
+		:rtype: `URL`
+		'''
+		
 		return self._url
 	
 	@property
 	def headers(self):
+		'''The request HTTP headers
+		
+		:rtype: `HTTPHeaders`
+		'''
+		
 		return self._headers
 	
 	@property
 	def full_path(self):
+		'''The full path of the URL
+		
+		:rtype: `str`
+		'''
+		
 		return self._url.path
 	
 	@property
 	def params(self):
+		'''The parameters portion of the URL
+		
+		:rtype: `str`
+		'''
+		
 		return self._url.params
 	
 	@property
 	def query(self):
+		'''The HTTP GET query 
+		
+		:rtype: `URLQuery`
+		'''
+		
 		return self._url.query
 	
 	@property
 	def controller(self):
+		'''The name of the controller
+		
+		:rtype: `str`
+		'''
+		
 		return self._controller
 	
 class HTTPHeaders(UserDict.DictMixin):
+	'''A dictionary-like mapping of HTTP Headers
+	
+	Dictionary-like operations will behave in the manner of `get_first`. 
+	That is, dictionary-like operations will assume that only unique header 
+	names exists.
+	'''
+	
 	def __init__(self, environ=None, read_only=False):
 		self.data = {}
 		self.read_only = False
@@ -417,9 +586,19 @@ class HTTPHeaders(UserDict.DictMixin):
 		return iter(self.data)
 	
 	def get_list(self, name, default=None):
+		'''Return a list of `HTTPHeader`
+		
+		:rtype: `list`
+		'''
+		
 		return self.data.get(normalize_header_name(name), default)
 	
 	def get_first(self, name, default=None):
+		'''Return the first value for the header name
+		
+		:rtype: `HTTPHeader`
+		'''
+		
 		v = self.data.get(normalize_header_name(name), default)
 		if isinstance(v, list):
 			return v[0]
@@ -427,9 +606,13 @@ class HTTPHeaders(UserDict.DictMixin):
 			return v
 	
 	def add(self, name, value, **params):
+		'''Add a header value'''
+		
 		self.add_header(HTTPHeader(name, value, **params))
 	
 	def add_header(self, header):
+		'''Add a `HTTPHeader` instance'''
+		
 		self._check_read_only()
 		if header.name not in self.data:
 			self.data[header.name] = []
@@ -474,14 +657,20 @@ class HTTPHeaders(UserDict.DictMixin):
 				l.append((normalize_header_name(name), str(header)))
 		return l
 
-class HTTPHeader(object):
+class HTTPHeader(ProtectedObject):
+	'''Represents a HTTP header value with optional parameters
+	
+	Example::
+		Header-Name: header_value;param1=val1;param2=val2
+	'''
+	
 	def __init__(self, name=None, value=None, **params):
 		if name:
-			self.name = normalize_header_name(name)
+			self._name = normalize_header_name(name)
 		else:
-			name = None
-		self.value = value
-		self.params = params
+			self._name = None
+		self._value = value
+		self._params = params
 	
 	def __str__(self):
 		s = cStringIO.StringIO()
@@ -494,24 +683,53 @@ class HTTPHeader(object):
 		
 		s.seek(0)
 		return s.read()
-
-
-class URL(urln11n.URL, BaseModel, ProtectedObject):
-	class Renderer(BaseRenderer):
-		@staticmethod
-		def supports(format):
-			return True
-		
-		@staticmethod
-		def render(context, model, format='html'):
-			return str(model)
 	
-	renderer = Renderer
+	@property
+	def value(self):
+		return self._value
 	
+	@value.setter
+	def value(self, v):
+		self._value = v
+	
+	@property
+	def params(self):
+		return self._params
+	
+	@property
+	def name(self):
+		return self._name
+	
+	@name.setter
+	def name(self, s):
+		self._name = s
+
+class URL(urln11n.URL, ProtectedObject):
 	def __init__(self, *args, **kargs):
 		urln11n.URL.__init__(self, *args, **kargs)
-		BaseModel.__init__(self)
 		ProtectedObject.__init__(self)
+
+
+class BaseModel(object):
+	'''Base class for models'''
+	
+	default_renderer = NotImplemented
+
+
+class BaseView(object):
+	'''Base class for views
+	
+	Subclasses should define static methods with the name ``to_FORMAT``
+	and have the method signature ``(context, model, **opts)``
+	
+	'''
+	@classmethod
+	def supports(cls, format):
+		return 'to_%s' in dir(cls)
+	
+	@classmethod
+	def render(cls, context, model, format, **opts):
+		return getattr(cls, 'to_%s' % format)(context, model, **opts)
 
 
 def normalize_header_name(name, capwords=True):
@@ -519,4 +737,41 @@ def normalize_header_name(name, capwords=True):
 		return string.capwords(name.replace('_', '-'), '-')
 	else:
 		return name.replace('_', '-')
+
+
+class _MVPair(collections.namedtuple('MVPair', ['model', 'view', 'opts']),
+BaseModel):
+	__slots__ = ()
+	
+	def render(self, context, format, **opts):
+		opts.update(self.opts)
+		
+		if not self.view:
+			view = self.model.default_view
+		else:
+			view = self.view
+		
+		return view.render(context, self.model, format, **opts)
+	
+
+def MVPair(model, view=None, **opts):
+	'''Return a named tuple to be used for view rendering
+	
+	:rtype: `_MVPair`
+	'''
+	
+	assert isinstance(model, BaseModel)
+	
+	if view:
+		assert issubclass(view, BaseView)
+	else:
+		assert issubclass(model.default_view, BaseView)
+	
+	return _MVPair(model, view, opts)
+
+
+class PageInfo(collections.namedtuple('PageInfo', 
+['offset', 'limit', 'all', 'more', 'page', 'page_min', 'page_max']),
+BaseModel):
+	__slots__ = ()
 

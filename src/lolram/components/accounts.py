@@ -39,6 +39,14 @@ class AccountsMeta(database.TableMeta):
 			__tablename__ = 'accounts'
 			
 			id = Column(Integer, primary_key=True)
+			username = Column(Unicode(length=255), nullable=False, unique=True, 
+				index=True)
+			password = Column(LargeBinary(length=16))
+			created = Column(DateTime, default=datetime.datetime.utcnow)
+			modified = Column(DateTime, default=datetime.datetime.utcnow,
+				onupdate=datetime.datetime.utcnow)
+			nickname = Column(Unicode(length=160))
+			attributes = Column(UnicodeText)
 			
 		desc = 'new table'
 		model = Account
@@ -53,6 +61,7 @@ class AccountsMeta(database.TableMeta):
 	defs = (D1,)
 
 
+
 class Accounts(base.BaseComponent):
 	def init(self):
 		db = self.context.get_instance(database.Database)
@@ -65,7 +74,7 @@ class Accounts(base.BaseComponent):
 	def is_authenticated(self):
 		return self._account_id is not None
 	
-	def is_authorized(self, action):
+	def is_authorized(self, item_namespace, item_id, action_role):
 		# TODO
 		raise NotImplementedError()
 	
