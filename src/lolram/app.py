@@ -497,7 +497,8 @@ class Launcher(object):
 				environ=environ, keep_blank_values=True),
 		)
 	
-		context = self.make_context(request=request_info, response=responder)
+		context = self.make_context(request=request_info, response=responder,
+			environ=environ)
 		app = context.get_instance(self._class)
 			
 #		context.logger.debug(environ)
