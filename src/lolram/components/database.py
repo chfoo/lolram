@@ -31,6 +31,7 @@ import sqlalchemy.engine.url
 import sqlalchemy.ext.declarative
 from sqlalchemy import *
 
+import dbutil.history_meta
 import base
 from .. import configloader
 from .. import dataobject
@@ -61,7 +62,7 @@ class Database(base.BaseComponent):
 		
 		_logger.info('Using SQLAlchemy DB URL %s', db_url)
 		engine = sqlalchemy.create_engine(db_url)
-		Session = sqlalchemy.orm.sessionmaker()
+		Session = sqlalchemy.orm.sessionmaker(extension=dbutil.history_meta.VersionedListener())
 		Session.configure(bind=engine)
 		table_meta_list = []
 		models = imp.new_module('dbmodels')

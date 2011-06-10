@@ -27,6 +27,8 @@ import datetime
 from sqlalchemy import *
 from sqlalchemy.orm import relationship
 
+import dbutil.history_meta
+
 import base
 from .. import dataobject
 from .. import configloader
@@ -60,12 +62,103 @@ class AccountsMeta(database.TableMeta):
 	uuid = 'urn:uuid:6f82230b-4f38-4e9f-b32c-6a877e8361bd'
 	defs = (D1,)
 
+#class Account
+
+class AccountRolesMeta(database.TableMeta):
+	class D1(database.TableMeta.Def):
+		class AccountRole(database.TableMeta.Def.base()):
+			__tablename__ = 'account_roles'
+			
+			id = Column(Integer, primary_key=True)
+			namespace = Column(Unicode(length=255), nullable=False)
+			role_code = Column(Integer, nullable=False)
+			
+		desc = 'new table'
+		model = AccountRole
+		
+		def upgrade(self, engine, session):
+			self.model.__table__.create(engine)
+		
+		def downgrade(self, engine, session):
+			self.model.__table__.drop(engine) 
+			
+	uuid = 'urn:uuid:d416a612-ea62-4c44-929a-84328bf80f97'
+	defs = (D1,)
+
+class AccountRoleMappingsMeta(database.TableMeta):
+	class D1(database.TableMeta.Def):
+		class AccountRoleMapping(database.TableMeta.Def.base()):
+			__tablename__ = 'account_role_mappings'
+			
+			id = Column(Integer, primary_key=True)
+			account_id = Column(ForeignKey(AccountsMeta.D1.Account.id), 
+				nullable=False, index=True)
+			account = relationship(AccountsMeta.D1.Account, backref='roles')
+			role_id = Column(ForeignKey(AccountRolesMeta.D1.AccountRole.id), 
+				nullable=False)
+			role = relationship(AccountRolesMeta.D1.AccountRole, 
+				backref='accounts', collection_class=set)
+			
+		desc = 'new table'
+		model = AccountRoleMapping
+		
+		def upgrade(self, engine, session):
+			self.model.__table__.create(engine)
+		
+		def downgrade(self, engine, session):
+			self.model.__table__.drop(engine) 
+			
+	uuid = 'urn:uuid:bf81457a-e6d2-44ec-ab8f-0b473fc16c44'
+	defs = (D1,)
+
+
+class AccountLogsMeta(database.TableMeta):
+	class D1(database.TableMeta.Def):
+		class AccountLog(database.TableMeta.Def.base()):
+			__tablename__ = 'account_logs'
+			
+			id = Column(Integer, primary_key=True)
+			account_id = Column(ForeignKey(AccountsMeta.D1.Account.id), 
+				nullable=False)
+			account = relationship(AccountsMeta.D1.Account, 
+				primaryjoin=AccountsMeta.D1.Account.id==account_id)
+			action_code = Column(Integer, nullable=False)
+			created = Column(DateTime, default=datetime.datetime.utcnow)
+			target_account_id = Column(ForeignKey(AccountsMeta.D1.Account.id))
+			target_account = relationship(AccountsMeta.D1.Account, 
+				primaryjoin=AccountsMeta.D1.Account.id==target_account_id)
+			info_str = Column(Unicode(length=255))
+			
+		desc = 'new table'
+		model = AccountLog
+		
+		def upgrade(self, engine, session):
+			self.model.__table__.create(engine)
+		
+		def downgrade(self, engine, session):
+			self.model.__table__.drop(engine) 
+			
+	uuid = 'urn:uuid:0668d150-bd8a-4067-94c8-7ae8edcaddb3'
+	defs = (D1,)
+
+
+
 
 
 class Accounts(base.BaseComponent):
+	default_config = configloader.DefaultSectionConfig('accounts',
+	)
+	
+	APPLY_ACCOUNT_ID = 1
+	CANCEL_ACCOUNT_ID = 2
+	ROLE_MODIFY = 3
+	
 	def init(self):
 		db = self.context.get_instance(database.Database)
 		db.add(AccountsMeta)
+		db.add(AccountRolesMeta)
+		db.add(AccountRoleMappingsMeta)
+		db.add(AccountLogsMeta)
 		
 	def setup(self):
 		sess = self.context.get_instance(session.Session)
@@ -74,9 +167,21 @@ class Accounts(base.BaseComponent):
 	def is_authenticated(self):
 		return self._account_id is not None
 	
-	def is_authorized(self, item_namespace, item_id, action_role):
-		# TODO
-		raise NotImplementedError()
+	def is_authorized(self, namespace, role_code):
+		for role in self.get_account_db_model().roles:
+			if role.namespace == namespace and role.role_code == role_code:
+				return True
+	
+	def get_account_roles(self):
+		model = self.get_account_db_model()
+		l = []
+		for role in model.roles:
+			l.append((role.namespace, role.role_code))
+		
+		return frozenset(l)
+	
+	def set_account_roles(self, i):
+		pass
 	
 	@property
 	def account_id(self):
@@ -119,3 +224,12 @@ class Accounts(base.BaseComponent):
 		self._account_id = None
 		sess = self.context.get_instance(session.Session)
 		sess.data._accounts_account_id
+	
+	def get_account_db_model(self):
+		db = self.context.get_instance(database.Database)
+		query = db.session.query('Accounts').filter_by(id=self.account_id)
+		
+		return query.first()
+
+class Account(dataobject.ProtectedObject):
+	pass

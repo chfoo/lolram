@@ -56,7 +56,8 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		confname = os.path.join(os.path.dirname(__file__), 'app.conf')
 		self.start_server(confname)
 		
-		time.sleep(1)
+		# XXX: wait until intialized
+		time.sleep(0.25)
 		
 		response = self.request('/cleanup')
 		self.assertEqual(response.status, 200)
@@ -163,6 +164,73 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 			query={'password':'fish-shaped candy'})
 		self.assertEqual(response.status, 200)
 		self.assertEqual(response.read(), 'fail')
+	
+	def test_text_pool(self):
+		'''It should store and retrieve text'''
+		
+		text1 = u'Stochastic Ruby Dragon'
+		text2 = u'Stochastic Ruby Dragon⁓'
+		
+		response = self.request('/res_pool_text_test',
+			query={'action':'get', 'id': '8000000'})
+		self.assertEqual(response.status, 200)
+		self.assertEqual(response.read(), 'None')
+		
+		response = self.request('/res_pool_text_test',
+			query={'action':'set', 'text': text1})
+		self.assertEqual(response.status, 200)
+		text1_id = response.read()
+		
+		response = self.request('/res_pool_text_test',
+			query={'action':'get', 'id': text1_id})
+		self.assertEqual(response.status, 200)
+		self.assertEqual(response.read(), text1)
+		
+		response = self.request('/res_pool_text_test',
+			query={'action':'set', 'text': text1})
+		self.assertEqual(response.status, 200)
+		self.assertEqual(response.read(), text1_id)
+
+		response = self.request('/res_pool_text_test',
+			query={'action':'set', 'text': text2})
+		self.assertEqual(response.status, 200)
+		text2_id = response.read()
+		
+		self.assertTrue(text2_id != text1_id)
+	
+	def test_file_pool(self):
+		'''It should store and retrieve files'''
+		
+		text1 = u'Stochastic Ruby Dragon'
+		text2 = u'Stochastic Ruby Dragon⁓'
+		
+		response = self.request('/res_pool_file_test',
+			query={'action':'get', 'id': '8000000'})
+		self.assertEqual(response.status, 200)
+		self.assertEqual(response.read(), 'None')
+		
+		response = self.request('/res_pool_file_test',
+			query={'action':'set'}, data={'file': ('filename.txt', text1)})
+		self.assertEqual(response.status, 200)
+		text1_id = response.read()
+		
+		response = self.request('/res_pool_file_test',
+			query={'action':'get', 'id': text1_id})
+		self.assertEqual(response.status, 200)
+		self.assertEqual(response.read(), text1)
+		
+		response = self.request('/res_pool_file_test',
+			query={'action':'set'}, data={'file': ('filename.txt', text1)})
+		self.assertEqual(response.status, 200)
+		self.assertEqual(response.read(), text1_id)
+
+		response = self.request('/res_pool_file_test',
+			query={'action':'set'}, data={'file': ('filename.txt', text2)})
+		self.assertEqual(response.status, 200)
+		text2_id = response.read()
+		
+		self.assertTrue(text2_id != text1_id)
+		
 
 class TestAppFuncs(unittest.TestCase):
 	

@@ -11,6 +11,7 @@ import lolram.components.session
 import lolram.components.accounts
 import lolram.components.cms
 import lolram.components.database
+import lolram.components.respool
 
 ABCD = 'abcd'
 
@@ -30,6 +31,9 @@ class SiteApp(lolram.app.SiteApp):
 		self.router.set('/article_tree_test', self.article_tree_test)
 		self.router.set('/account_basic_test', self.account_basic_test)
 		self.router.set('/manual_cms_test', self.manual_cms_test)
+		self.router.set('/res_pool_text_test', self.res_pool_text_test)
+		self.router.set('/res_pool_file_test', self.res_pool_file_test)
+		
 	
 	def delete_data(self):
 		self.context.logger.info(u'Request to delete test db rows and data')
@@ -250,3 +254,35 @@ class SiteApp(lolram.app.SiteApp):
 	def manual_cms_test(self):
 		cms = self.context.get_instance(lolram.components.cms.CMS)
 		return cms.serve()
+	
+	def res_pool_text_test(self):
+		self.context.response.ok()
+		respool = self.context.get_instance(lolram.components.respool.ResPool)
+		
+		action = self.context.request.query.getfirst('action')
+		text = self.context.request.query.getfirst('text')
+		
+		if action == 'get':
+			nId = int(self.context.request.query.getfirst('id'))
+			return [unicode(respool.get_text(nId)).encode('utf8')]
+		else:
+			return [str(respool.set_text(text))]
+	
+	def res_pool_file_test(self):
+		self.context.response.ok()
+		respool = self.context.get_instance(lolram.components.respool.ResPool)
+		
+		action = self.context.request.query.getfirst('action')
+		
+		if action == 'get':
+			nId = int(self.context.request.query.getfirst('id'))
+			f = respool.get_file(nId)
+			
+			if f:
+				return wsgiref.util.FileWrapper(f)
+			else:
+				return ['None']
+		else:
+			f = self.context.request.form['file'].file
+			return [str(respool.set_file(f))]
+		

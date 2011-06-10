@@ -33,6 +33,7 @@ import collections
 import urln11n
 
 class ProtectedAttributeError(AttributeError):
+	__slots__ = ()
 	pass
 
 class ProtectedObject(object):
@@ -245,6 +246,7 @@ class Context(ProtectedObject):
 
 
 class ContextAwareInitError(Exception):
+	__slots__ = ()
 	pass
 
 class ContextAware(object):
@@ -339,6 +341,7 @@ class BaseMVC(ContextAware):
 			Default configuration values
 	'''
 	
+	__slots__ = ()
 	default_config = None
 	
 	@property
@@ -372,6 +375,8 @@ class BaseMVC(ContextAware):
 
 class DirInfo(ProtectedObject):
 	'''Disk directory paths'''
+	
+	__slots__ = ('_app', '_code', '_www', '_db', '_upload')
 	
 	def __init__(self, app, code='code', www='www', var='var', db='db',
 	upload='upload'):
@@ -421,6 +426,9 @@ class DirInfo(ProtectedObject):
 
 class RequestInfo(ProtectedObject):
 	'''Information about the current request'''
+	
+	__slots__ = ('_script_name', '_path_info', '_args', '_form', '_url',
+		'_headers', '_controller', '_local_path', '_script_path',)
 	
 	def __init__(self, script_name=None, path_info=None, args=None,
 	form=None, url=None, headers=None, controller=None, script_path=None,
@@ -705,6 +713,8 @@ class HTTPHeader(ProtectedObject):
 		self._name = s
 
 class URL(urln11n.URL, ProtectedObject):
+	__slots__ = ()
+	
 	def __init__(self, *args, **kargs):
 		urln11n.URL.__init__(self, *args, **kargs)
 		ProtectedObject.__init__(self)
@@ -723,6 +733,9 @@ class BaseView(object):
 	and have the method signature ``(context, model, **opts)``
 	
 	'''
+	
+	__slots__ = ()
+	
 	@classmethod
 	def supports(cls, format):
 		return 'to_%s' in dir(cls)

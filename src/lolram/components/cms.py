@@ -623,6 +623,10 @@ class CMS(base.BaseComponent):
 			uuid_bytes = lambda: util.b32low_to_bytes(arg2)
 			
 			if action in ('edit', 'new'):
+				if not acc.is_authenticated():
+					doc.add_message(u'Please sign in before editing')
+					return
+				
 				if 'submit-preview' in self.context.request.form:
 					article = self._process_edit_form()
 					doc_info = article.parse_text()

@@ -63,6 +63,7 @@ import components.staticfile
 import components.cms
 import components.accounts
 #import components.lion
+import components.respool
 
 LT = '\r\n'
 HTTP_TIME_PARSE_STR = '%a, %d %b %Y %H:%M:%S %Z'
@@ -611,6 +612,7 @@ class SiteApp(dataobject.BaseMVC):
 		components.staticfile.StaticFile,
 		components.database.Database, 
 		components.session.Session,
+		components.respool.ResPool,
 #		components.lion.Lion,
 		components.accounts.Accounts,
 		components.wui.WUI,

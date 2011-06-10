@@ -105,10 +105,10 @@ class DocumentView(dataobject.BaseView):
 		footer_content = model.footer_content
 		
 		if header_content:
-			body_wrapper_element.insert(0, header_content.renderer.to_html(context, header_content))
+			body_wrapper_element.insert(0, header_content.render(context, 'html'))
 		
 		if footer_content:
-			body_wrapper_element.append(footer_content.renderer.to_html(context, header_content))
+			body_wrapper_element.append(footer_content.render(context, 'html'))
 		
 		if model.meta.title:
 			content_wrapper_element.append(H1(model.meta.title))
