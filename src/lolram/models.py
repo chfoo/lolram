@@ -60,6 +60,11 @@ class Form(dataobject.BaseModel):
 		
 	
 	class Textbox(dataobject.BaseModel):
+		TEXT = 'text'
+		PASSWORD = 'password'
+		HIDDEN = 'hidden'
+		FILE = 'file'
+		
 		default_view = views.FormView.Textbox
 		
 		def __init__(self, name, label, value=None, validation=None,
@@ -76,9 +81,6 @@ class Form(dataobject.BaseModel):
 	
 	GET = 'GET'
 	POST = 'POST'
-	TEXT = 'text'
-	PASSWORD = 'password'
-	HIDDEN = 'hidden'
 	
 	def __init__(self, method='GET', url=''):
 		super(Form, self).__init__()

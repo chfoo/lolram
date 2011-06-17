@@ -24,6 +24,12 @@
 __doctype__ = 'restructuredtext en'
 
 import base64
+import magic
+
+magic_cookie = magic.open(magic.MAGIC_NONE)
+magic_cookie.load()
+magic_cookie_mime = magic.open(magic.MAGIC_MIME)
+magic_cookie_mime.load() 
 
 def int_to_bytes(n, padding=0):
 	s = hex(n)[2:].rstrip('L')

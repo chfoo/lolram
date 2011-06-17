@@ -40,6 +40,7 @@ import itertools
 import contextlib
 import runpy
 import logging
+import util
 try:
 	runpy.run_path
 except AttributeError, e:
@@ -220,12 +221,15 @@ class Responder(object):
 		last_modified = datetime.datetime.utcfromtimestamp(
 			os.path.getmtime(path))
 		
-		mt = mimetypes.guess_type(path)
+		#mt = mimetypes.guess_type(path)
+		
+#		if mt and mt[0]:
+#			self.headers['content-type'] = mt[0]
+
+		mt = util.magic_cookie_mime.file(path)
 		
 		if mt:
-			self.headers['content-type'] = mt[0]
-		else:
-			del self.headers['content-type']
+			self.headers['content-type'] = mt
 		
 		logger.debug(u'Output file ‘%s’→‘%s’', path, download_filename)
 		
@@ -241,6 +245,9 @@ class Responder(object):
 			last_modified.second,
 			0
 		)
+		self.headers['accept-ranges'] = 'bytes'
+		self.headers['last-modified'] = last_modified.strftime(
+			HTTP_TIME_FORMAT_STR)
 		
 		if_modified_since = self.environ.get('HTTP_IF_MODIFIED_SINCE')
 		if if_modified_since:
@@ -253,10 +260,6 @@ class Responder(object):
 				self.set_status(304, 'Not modified')
 				del self.headers['content-type']
 				return []
-		
-		self.headers['accept-ranges'] = 'bytes'
-		self.headers['last-modified'] = last_modified.strftime(
-			HTTP_TIME_FORMAT_STR)
 		
 		if download_filename:
 			self.headers['content-disposition'] = \

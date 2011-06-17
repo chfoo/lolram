@@ -46,58 +46,6 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		response = self.request('/cleanup')
 		self.assertEqual(response.status, 200)
 		
-	def test_text(self):
-		'''It should set and get text'''
-		
-		# Non-existent
-		response = self.request('/text_test', 
-			query={'action':'get', 'id': 0x8000})
-		self.assertEqual(response.read().strip(), 'not found')
-		
-		text1 = u'Stochastic Ruby Dragon'
-		text2 = u'Stochastic Ruby Dragon⁓'
-		
-		# Make a new one
-		response = self.request('/text_test', 
-			query={'action':'new', 'text': text1})
-		text1_id = int(response.read())
-		
-		# Get
-		response = self.request('/text_test', 
-			query={'action':'get', 'id': str(text1_id)})
-		self.assertEqual(response.read().decode('utf8'), text1)
-		
-		# Edit
-		response = self.request('/text_test', 
-			query={'action':'edit', 'id': str(text1_id), 'text': text2})
-		self.assertEqual(int(response.read()), text1_id)
-		
-		#Get
-		response = self.request('/text_test', 
-			query={'action':'get', 'id': str(text1_id)})
-		self.assertEqual(response.read().decode('utf8'), text2)
-	
-	def test_file(self):
-		'''It should upload and get files'''
-		
-		# Non-existent
-		response = self.request('/file_test', 
-			query={'action':'get', 'id': 0x8000})
-		self.assertEqual(response.read().strip(), 'not found')
-		
-		text1 = 'Stochastic Ruby Dragon'
-		
-		# Make a new one
-		response = self.request('/file_test', 
-			query={'action':'new'}, data={'file': ('test_file.txt', text1)})
-		text1_id = int(response.read())
-		
-		# Get
-		response = self.request('/file_test', 
-			query={'action':'get', 'id': text1_id})
-		self.assertEqual(response.read(), text1)
-		
-	
 	def test_article_text(self):
 		'''It should create a new text article and be able to edit it'''
 		

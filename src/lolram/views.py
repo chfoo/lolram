@@ -64,6 +64,7 @@ class FormView(dataobject.BaseView):
 		@classmethod
 		def to_html(cls, context, model, **opts):
 			element = lxmlbuilder.E.button(model.label, name=model.name)
+			element.set('type', 'submit')
 			
 			if model.icon:
 				element.insert(0, lxmlbuilder.IMG(src=model.icon))
@@ -92,7 +93,10 @@ class FormView(dataobject.BaseView):
 				input_element = lxmlbuilder.INPUT(
 					name=model.name,
 					type=model.validation or 'text', 
-					value=model.value or value, placeholder=model.label)
+					placeholder=model.label)
+				
+				if model.value is not None:
+					input_element.set('value', model.value)
 				
 				if model.required:
 					input_element.set('required', 'required')
@@ -105,6 +109,9 @@ class FormView(dataobject.BaseView):
 	@classmethod
 	def to_html(cls, context, model):
 		form_element = lxmlbuilder.FORM(method=model.method, action=model.url)
+		
+		if model.method == 'POST':
+			 form_element.set('enctype', "multipart/form-data")
 		
 		for o in model._data:
 			form_element.append(dataobject.MVPair(o).render(context, 'html'))
@@ -167,6 +174,11 @@ class ToURLView(dataobject.BaseView):
 	@classmethod
 	def to_html(cls, context, model):
 		return lxmlbuilder.A(model, href=model)
+
+class LabelURLToLinkView(dataobject.BaseView):
+	@classmethod
+	def to_html(cls, context, model):
+		return lxmlbuilder.A(model[0], href=model[1])
 
 class PagerView(dataobject.BaseView):
 	@classmethod

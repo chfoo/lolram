@@ -42,6 +42,8 @@ import base
 import database
 import accounts
 import wui
+import respool
+import dbutil.nestedsets
 from .. import dataobject
 from .. import configloader
 from .. import iso8601
@@ -57,8 +59,7 @@ ADD = 'A'
 DEL = 'D'
 
 class ActionRole(object):
-	__slots__ = ()
-	
+	NAMESPACE = 'lr-cms'
 	VIEWER = 1
 	TURING_TEST_PASSED = 2
 	COMMENTER = 3
@@ -68,95 +69,21 @@ class ActionRole(object):
 	BUREAUCRAT = 7
 	BOT = 8
 
-class CMSTextsMeta(database.TableMeta):
-	class D1(database.TableMeta.Def):
-		class CMSText(database.TableMeta.Def.base()):
-			__tablename__ = 'cms_texts'
-			
-			id = Column(Integer, primary_key=True)
-			text = Column(UnicodeText)
-		
-		desc = 'new table'
-		model = CMSText
-		
-		def upgrade(self, engine, session):
-			self.CMSText.__table__.create(engine)
-		
-		def downgrade(self, engine, session):
-			self.CMSText.__table__.drop(engine)
+class ArticleViewModes(object):
+	ARTICLE = 1
+	COMMENT = 2
+	FILE = 3
+	THREAD = 4
 
-	uuid = 'urn:uuid:36733eda-9239-426b-a63f-4f3d283595eb'
-	
-	defs = (D1,)
-
-class CMSTextReferencesMeta(database.TableMeta):
-	class D1(database.TableMeta.Def):
-		class CMSTextReference(database.TableMeta.Def.base()):
-			__tablename__ = 'cms_text_references'
-			
-			id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id), primary_key=True)
-			text = relationship(CMSTextsMeta.D1.CMSText)
-			hash256 = Column(LargeBinary(length=32), unique=True, index=True,
-				nullable=False)
-		
-		desc = 'new table'
-		model = CMSTextReference
-		
-		def upgrade(self, engine, session):
-			self.model.__table__.create(engine)
-		
-		def downgrade(self, engine, session):
-			self.model.__table__.drop(engine)
-
-	uuid = 'urn:uuid:4569aea8-bb78-4dc7-9b27-e8f77630121d'
-	defs = (D1, )
-
-
-class CMSUploadsMeta(database.TableMeta):
-	class D1(database.TableMeta.Def):
-		class CMSUpload(database.TableMeta.Def.base()):
-			__tablename__ = 'cms_uploads'
-			
-			id = Column(Integer, primary_key=True)
-			filename = Column(Unicode(length=255))
-		
-		desc = 'new table'
-		model = CMSUpload
-		
-		def upgrade(self, engine, session):
-			self.model.__table__.create(engine)
-		
-		def downgrade(self, engine, session):
-			self.model.__table__.drop(engine)
-
-	uuid = 'urn:uuid:01cd9f70-d164-4dda-a67e-7be823704dd0'
-	defs = (D1, )
-
-
-class CMSUploadReferencesMeta(database.TableMeta):
-	class D1(database.TableMeta.Def):
-		class CMSUploadReference(database.TableMeta.Def.base()):
-			__tablename__ = 'cms_upload_references'
-			
-			id = Column(ForeignKey(CMSUploadsMeta.D1.CMSUpload.id), primary_key=True)
-			upload = relationship(CMSUploadsMeta.D1.CMSUpload)
-			sha256 = Column(LargeBinary(length=32), nullable=False, index=True,
-				unique=True)
-			fileinfo = Column(Unicode(length=255))
-			mimetype = Column(Unicode(length=255)) 
-		
-		desc = 'new table'
-		model = CMSUploadReference
-		
-		def upgrade(self, engine, session):
-			self.model.__table__.create(engine)
-		
-		def downgrade(self, engine, session):
-			self.model.__table__.drop(engine)
-
-	uuid = 'urn:uuid:ab9304fb-f276-4dcc-95f9-0c781e1f2829'
-	defs = (D1, )
-
+class ArticleMetadataFields(object):
+	PUBLISH_DATE = 'pubdate'
+	TITLE = 'title'
+	FILENAME = 'filename'
+	MIMETYPE = 'mimetype'
+	FILETYPE = 'filetype'
+	PARENTS = 'parents'
+	ADDRESSES = 'addresses'
+	VIEW_MODE = 'viewmode'
 
 class CMSArticlesMeta(database.TableMeta):
 	class D1(database.TableMeta.Def):
@@ -164,47 +91,16 @@ class CMSArticlesMeta(database.TableMeta):
 			__tablename__ = 'cms_articles'
 			
 			id = Column(Integer, primary_key=True)
-			text_id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id))
-			text = relationship(CMSTextsMeta.D1.CMSText,
-				primaryjoin=text_id==CMSTextsMeta.D1.CMSText.id)
-			upload_id = Column(ForeignKey(CMSUploadsMeta.D1.CMSUpload.id))
-			upload = relationship(CMSUploadsMeta.D1.CMSUpload)
-			meta_id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id))
-			meta = relationship(CMSTextsMeta.D1.CMSText,
-				primaryjoin=meta_id==CMSTextsMeta.D1.CMSText.id)
+			account_id = Column(ForeignKey(accounts.AccountsMeta.D1.Account.id))
+			account = relationship(accounts.AccountsMeta.D1.Account)
 			date = Column(DateTime, default=datetime.datetime.utcnow)
 			title = Column(Unicode(length=160))
 			uuid = Column(LargeBinary(length=16), default=lambda:uuid.uuid4().bytes, index=True)
 			view_mode = Column(Integer)
-			account_id = Column(ForeignKey(accounts.AccountsMeta.D1.Account.id))
-			account = relationship(accounts.AccountsMeta.D1.Account)
+			version = Column(Integer, nullable=False)
 		
 		desc = 'new table'
 		model = CMSArticle
-		
-		def upgrade(self, engine, session):
-			self.CMSArticle.__table__.create(engine)
-		
-		def downgrade(self, engine, session):
-			self.CMSArticle.__table__.drop(engine)
-
-	uuid = 'urn:uuid:f9d34d49-5226-48a1-a115-3c07de711071'
-	defs = (D1, )
-
-
-class CMSAddressesMeta(database.TableMeta):
-	class D1(database.TableMeta.Def):
-		class CMSAddress(database.TableMeta.Def.base()):
-			__tablename__ = 'cms_addresses'
-			
-			id = Column(Integer, primary_key=True)
-			name = Column(Unicode(length=160), nullable=False, unique=True, index=True)
-			article_id = Column(ForeignKey(CMSArticlesMeta.D1.CMSArticle.id),
-				nullable=False)
-			article = relationship(CMSArticlesMeta.D1.CMSArticle)
-		
-		desc = 'new table'
-		model = CMSAddress
 		
 		def upgrade(self, engine, session):
 			self.model.__table__.create(engine)
@@ -212,35 +108,11 @@ class CMSAddressesMeta(database.TableMeta):
 		def downgrade(self, engine, session):
 			self.model.__table__.drop(engine)
 
-	uuid = 'urn:uuid:02e2bb62-81c2-4b50-8417-e26d3011da61'
-	defs = (D1,)
+	uuid = 'urn:uuid:f9d34d49-5226-48a1-a115-3c07de711071'
+	defs = (D1, )
 
-#class CMSAddressHistoryMeta(database.TableMeta):
-#	class D1(database.TableMeta.Def):
-#		class CMSAddressHistory(database.TableMeta.Def.base()):
-#			__tablename__ = 'cms_address_history'
-#			
-#			id = Column(Integer, primary_key=True)
-#			action = Column(Enum(ADD, DEL), nullable=False)
-#			name = Column(Unicode, nullable=False,)
-#			article_id = Column(ForeignKey(CMSArticlesMeta.D1.CMSArticle.id), 
-#				nullable=False)
-#			article = relationship(CMSArticlesMeta.D1.CMSArticle)
-#			created = Column(DateTime, default=datetime.datetime.utcnow)
-#		
-#		desc = 'new table'
-#		model = CMSAddressHistory
-#		
-#		def upgrade(self, engine, session):
-#			self.model.__table__.create(engine)
-#		
-#		def downgrade(self, engine, session):
-#			self.model.__table__.drop(engine)
-#
-#
-#	uuid = 'urn:uuid:1fc5c229-f387-4a29-9def-5f583ea03c57'
-#	defs = (D1,)
-
+ResPoolText = respool.ResPoolTextMeta.D1.ResPoolText
+ResPoolFile = respool.ResPoolFileMeta.D1.ResPoolFile
 
 class CMSHistoryMeta(database.TableMeta):
 	class D1(database.TableMeta.Def):
@@ -251,16 +123,10 @@ class CMSHistoryMeta(database.TableMeta):
 				primary_key=True)
 			article = relationship(CMSArticlesMeta.D1.CMSArticle)
 			version = Column(Integer, primary_key=True)
-			text_id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id))
-			text = relationship(CMSTextsMeta.D1.CMSText, 
-				primaryjoin=text_id==CMSTextsMeta.D1.CMSText.id)
-			meta_id = Column(ForeignKey(CMSTextsMeta.D1.CMSText.id))
-			meta = relationship(CMSTextsMeta.D1.CMSText,
-				primaryjoin=meta_id==CMSTextsMeta.D1.CMSText.id)
-			upload_id = Column(ForeignKey(CMSUploadsMeta.D1.CMSUpload.id))
-			upload = relationship(CMSUploadsMeta.D1.CMSUpload)
-			reason = Column(Unicode(length=255))
-			upload_filename = Column(Unicode)
+			text_id = Column(ForeignKey(ResPoolText.id))
+			data_id = Column(ForeignKey(ResPoolText.id))
+			file_id = Column(ForeignKey(ResPoolFile.id))
+			reason = Column(ForeignKey(ResPoolText.id))
 			created = Column(DateTime, default=datetime.datetime.utcnow)
 			uuid = Column(LargeBinary(length=16), default=lambda:uuid.uuid4().bytes, index=True)
 			account_id = Column(ForeignKey(accounts.AccountsMeta.D1.Account.id))
@@ -279,20 +145,51 @@ class CMSHistoryMeta(database.TableMeta):
 	defs = (D1,)
 
 
+class CMSAddressesMeta(database.TableMeta):
+	class D1(database.TableMeta.Def):
+		class CMSAddress(database.TableMeta.Def.base()):
+			__tablename__ = 'cms_addresses'
+			
+			id = Column(Integer, primary_key=True)
+			name = Column(Unicode(length=160), nullable=False, unique=True, index=True)
+			article_id = Column(ForeignKey(CMSArticlesMeta.D1.CMSArticle.id),
+				nullable=False)
+			article = relationship(CMSArticlesMeta.D1.CMSArticle, 
+				collection_class=set)
+		
+		desc = 'new table'
+		model = CMSAddress
+		
+		def upgrade(self, engine, session):
+			self.model.__table__.create(engine)
+		
+		def downgrade(self, engine, session):
+			self.model.__table__.drop(engine)
+
+	uuid = 'urn:uuid:02e2bb62-81c2-4b50-8417-e26d3011da61'
+	defs = (D1,)
+
+
 class CMSArticleTreeMeta(database.TableMeta):
 	class D1(database.TableMeta.Def):
 		class CMSArticleTree(database.TableMeta.Def.base()):
 			__tablename__ = 'cms_article_tree'
 			
-			id = Column(Integer, primary_key=True)
 			article_id = Column(ForeignKey(CMSArticlesMeta.D1.CMSArticle.id), 
-				nullable=False)
+				primary_key=True)
 			article = relationship(CMSArticlesMeta.D1.CMSArticle,
 				primaryjoin=article_id==CMSArticlesMeta.D1.CMSArticle.id)
-			child_id = Column(ForeignKey(CMSArticlesMeta.D1.CMSArticle.id), 
-				nullable=False)
-			child = relationship(CMSArticlesMeta.D1.CMSArticle,
-				primaryjoin=child_id==CMSArticlesMeta.D1.CMSArticle.id)
+			parent_article_id = Column(ForeignKey(CMSArticlesMeta.D1.CMSArticle.id),
+				primary_key=True)
+			parent_article = relationship(CMSArticlesMeta.D1.CMSArticle,
+				primaryjoin=article_id==CMSArticlesMeta.D1.CMSArticle.id)
+			
+			@property
+			def children(self):
+				session = sqlalchemy.orm.session.Session.object_session(self)
+				query = session.query(self.__class__) \
+					.filter_by(parent_article_id=self.article_id)
+				return query
 	
 		desc = 'new table'
 		model = CMSArticleTree
@@ -302,70 +199,67 @@ class CMSArticleTreeMeta(database.TableMeta):
 		
 		def downgrade(self, engine, session):
 			self.model.__table__.drop(engine)
+		
+
 
 	uuid = 'urn:uuid:b4227b69-c4ce-47e6-910a-e5b9f7c1f8df'
 	defs = (D1,)
 
-#class CMSArticleTreeHistoryMeta(database.TableMeta):
-#	class D1(database.TableMeta.Def):
-#		class CMSArticleTreeHistory(database.TableMeta.Def.base()):
-#			__tablename__ = 'cms_article_tree_history'
-#			
-#			id = Column(Integer, primary_key=True)
-#			article_id = Column(ForeignKey(CMSArticlesMeta.D1.CMSArticle.id), 
-#				nullable=False)
-#			article = relationship(CMSArticlesMeta.D1.CMSArticle,
-#				primaryjoin=article_id==CMSArticlesMeta.D1.CMSArticle.id)
-#			child_id = Column(ForeignKey(CMSArticlesMeta.D1.CMSArticle.id), 
-#				nullable=False)
-#			child = relationship(CMSArticlesMeta.D1.CMSArticle,
-#				primaryjoin=child_id==CMSArticlesMeta.D1.CMSArticle.id)
-#			reason = Column(Unicode)
-#			created = Column(DateTime, default=datetime.datetime.utcnow)
-#			action = Column(Enum(ADD, DEL), nullable=False)
-#	
-#		desc = 'new table'
-#		model = CMSArticleTreeHistory
-#		
-#		def upgrade(self, engine, session):
-#			self.model.__table__.create(engine)
-#		
-#		def downgrade(self, engine, session):
-#			self.model.__table__.drop(engine)
-#
-#	uuid = 'urn:uuid:0f623308-1044-4aed-bf05-f0bcf4752eb7'
-#	defs = (D1, )
-
 
 class CMS(base.BaseComponent):
+	GET = 'g'
+	GET_VERSION = 'v'
+	BROWSE = 'b'
+	ALL = 'a'
+	ARTICLES = 't'
+	FILES = 'f'
+	HISTORY = 'h'
+	NEW = 'n'
+	EDIT = 'e'
+	UPLOAD = 'u'
+	RAW = 'r'
+	EDIT_VIEW = 'd'
+	
 	def init(self):
 		db = self.context.get_instance(database.Database)
-		db.add(CMSTextsMeta)
-		db.add(CMSUploadsMeta)
-		db.add(CMSTextReferencesMeta)
-		db.add(CMSUploadReferencesMeta)
 		db.add(CMSArticlesMeta)
 		db.add(CMSArticleTreeMeta)
 		db.add(CMSHistoryMeta)
 		db.add(CMSAddressesMeta)
+		
+		restpub.template_callback = self._restpub_template_callback
+	
+	def _restpub_template_callback(self, name):
+		article = self.get_article(address=name)
+		
+		if article:
+			return article.current.text
+		
+		article = self.get_article(uuid=uuid.UUID(name).bytes)
+		
+		if article:
+			return article.current.text
 	
 	def setup(self):
 		self._db = self.context.get_instance(database.Database)
+		self._cms = self.context.get_instance(CMS)
+		self._acc = self.context.get_instance(accounts.Accounts)
+		self._doc = self.context.get_instance(wui.Document)
 	
 	def new_article(self):
 		'''Create a new article
 		
-		:rtype: `Article`
+		:rtype: `ArticleWrapper`
 		'''
 		
 		model = self._db.models.CMSArticle()
-		self._db.session.add(model)
-		return Article(self.context, self, model)
+		model.account_id = self._acc.account_id
+		return ArticleWrapper(self.context, model)
 	
 	def get_article(self, id=None, uuid=None, address=None):
 		'''Get an article by its ID
 		
-		:rtype: `Article`
+		:rtype: `ArticleWrapper`
 		'''
 		
 		model = None
@@ -390,12 +284,12 @@ class CMS(base.BaseComponent):
 			model = query.first()
 			
 		if model:
-			return Article(self.context, self, model)
+			return ArticleWrapper(self.context, model)
 	
 	def get_article_history(self, id=None, uuid=None):
 		'''Get a single article history by ID
 		
-		:rtype: `ArticleHistory`
+		:rtype: `ArticleHistoryReadWrapper`
 		'''
 		
 		query = self._db.session.query(self._db.models.CMSHistory)
@@ -408,13 +302,13 @@ class CMS(base.BaseComponent):
 		model = query.first()
 		
 		if model:
-			return ArticleHistory(self.context, self, model) 
+			return ArticleHistoryReadWrapper(self.context, model) 
 	
 	def get_articles(self, offset=0, limit=51, date_sort_desc=False):
 		'''Get a list of articles
 		
 		:rtype: `list`
-		:returns: a `list` of `Article`
+		:returns: a `list` of `ArticleWrapper`
 		'''
 		
 		query = self._db.session.query(self._db.models.CMSArticle)
@@ -428,7 +322,7 @@ class CMS(base.BaseComponent):
 		l = []
 		
 		for model in query[offset:offset+limit]:
-			l.append(Article(self.context, self, model))
+			l.append(ArticleWrapper(self.context, model))
 		
 		return l
 	
@@ -461,7 +355,7 @@ class CMS(base.BaseComponent):
 		i = 0
 		
 		for model in query[offset:offset+limit]:
-			ah = ArticleHistory(self.context, self, model)
+			ah = ArticleHistoryReadWrapper(self.context, model)
 			ah._number = i
 			l.append(ah)
 			
@@ -469,286 +363,236 @@ class CMS(base.BaseComponent):
 		
 		return l
 	
-	def _get_db(self):
-		return self.context.get_instance(database.Database)
-	
-	def _get_text_model(self, id):
-		db = self._get_db()
-		query = db.session.query(db.models.CMSText)
-		query = query.filter_by(id=id)
-		model = query.first()
-		
-		return model
-	
-	def _get_text(self, id):
-		model = self._get_text_model(id)
-		
-		return model.text if model else None
-	
-	def _set_text(self, id, text):
-		if id is not None:
-			model = self._get_text_model(id)
-		else:
-			db = self._get_db()
-			model = db.models.CMSText()
-			db.session.add(model)
-			db.session.flush()
-		
-		model.text = text
-		
-		return model.id
-	
-	def _get_pooled_text_id(self, text, create=False):
-		sha256_obj = hashlib.sha256(text)
-		digest = sha256_obj.digest()
-		
-		db = self._get_db()
-		
-		query = db.session.query(db.models.CMSTextReference)
-		query = query.filter_by(hash256=digest)
-		result = query.first()
-		
-		if result:
-			return result.text.id
-		elif create:
-			ref_model = db.models.CMSTextReference()
-			ref_model.hash256 = digest
-			ref_model.id = self._set_text(None, text)
-			
-			db.session.add(ref_model)
-			
-			return ref_model.id
-	
-	def _get_file_path(self, id):
-		hash_val = str(id % FILE_DIR_HASH)
-		filename = util.bytes_to_b32low(util.int_to_bytes(id))
-		path = os.path.join(self.context.dirinfo.upload, hash_val, filename)
-		return path
-	
-	def _get_file(self, id):
-		path = self._get_file_path(id)
-		
-		if os.path.exists(path):
-			return open(path, 'rb')
-	
-	def _add_file(self, file_obj, filename=None):
-#		while True:
-#			id = random.randint(0, FILE_MAX)
-#			path = self._get_file_path(id)	
-#			if not os.path.exists(path):
-#				break
-		db = self._get_db()
-		model = db.models.CMSUpload()
-		model.filename = filename
-		db.session.add(model)
-		db.session.flush()
-		
-		id = model.id
-		path = self._get_file_path(id)
-		
-		# Make dir if needed
-		dirname = os.path.dirname(path)
-		
-		if not os.path.exists(dirname):
-			os.mkdir(dirname)
-		
-		f_dest = open(path, 'wb')
-		
-		shutil.copyfileobj(file_obj, f_dest)
-		f_dest.close()
-		
-		return id
-	
-	def _get_pooled_file_id(self, file_obj, create=False):
-		sha256_obj = hashlib.sha256()
-		
-		while True:
-			v = file_obj.read(2**12)
-			
-			if v == '':
-				break
-			
-			sha256_obj.update(v)
-		
-		digest = sha256_obj.digest()
-		
-		db = self._get_db()
-		query = db.session.query(db.models.CMSUploadReference)
-		query = query.filter_by(sha256=digest)
-		result = query.first()
-		
-		if result:
-			return result.id
-		elif create:
-			ref_model = db.models.CMSUploadReference()
-			ref_model.sha256 = digest
-			file_obj.seek(0)
-			ref_model.id = self._add_file(file_obj)
-			
-			db.session.add(ref_model)
-			
-			return ref_model.id
-	
 	def serve(self):
-		self.context.response.ok()
-		ok = True
-		cms = self.context.get_instance(CMS)
-		acc = self.context.get_instance(accounts.Accounts)
-		doc = self.context.get_instance(wui.Document)
-		max_item_limit = 100
+		arg1 = None
+		arg2 = None
 		
-		if len(self.context.request.args) == 1:
+		if len(self.context.request.args) >= 1:
 			arg1 = self.context.request.args[0]
-			
-			article = None
-			
-			try:
-				uuid_bytes = util.b32low_to_bytes(arg1)
-			except TypeError:
-				uuid_bytes = None
-				
-			article = cms.get_article(uuid=uuid_bytes)
-			
-			if not article:
-				article = cms.get_article(address=arg1)
+		if len(self.context.request.args) == 2:
+			arg2 = self.context.request.args[1]
+		elif len(self.context.request.args) > 2:
+			arg1 = None
+			arg2 = None
+		
+		self._doc.title = 'test %s %s' % (arg1, arg2)
+		
+		if arg1 and not arg2:
+			article = self.get_article(address=arg1)
 			
 			if article:
-				doc.title = article.title
-				doc.append(dataobject.MVPair(article, article_format='full'))
-				ok = True
+				self.context.response.ok()
+				self._build_article_page(article.current)
+				
+		elif arg1 == self.GET and arg2:
+			uuid_bytes = util.b32low_to_bytes(arg2)
+			article = self.get_article(uuid=uuid_bytes)
 			
-		elif len(self.context.request.args) == 2:
-			action, arg2 = self.context.request.args
+			if article:
+				self.context.response.ok()
+				self._build_article_page(article)
+		
+		elif arg1 == self.GET_VERSION and arg2:
+			uuid_bytes = util.b32low_to_bytes(arg2)
+			article = self.get_article_history(uuid=uuid_bytes)
 			
-			uuid_bytes = lambda: util.b32low_to_bytes(arg2)
+			if article:
+				self.context.response.ok()
+				self._build_article_version(article)
+		
+		elif arg1 == self.BROWSE and arg2:
+			self.context.response.ok()
 			
-			if action in ('edit', 'new'):
-				if not acc.is_authenticated():
-					doc.add_message(u'Please sign in before editing')
-					return
-				
-				if 'submit-preview' in self.context.request.form:
-					article = self._process_edit_form()
-					doc_info = article.parse_text()
-					
-					if doc_info.title:
-						doc.title = u'Editing %s' % doc_info.title
-					
-					doc.add_message(u'This is only a preview', 'Your changes have not been saved!')
-					
-					if doc_info.errors:
-						doc.add_message(u'There are syntax errors in the document',
-							doc_info.errors)
-					
-					doc.append(dataobject.MVPair(article, article_format='preview'))
-					
-				elif 'submit-publish' in self.context.request.form:
-					article = self._process_edit_form(save=True)
-					doc.add_message(u'Article successfully saved')
-					return
-				
-				if action == 'new':
-					if arg2 == 'upload':
-						doc.append(self._build_edit_form(type='upload'))
-					else:
-						doc.append(self._build_edit_form())
-				else:
-					article = cms.get_article(uuid=uuid_bytes())
-					
-					if article:
-						doc.append(self._build_edit_form(article))
-					else:
-						ok = False
-				
-			elif action == 'history':
-				page_info = self.context.page_info(limit=max_item_limit)
-				
-				if arg2 == 'all':
-					history = cms.get_histories(page_info.offset, 
-						page_info.limit + 1, date_sort_desc=True)
-				else:
-					article = cms.get_article(uuid=uuid_bytes())
-					history = article.get_history(page_info.offset, 
-						page_info.limit + 1, date_sort_desc=True)
-					
-				table = models.Table()
-				table.header = ('Version', 'Date', 'Title', '')
-				
-				count = 0
-				for info in history:
-					table.rows.append((
-						str(info.version_number), 
-						str(info.created), 
-						info.metadata.get('title', info.upload_filename or ''),
-						self.context.str_url(fill_controller=True,
-							args=('getversion', util.bytes_to_b32low(info.uuid))),
-						))
-					
-					count += 1
-					if count > max_item_limit:
-						page_info.more = True
-						break
-				
-				doc.append(dataobject.MVPair(table, 
-					row_views=(None, None, None, views.ToURLView)))
-				doc.append(dataobject.MVPair(page_info, views.PagerView))
-			
-			elif action == 'browse':
-				if arg2 == 'text':
-					pass
-				elif arg2 == 'upload':
-					pass
-				elif arg2 == 'all':
-					articles = cms.get_articles(0, date_sort_desc=True)
-					table = models.Table()
-					table.headers = ('Title', 'Date')
-					
-					for info in articles:
-						table.rows.append((
-							lxmlbuilder.A(str(info.title), 
-								href=self.context.str_url(fill_controller=True,
-									args=(util.bytes_to_b32low(info.uuid),))),
-							str(info.date), 
-						))
-					doc.append(dataobject.MVPair(table))
-				else:
-					ok = False
-			
-			elif action == 'getversion':
-				article = cms.get_article_history(uuid=uuid_bytes())
-				if article:
-					doc.append(dataobject.MVPair(article, article_format='history'))
-				else:
-					ok = False
-			elif action == 'raw':
-				article = cms.get_article(uuid=uuid_bytes()) \
-					or cms.get_article_history(uuid=uuid_bytes())
-				
-				if 'created' in dir(article):
-					self.context.response.headers['last-modified'] = str(article.created)
-				else:
-					history = article.get_latest_history()
-					
-					if history:
-						self.context.response.headers['last-modified'] = str(history.created)
-				
-				if article.text:
-					self.context.response.set_content_type('text/plain')
-					return [article.text.encode('utf8')]
-				else:
-					return self.context.response.output_file(article.filename)
+			if arg2 == self.ARTICLES:
+				self._build_article_listing(True, False)
+			elif arg2 == self.FILES:
+				self._build_article_listing(False, True)
 			else:
-				ok = False
+				self._build_article_listing()
+		
+		elif arg1 == self.HISTORY and arg2:
+			uuid_bytes = util.b32low_to_bytes(arg2)
+			article = self.get_article(uuid=uuid_bytes)
 			
-		if not ok:
-			self.context.response.set_status(404)
-			raise Exception('Not found')
+			if article:
+				self.context.response.ok()
+				self._build_article_history_listing(article)
+		
+		elif arg1 in (self.EDIT, self.UPLOAD) and arg2:
+			edit_type = self.FILES
+			
+			if arg1 == self.UPLOAD:
+				edit_type = self.UPLOAD
+			
+			if arg2 != self.NEW:
+				uuid_bytes = util.b32low_to_bytes(arg2)
+				article = self.get_article(uuid=uuid_bytes)
+				article_version = article.edit()
+			else:
+				article = self.new_article()
+				article_version = article.edit()
+			
+			self.context.response.ok()
+			
+			if arg1 == self.EDIT:
+				self._build_article_preview(article_version)
+				self._build_article_edit_page(article_version)
+			else:
+				self._build_upload_page(article_version)
+		
+		elif arg1 == self.RAW and arg2:
+			uuid_bytes = util.b32low_to_bytes(arg2)
+			article = self.get_article_history(uuid=uuid_bytes)
+			
+			if article:
+				self.context.response.ok()
+				return self._serve_raw(article)
+		
+		elif arg1 == self.EDIT_VIEW and arg2:
+			uuid_bytes = util.b32low_to_bytes(arg2)
+			article = self.get_article(uuid=uuid_bytes)
+			article_version = article.edit()
+			
+			self.context.response.ok()
+			self._build_article_edit_view_page(article_version)
 	
-
-	def _build_edit_form(self, article=None, type='article',
+	def _build_article_page(self, article):
+		self._doc.title = article.title
+		self._doc.append(dataobject.MVPair(article))
+	
+	def _build_article_version(self, article_history):
+		self._doc.title = u'Viewing past version: %s' % article_history.title
+		self._doc.append(dataobject.MVPair(article_history))
+	
+	def _build_article_preview(self, article_history):
+		doc_info = article_history.doc_info
+		
+		if article_history.title:
+			self._doc.title = u'Editing %s' % article_history.title
+		
+		self._doc.add_message(u'This is only a preview', 'Your changes have not been saved!')
+		
+		if doc_info and doc_info.errors:
+			self._doc.add_message(u'There are syntax errors in the document',
+				doc_info.errors)
+		
+		self._doc.append(dataobject.MVPair(article_history, 
+			article_format=ArticleView.ARTICLE_FORMAT_PREVIEW))
+	
+	def _build_article_listing(self, show_articles=True, show_files=True):
+		page_info = self.context.page_info(limit=50)
+		articles = self.get_articles(page_info.offset, page_info.limit + 1,
+			date_sort_desc=True)
+		
+		table = models.Table()
+		table.headers = ('Title', 'Date')
+		
+		counter = 0
+		for info in articles:
+			table.rows.append((
+				(info.title, self.context.str_url(fill_controller=True,
+					args=(util.bytes_to_b32low(info.uuid),))), 
+				str(info.date), 
+			))
+			
+			counter += 1
+			if counter > 50:
+				page_info.more = True
+				break
+		
+		self._doc.append(dataobject.MVPair(page_info, views.PagerView))
+		self._doc.append(dataobject.MVPair(table, 
+			row_views=(views.LabelURLToLinkView, None)))
+		self._doc.append(dataobject.MVPair(page_info, views.PagerView))
+	
+	def _build_article_history_listing(self, article):
+		page_info = self.context.page_info(limit=50)
+			
+		table = models.Table()
+		table.header = ('Version', 'Date', 'Title')
+				
+		counter = 0
+		for info in article.get_history(page_info.offset, page_info.limit):
+			url = self.context.str_url(fill_controller=True,
+				args=(self.GET_VERSION, util.bytes_to_b32low(info.uuid)))
+			
+			table.rows.append((
+				str(info.version), 
+				str(info.created), 
+				(info.title or info.upload_filename or '(untitled)', url),
+			))
+					
+			counter += 1
+			if count > 50:
+				page_info.more = True
+				break
+		
+		self._doc.append(dataobject.MVPair(page_info, views.PagerView))
+		self._doc.append(dataobject.MVPair(table, 
+			row_views=(None, None, views.LabelURLToLinkView)))
+		self._doc.append(dataobject.MVPair(page_info, views.PagerView))
+	
+	def _serve_raw(self, article_history):
+		self.context.response.headers['last-modified'] = str(article_history.date)
+				
+		if article_history.text:
+			self.context.response.set_content_type('text/plain')
+			return [article_history.text.encode('utf8')]
+		else:
+			return self.context.response.output_file(
+				article_history.file.filename,
+				download_filename=article_history.upload_filename)
+	
+	def _build_upload_page(self, article_version):
+		form = models.Form(models.Form.POST, 
+			self.context.str_url(fill_path=True, 
+				fill_args=True, fill_params=True, fill_query=True))
+		
+		
+		
+		if not self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER) and False:
+			self._doc.add_message('Sorry, you cannot upload files', 
+				'You do not have the permissions necessary to upload files')
+			
+			return
+		
+		if 'submit-publish' in self.context.request.form:
+			filename = self.context.request.form.getfirst('filename') \
+				or self.context.request.form['file'].filename
+			article_version.upload_filename = filename
+			article_version.file = self.context.request.form['file'].file
+			article_version.reason = self.context.request.form.getfirst('reason')
+			
+			if not article_version.addresses:
+				article_version.addresses = article_version.addresses | \
+					frozenset([filename])
+			
+			assert filename
+			
+			article_version.save()
+			
+			self._doc.add_message('Upload was a success')
+			
+			return
+		
+		self._doc.add_message('Please name your file uniquely and carefully')
+		
+		form.textbox('filename', 'Filename (optional):')
+		form.textbox('file', 'File:', validation=form.Textbox.FILE, required=True)
+		form.textbox('reason', 'Reason or changes:')
+		form.button('submit-publish', 'Upload')
+		
+		self._doc.append(dataobject.MVPair(form))
+		
+	
+	def _build_article_edit_page(self, article_version):
+		form = models.Form(models.Form.POST, 
+			self.context.str_url(fill_path=True, 
+				fill_args=True, fill_params=True, fill_query=True))
+		
+	
+	def _build_edit_form(self, article_history=None, type='article',
 	allow_metadata=True, allow_reason=True):
-		form = models.Form(models.Form.POST, self.context.str_url(fill_path=True, 
-			fill_args=True, fill_params=True, fill_query=True))
 		
 		addresses = None
 		date = None
@@ -878,6 +722,8 @@ class ArticleView(dataobject.BaseView):
 	PLAIN_TEXT = 'plain'
 	RESTRUCTUREDTEXT = 'rest'
 	
+	ARTICLE_FORMAT_PREVIEW = 'preview'
+	
 	@classmethod
 	def to_html(cls, context, model, article_format='full'):
 		element = lxmlbuilder.E.article(CLASS='article')
@@ -885,13 +731,13 @@ class ArticleView(dataobject.BaseView):
 		if article_format in ('full', 'history'):
 			author_name = u'(unknown)'
 			
-			if model._model.account:
+			if model._model.account and model._model.account.nickname:
 				author_name = model._model.account.nickname
 			
 			if article_format == 'history':
 				date = model.created
 			else:
-				date = model.date
+				date = model.publish_date or model.date
 			
 			e = lxmlbuilder.E.aside(
 				lxmlbuilder.SPAN(u'(%s)' % date, CLASS='articleInfoDate'),
@@ -904,26 +750,32 @@ class ArticleView(dataobject.BaseView):
 			
 			element.append(e)
 		
-		doc_info = model.parse_text()
+		if model.text:
+			doc_info = model.doc_info
+			assert doc_info
+			
+			meta_table = lxmlbuilder.TABLE()
+			
+			for n, v in doc_info.meta.iteritems():
+				tr = lxmlbuilder.TR(
+					lxmlbuilder.TH(n), lxmlbuilder.TD(v)
+				)
+				meta_table.append(tr)
+			
+			element.append(meta_table)
+			
+			if doc_info.errors:
+				e = lxmlbuilder.PRE(model.text)
+			else:
+				e = lxml.html.fromstring(doc_info.html_parts['fragment'] or '<div></div>')
+			
+			element.append(e)
 		
-		assert doc_info
-		
-		meta_table = lxmlbuilder.TABLE()
-		
-		for n, v in doc_info.meta.iteritems():
-			tr = lxmlbuilder.TR(
-				lxmlbuilder.TH(n), lxmlbuilder.TD(v)
-			)
-			meta_table.append(tr)
-		
-		element.append(meta_table)
-		
-		if doc_info.errors:
-			e = lxmlbuilder.PRE(model.text)
-		else:
-			e = lxml.html.fromstring(doc_info.html_parts['fragment'] or '<div></div>')
-		
-		element.append(e)
+		elif model.file:
+			url = context.str_url(fill_controller=True, 
+				args=[CMS.RAW, util.bytes_to_b32low(model.uuid.bytes)])
+			
+			element.append(lxmlbuilder.IMG(src=url)) 
 		
 		ul = lxmlbuilder.UL(CLASS='articleActions')
 		
@@ -932,21 +784,21 @@ class ArticleView(dataobject.BaseView):
 		
 		if article_format in ('full', 'history'):
 			add('Raw', context.str_url(
-				args=('raw', util.bytes_to_b32low(model.uuid)),
+				args=('raw', util.bytes_to_b32low(model.uuid.bytes)),
 				fill_controller=True,
 			))
 		
 		if article_format == 'full':
 			add('Edit', context.str_url(
-				args=('edit', util.bytes_to_b32low(model.uuid),),
+				args=('edit', util.bytes_to_b32low(model.uuid.bytes),),
 				fill_controller=True,
 			))
 			add('History', context.str_url(
-				args=('history', util.bytes_to_b32low(model.uuid),),
+				args=('history', util.bytes_to_b32low(model.uuid.bytes),),
 				fill_controller=True,
 			))
 			add('Reply', context.str_url(
-				args=('reply', util.bytes_to_b32low(model.uuid),),
+				args=('reply', util.bytes_to_b32low(model.uuid.bytes),),
 				fill_controller=True,
 			))
 		elif article_format == 'history':
@@ -959,27 +811,13 @@ class ArticleView(dataobject.BaseView):
 		
 		return element
 
-class _ArticleBase(dataobject.ProtectedObject, dataobject.BaseModel):
-	TEXT = 'text'
-	PARENTS = 'parents'
-	ADDRESSES = 'addresses'
-	DATE = 'date'
-	TITLE = 'title'
-	
-	def __init__(self, context, cms, model):
+class ArticleWrapper(dataobject.ProtectedObject):
+	def __init__(self, context, model):
 		self._context = context
-		self._cms = cms
 		self._model = model
+		self._cms = context.get_instance(CMS)
 		self._db = context.get_instance(database.Database)
-		self._text = None
-		self._file = None
-		self._metadata = None
-		self._dirty_articles = set()
-#		self._text_format = self.ArticleView.RESTRUCTUREDTEXT
-		self._parsed_text_meta = None
-		self._date = None
-		self._title = None
-	
+		
 	def __hash__(self):
 		return self._model.__hash__()
 	
@@ -993,336 +831,54 @@ class _ArticleBase(dataobject.ProtectedObject, dataobject.BaseModel):
 		return self._model.id
 	
 	@property
+	def owner_account(self):
+		return self._model.account
+	
+	@property
+	def current(self):
+		if self._model.version:
+			query = self._db.session.query(self._db.models.CMSHistory) \
+				.filter_by(article_id=self.id) \
+				.filter_by(version=self._model.version)
+			
+			model = query.first()
+			
+			if model:
+				return ArticleHistoryReadWrapper(self._context, model)
+	
+	@property
 	def uuid(self):
 		'''Get the UUID for this article
 		
 		The UUID encompasses the history set of this article
 		
-		:rtype: `bytes`
+		:rtype: `uuid.UUID`
 		'''
 		
-		return self._model.uuid
-	
-	@property
-	def text_format(self):
-		'''Get the format of the text'''
-		
-		return self._text_format
-	
-	@property
-	def text_format(self, v):
-		self._text_format = v
-	
-	def parse_text(self):
-		if not self._parsed_text_meta and self.text:
-			self._parsed_text_meta = restpub.publish_text(self.text)
-		return self._parsed_text_meta
-	
-	@property
-	def metadata(self):
-		'''Get the metadata
-		
-		:rtype: `dict`
-		'''
-		
-		if self._metadata is None:
-			if self._model.meta:
-				self._metadata = json.loads(self._model.meta.text)
-			else:
-				self._metadata = {}
-			
-		return self._metadata
-	
-	@property
-	def text(self):
-		'''Get the text
-		
-		:rtype: `unicode`
-		'''
-		
-		if self._text:
-			return self._text
-		
-		if self._model.text:
-			return self._model.text.text
-	
-	@property
-	def filename(self):
-		'''Get the disk filename of this file
-		
-		:rtype: `unicode`
-		'''
-		
-		if self._model.upload:
-			return self._cms._get_file_path(self._model.upload.id)
-	
-	@property
-	def file(self):
-		'''Get a read-only `file` instance to the file
-		
-		:rtype: `file`
-		'''
-		
-		filename = self.filename
-		
-		if filename:
-			return open(filename, 'rb')
-	
-	@property
-	def addresses(self):
-		'''Get a list of addresses for this article
-		
-		:rtype: `list`
-		'''
-		
-		return frozenset(self.metadata.get(self.ADDRESSES, []))
+		return uuid.UUID(bytes=self._model.uuid)
 	
 	@property
 	def parents(self):
-		'''Get parent articles for this article
-		
-		:rtype: `set`
-		'''
-		
-		parents = self.metadata.get(self.PARENTS, [])
-		
-		l = set()
-		for parent_uuid in parents:
-			parent_uuid = parent_uuid.decode('hex')
-			l.add(self._cms.get_article(uuid=parent_uuid))
-		
-		return frozenset(l)
+		return self.current.parents
 	
 	@property
 	def children(self):
-		'''Get child articles for this article
+		query = self._db.session.query(self._db.models.CMSArticleTree) \
+			.filter_by(article_id=self._model.id)
 		
-		:rtype: `set`
-		'''
+		tree_model = query.first()
 		
-		query = self._db.session.query(self._db.models.CMSArticleTree)
-		query = query.filter_by(article_id=self._model.id)
+		l = []
 		
-		l = set()
-		for model in query:
-			article = Article(self._context, self._cms, model.child)
-			l.add(article)
+		if tree_model:
+			for m in tree_model.children:
+				article = self._cms.get_article(id=m.article_id)
+				
+				if article:
+					l.append(article)
 		
 		return frozenset(l)
-
-
-class ArticleHistory(_ArticleBase):
-	default_view = ArticleView
 	
-	@property
-	def result_number(self):
-		return self._number
-	
-	@property
-	def version_number(self):
-		return self._model.version
-	
-	@property
-	def upload_filename(self):
-		'''Get the originally uploaded filename'''
-		
-		if self._model.upload:
-			return self._model.upload_filename
-	
-	@property
-	def created(self):
-		'''Get when the article was edited
-		
-		:rtype: `datetime.Datetime`
-		'''
-		return self._model.created
-	
-	@property
-	def current_article(self):
-		return self._cms.get_article(id=self._model.article_id)
-
-class Article(_ArticleBase):
-	default_view = ArticleView
-	
-	@property
-	def date(self):
-		'''Get the most recent version of the published date
-		
-		:see:
-			See `ArticleHistory.created` for info on how to get the date
-			in which the article was edited.
-		
-		:rtype: `datetime.Datetime`
-		'''
-		return  self.metadata.get(self.DATE) or self._model.date
-	
-	@property
-	def title(self):
-		'''Get the most recent version of the published title
-		
-		:see:
-			See `Article.get_metadata` or `ArticleHistory.get_metadata`
-			to retrieve other possible metadata
-		
-		:rtype:`unicode`
-		'''
-		
-		return self.metadata.get(self.TITLE) or self._model.title
-	
-	@date.setter
-	def date(self, d):
-		self.metadata[self.DATE] = d
-	
-	@title.setter
-	def title(self, s):
-		self.metadata[self.TITLE] = s
-	
-	@_ArticleBase.parents.setter
-	def parents(self, parent_articles):
-		
-		if parent_articles:
-			parent_article_uuids = []
-			for article in iter(frozenset(parent_articles)):
-				parent_article_uuids.append(article.uuid.encode('hex'))
-			
-			self.metadata[self.PARENTS] = parent_article_uuids
-		
-		elif self.PARENTS in self.metadata:
-			del self.metadata[self.PARENTS]
-	
-#	@_ArticleBase.children.setter
-#	def children(self, child_articles):
-#		for child in child_articles:
-#			child.parents = child.parents | frozenset((self,))
-#			self._dirty_articles.add(child)
-	
-	@_ArticleBase.addresses.setter
-	def addresses(self, addresses):
-		if addresses:
-			self.metadata[self.ADDRESSES] = list(frozenset(addresses))
-		elif self.ADDRESSES in self.metadata:
-			del self.metadata[self.ADDRESSES]
-		
-	def set_file(self, file_obj=None, path=None, upload_filename=None):
-		self._file = (file_obj, path, upload_filename)
-	
-	@_ArticleBase.text.setter
-	def text(self, t):
-		assert isinstance(t, unicode)
-		self._text = t
-	
-	def get_latest_history(self):
-		histories = self._cms.get_histories(0, 1, date_sort_desc=True, 
-			article_id=self._model.id)
-		
-		if histories:
-			return histories[0]
-	
-	def save(self, reason=None):
-		history_model = self._db.models.CMSHistory()
-		
-		latest_history = self.get_latest_history()
-		
-		if latest_history:
-			history_model.version = latest_history.version_number + 1
-		else:
-			history_model.version = 0
-		
-		model = self._model
-		
-		if self.DATE in self.metadata:
-			o = self.metadata[self.DATE]
-			
-			if isinstance(o, datetime.datetime):
-				date_datetime = o
-				date_str = str(o)
-			else:
-				date_str = o
-				date_datetime = iso8601.parse_date(o)
-			
-			model.date = date_datetime
-			self.metadata[self.DATE] = date_str
-			
-		if self.metadata:
-			model.metadata_id = self._cms._get_pooled_text_id(
-				json.dumps(self.metadata), create=True)
-		
-		model.title = self.metadata.get('title')
-		
-		if self._file:
-			file_obj, path, upload_filename = self._file
-			model.upload_id = self._cms._get_pooled_file_id(file_obj or open(path, 'rb'), create=True)
-			history_model.upload_filename = upload_filename
-		
-		query = self._db.session.query(self._db.models.CMSAddress)
-		query = query.filter_by(article_id=self._model.id)
-		
-		if self.addresses:
-			# If this condition is removed, then contradictions may occur
-			query = query.filter(~self._db.models.CMSAddress.name.in_(self.addresses))
-		
-		query.delete(synchronize_session='fetch')
-		
-		for address in self.addresses:
-			query = self._db.session.query(self._db.models.CMSAddress)
-			query = query.filter_by(name=address)
-			
-			model = query.first()
-			
-			if not model:
-				model = self._db.models.CMSAddress()
-				self._db.session.add(model)
-				model.name = address
-				model.article = self._model
-			elif model.article_id != self._model.id:
-				raise Exception(u'Address ‘%s’ already used for article ‘%s’' \
-					% (address, self._model.id))
-			
-		CMSArticleTree = self._db.models.CMSArticleTree
-		query = self._db.session.query(self._db.models.CMSArticleTree)
-		query = query.filter_by(child_id=self._model.id)
-		
-		if self.parents:
-			# If this condition is removed, then contradictions may occur
-			query = query.filter(~CMSArticleTree.article_id.in_(
-				map(lambda article: article._model.id, self.parents)))
-		
-		query.delete(synchronize_session='fetch')
-		
-		for parent in self.parents:
-			query = self._db.session.query(self._db.models.CMSArticleTree)
-			query = query.filter_by(article_id=parent._model.id, 
-				child_id=self._model.id)
-			
-			model = query.first()
-			
-			if model:
-				continue
-			
-			model = self._db.models.CMSArticleTree()
-			self._db.session.add(model)
-			model.article_id = parent._model.id
-			model.child_id = self._model.id
-		
-		if self._text:
-			self._model.text_id = self._cms._get_pooled_text_id(self._text, create=True)
-		elif self._metadata:
-			self._model.meta_id = self._cms._get_pooled_text_id(json.dumps(self._metadata), create=True)
-		
-		history_model.article = self._model
-		history_model.reason = reason
-		history_model.text_id = self._model.text_id
-		history_model.upload_id = self._model.upload_id
-		history_model.meta_id = self._model.meta_id
-		acc = self._context.get_instance(accounts.Accounts)
-		history_model.account_id = acc.account_id
-		self._db.session.add(history_model)
-		
-		self._db.session.flush()
-		
-		for child in self._dirty_articles:
-			child.save(reason)
-		
 	def get_history(self, offset, limit=51, date_sort_desc=True):
 		'''Get the article history
 		
@@ -1334,7 +890,281 @@ class Article(_ArticleBase):
 		
 		return self._cms.get_histories(offset, limit, date_sort_desc, 
 		article_id=self._model.id)
-
+	
+	def edit(self):
+		history_model = self._db.models.CMSHistory()
+		history_model.article_id = self._model.id
+		
+		if self.current:
+			past_history_model = self.current._model
+			history_model.version = past_history_model.version + 1
+			history_model.text_id = past_history_model.text_id
+			history_model.file_id = past_history_model.file_id
+			history_model.data_id = past_history_model.data_id
+		else:
+			history_model.version = 1
+		
+		return ArticleHistoryWriteWrapper(self._context, history_model, self)
+		
+class ArticleHistoryReadWrapper(dataobject.ProtectedObject, dataobject.BaseModel):
+	default_view = ArticleView
+	
+	def __init__(self, context, model):
+		self._context = context
+		self._model = model
+		self._respool = context.get_instance(respool.ResPool)
+		self._cms = context.get_instance(CMS)
+		self._db = context.get_instance(database.Database)
+		
+		self._text = self._respool.get_text(model.text_id)
+		self._data = json.loads(self._respool.get_text(model.data_id) or '{}')
+		self._reason = self._respool.get_text(model.reason)
+		self._file = self._respool.get_file(model.file_id)
+		self._doc_info = None
+	
+	@property
+	def editor_account(self):
+		return self._model.account_id
+	
+	@property
+	def text(self):
+		return self._text
+	
+	@property
+	def metadata(self):
+		return self._data
+	
+	@property
+	def reason(self):
+		return self._reason
+	
+	@property
+	def file(self):
+		return self._file
+	
+	@property
+	def date(self):
+		'''Get when the article was edited
+		
+		:rtype: `datetime.Datetime`
+		'''
+		
+		return self._model.created
+	
+	@property
+	def publish_date(self):
+		o = self.metadata.get(ArticleMetadataFields.PUBLISH_DATE)
+		
+		if o and not isinstance(o, datatime.datetime):
+			return iso8601.parse_date(o)
+		elif o:
+			return o
+	
+	@property
+	def title(self):
+		return self.metadata.get(ArticleMetadataFields.TITLE)
+	
+	@property
+	def addresses(self):
+		return frozenset(self.metadata.get(ArticleMetadataFields.ADDRESSES, tuple()))
+	
+	@property
+	def parents(self):
+		l = []
+		for s in self.metadata.get(ArticleMetadataFields.PARENTS, tuple()):
+			article = self._cms.get_article(uuid=uuid.UUID(s).bytes)
+			
+			if article:
+				l.append(article)
+		
+		return frozenset(l)
+	
+	@property
+	def uuid(self):
+		return uuid.UUID(bytes=self._model.uuid)
+	
+	@property
+	def article(self):
+		return ArticleWrapper(self._context, 
+			self._cms.get_article(id=self._model.article_id))
+	
+	@property
+	def version(self):
+		return self._model.version
+	
+	@property
+	def upload_filename(self):
+		'''Get the originally uploaded filename'''
+		return self.metadata.get(ArticleMetadataFields.FILENAME)
+	
+	@property
+	def filetype(self):
+		return self.metadata.get(ArticleMetadataFields.FILETYPE)
+	
+	@property
+	def mimetype(self):
+		return self.metadata.get(ArticleMetadataFields.MIMETYPE)
+	
+	@property
+	def view_mode(self):
+		return self.metadata.get(ArticleMetadataFields.VIEW_MODE)
+	
+	@property
+	def doc_info(self):
+		assert self.text is not None
+		
+		if not self._doc_info:
+			self._doc_info = restpub.publish_text(self.text)
+		
+		return self._doc_info
+	
+class ArticleHistoryWriteWrapper(ArticleHistoryReadWrapper):
+	def __init__(self, context, model, article_wrapper):
+		super(ArticleHistoryWriteWrapper, self).__init__(context, model)
+		self._article_wrapper = article_wrapper
+	
+	@ArticleHistoryReadWrapper.text.setter
+	def text(self, text):
+		self._text = text
+	
+	@ArticleHistoryReadWrapper.reason.setter
+	def reason(self, t):
+		self._reason = t
+	
+	@ArticleHistoryReadWrapper.file.setter
+	def file(self, f):
+		self._file = f
+	
+	@ArticleHistoryReadWrapper.publish_date.setter
+	def publish_date(self, d):
+		if not isinstance(d, datetime.datetime):
+			d = iso8601.parse_date(d)
+			
+		self.metadata[ArticleMetadataFields.PUBLISH_DATE] = d
+	
+	@ArticleHistoryReadWrapper.addresses.setter
+	def addresses(self, l):
+		self.metadata[ArticleMetadataFields.ADDRESSES] = list(frozenset(l))
+	
+	@ArticleHistoryReadWrapper.parents.setter
+	def parents(self, parents):
+		l = []
+		for article in parents:
+			assert isinstance(article, ArticleWrapper)
+			l.append(str(article.uuid))
+		
+		self.metadata[ArticleMetadataFields.PARENTS] = list(frozenset(l))
+	
+	@ArticleHistoryReadWrapper.upload_filename.setter
+	def upload_filename(self, s):
+		self.metadata[ArticleMetadataFields.FILENAME] = s
+		
+	@ArticleHistoryReadWrapper.view_mode.setter
+	def view_mode(self, mode):
+		self.metadata[ArticleMetadataFields.VIEW_MODE] = mode
+	
+	def save(self):
+		article_model = self._article_wrapper._model
+		article_model.title = self.metadata.get(ArticleMetadataFields.TITLE) \
+			or self.metadata.get(ArticleMetadataFields.FILENAME)
+		article_model.date = self.metadata.get(ArticleMetadataFields.PUBLISH_DATE)
+		article_model.view_mode = self.metadata.get(ArticleMetadataFields.VIEW_MODE)
+		article_model.version = self._model.version
+		
+		if not self._article_wrapper._model.id:
+			self._db.session.add(self._article_wrapper._model)
+			self._db.session.flush()
+			self._model.article_id = self._article_wrapper._model.id
+		
+		if self._text:
+			self._model.text_id = self._respool.set_text(self._text, create=True)
+		
+		if self._reason:
+			self._model.reason = self._respool.set_text(self._reason, create=True)
+		
+		if self._file:
+			self._model.file_id = self._respool.set_file(self._file, create=True)
+			# TODO save filetype, mimetype
+		
+		assert self._text or self._file
+		
+		if self._data:
+			self._model.data_id = self._respool.set_text(
+				json.dumps(self._data), create=True)
+		
+		query = self._db.session.query(self._db.models.CMSAddress)
+		
+		if self.addresses:
+			# If this condition is removed, then contradictions may occur
+			query = query.filter(~self._db.models.CMSAddress.name.in_(self.addresses))
+			
+		query.delete(synchronize_session='fetch')
+		
+		query = self._db.session.query(self._db.models.CMSAddress.name)
+		query = query.filter_by(article_id=self._model.article_id)
+		
+		addresses_to_insert = self.addresses - frozenset([r[0] for r in query])
+		
+		for address in addresses_to_insert:
+			model = self._db.models.CMSAddress()
+			self._db.session.add(model)
+			model.name = address
+			model.article = self._article_wrapper._model
+		
+		parent_article_ids = set([m.id for m in self.parents])
+		
+		query = self._db.session.query(self._db.models.CMSArticleTree) \
+			.filter_by(article_id=self._model.article_id)
+		
+		if parent_article_ids:
+			# If this this condition is removed, contradictions may occur
+			query = query.filter(~self._db.models.CMSArticleTree.parent_article_id.in_(
+				parent_article_ids))
+		
+		for tree_model in query:
+			tree_model.parent = None
+			self._db.session.delete(tree_model)
+		
+		query = self._db.session.query(self._db.models.CMSArticleTree) \
+			.filter_by(article_id=self._model.article_id)
+		
+		parent_ids_to_insert = parent_article_ids \
+			- frozenset([model.parent_article_id for model in query])
+		
+		for article_id in parent_ids_to_insert:
+#			parent_tree_model = self._db.session.query(
+#				self._db.models.CMSArticleTree) \
+#				.filter_by(article_id=article_id).first()
+#			
+#			if not parent_tree_model:
+#				parent_tree_model = self._db.models.CMSArticleTree()
+#				parent_tree_model.parent_article_id = 0
+#				parent_tree_model.article_id = article_id
+#				self._db.session.add(parent_tree_model)
+##				parent_tree_model.parent = None
+			
+			new_tree_model = self._db.models.CMSArticleTree()
+			new_tree_model.article_id = self._model.article_id
+			new_tree_model.parent_article_id = article_id
+			self._db.session.add(new_tree_model)
+#			new_tree_model.parent = parent_tree_model
+		
+		acc = self._context.get_instance(accounts.Accounts)
+		self._model.account_id = acc.account_id
+		self._db.session.add(self._model)
+		
+		query = self._db.session.query(self._db.models.CMSArticleTree) \
+			.filter_by(article_id=self._model.article_id) \
+			.filter_by(parent_article_id=0)
+		
+		tree_model = query.first()
+		
+		if not tree_model:
+			tree_model = self._db.models.CMSArticleTree()
+			tree_model.parent_article_id = 0
+			tree_model.article_id = self._model.article_id
+			self._db.session.add(tree_model)
+		
 
 	
 	

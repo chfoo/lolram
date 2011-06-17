@@ -92,6 +92,9 @@ class ResPoolUnicodeType(unicode):
 class ResPoolFileType(file):
 	__slots__ = ('hash', 'filename')
 
+class ResPoolFilenameType(unicode):
+	__slots__ = ('hash')
+
 class ResPool(base.BaseComponent):
 	'''The text pool interface component''' 
 	
@@ -138,7 +141,10 @@ class ResPool(base.BaseComponent):
 		return path
 	
 	def get_file(self, id):
-		'''Get the file and filename given the ID
+		'''Get the file  given the ID
+		
+		:warning:
+			Do not write to the file!
 		
 		:rtype: `ResPoolFileType`
 		'''
@@ -152,6 +158,23 @@ class ResPool(base.BaseComponent):
 			f.filename = path
 			return f
 	
+	def get_filename(self, id):
+		'''Get the filename given the ID
+		
+		:warning:
+			Do not write to the file!
+		
+		:rtype: `ResPoolFilenameType`
+		'''
+		
+		model = self._get_file_model(id)
+		
+		if model:
+			path = self._get_file_path(id)
+			s = ResPoolFilenameType(path)
+			s.hash = model.hash
+			return s
+		
 	def set_text(self, text, create=True):
 		'''Store the text
 		

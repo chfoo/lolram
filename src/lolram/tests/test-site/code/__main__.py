@@ -23,8 +23,6 @@ class SiteApp(lolram.app.SiteApp):
 		self.router.set_default(self.not_found_test)
 		self.router.set('/wui_basic_test', self.wui_basic_test)
 		self.router.set('/form_test', self.form_test)
-		self.router.set('/text_test', self.text_test)
-		self.router.set('/file_test', self.file_test)
 		self.router.set('/article_text_test', self.article_text_test)
 		self.router.set('/article_file_test', self.article_file_test)
 		self.router.set('/address_test', self.address_test)
@@ -102,44 +100,6 @@ class SiteApp(lolram.app.SiteApp):
 		
 		doc.append(form)
 	
-	def text_test(self):
-		self.context.response.ok()
-		cms = self.context.get_instance(lolram.components.cms.CMS)
-		
-		action = self.context.request.query.getfirst('action')
-		
-		if action == 'get':
-			id = int(self.context.request.query.getfirst('id'))
-			text = cms._get_text(id)
-			yield text.encode('utf8') if text else 'not found'
-		elif action == 'new':
-			text = self.context.request.query.getfirst('text')
-			yield str(cms._set_text(None, text))
-		elif action == 'edit':
-			text = self.context.request.query.getfirst('text')
-			id = int(self.context.request.query.getfirst('id'))
-			yield str(cms._set_text(id, text))
-	
-	def file_test(self):
-		self.context.response.ok()
-		cms = self.context.get_instance(lolram.components.cms.CMS)
-		
-		action = self.context.request.query.getfirst('action')
-		
-		if action == 'get':
-			id = int(self.context.request.query.getfirst('id'))
-			file_obj = cms._get_file(id)
-			
-			if file_obj:
-				return wsgiref.util.FileWrapper(file_obj)
-			else:
-				return ['not found']
-		
-		elif action == 'new':
-			file_obj = self.context.request.form['file'].file
-			id = int(cms._add_file(file_obj))
-			return [str(id)]
-	
 	def article_text_test(self):
 		self.context.response.ok()
 		action = self.context.request.query.getfirst('action')
@@ -148,20 +108,24 @@ class SiteApp(lolram.app.SiteApp):
 		if action == 'get':
 			id = int(self.context.request.query.getfirst('id'))
 			article = cms.get_article(id)
-			return [article.text.encode('utf8')]
+			return [article.current.text.encode('utf8')]
 		elif action == 'new':
 			text = self.context.request.query.getfirst('text')
 			article = cms.new_article()
-			article.text = text
-			article.save('new')
+			article_version = article.edit()
+			article_version.text = text
+			article_version.reason = 'new'
+			article_version.save()
 			id = article.id
 			return [str(id)]
 		elif action == 'edit':
 			text = self.context.request.query.getfirst('text')
 			id = int(self.context.request.query.getfirst('id'))
 			article = cms.get_article(id)
-			article.text = text
-			article.save('edit')
+			article_version = article.edit()
+			article_version.text = text
+			article_version.reason = 'edit'
+			article_version.save()
 			return [str(id)]
 		elif action == 'revision':
 			id = int(self.context.request.query.getfirst('id'))
@@ -178,13 +142,16 @@ class SiteApp(lolram.app.SiteApp):
 		if action == 'get':
 			id = int(self.context.request.query.getfirst('id'))
 			article = cms.get_article(id)
-			return wsgiref.util.FileWrapper(article.file)
+			return wsgiref.util.FileWrapper(article.current.file)
 		elif action == 'new':
 			file_obj = self.context.request.form['file'].file
 			filename = self.context.request.form['file'].filename
 			article = cms.new_article()
-			article.set_file(file_obj=file_obj, upload_filename=filename)
-			article.save()
+			article_version = article.edit()
+			article_version.reason = 'new'
+			article_version.file = file_obj
+			article_version.upload_filename=filename
+			article_version.save()
 			id = article.id
 			return [str(id)]
 		elif action == 'edit':
@@ -192,8 +159,11 @@ class SiteApp(lolram.app.SiteApp):
 			filename = self.context.request.form['file'].filename
 			id = int(self.context.request.query.getfirst('id'))
 			article = cms.get_article(id)
-			article.set_file(file_obj=file_obj, upload_filename=filename)
-			article.save()
+			article_version = article.edit()
+			article_version.reason = 'edit'
+			article_version.file = file_obj
+			article_version.upload_filename = filename
+			article_version.save()
 			id = article.id
 			return [str(id)]
 	
@@ -211,13 +181,15 @@ class SiteApp(lolram.app.SiteApp):
 				return ['not found']
 		elif action == 'set':
 			article = cms.get_article(int(self.context.request.query.getfirst('id')))
-			article.addresses = article.addresses | set([address])
-			article.save()
+			article_version = article.edit()
+			article_version.addresses = article.current.addresses | set([address])
+			article_version.save()
 			return ['ok']
 		elif action == 'delete':
 			article = cms.get_article(address=address)
-			article.addresses = article.addresses - set([address])
-			article.save()
+			article_version = article.edit()
+			article_version.addresses = article.current.addresses - set([address])
+			article_version.save()
 			return ['ok']
 	
 	def article_tree_test(self):
@@ -233,13 +205,15 @@ class SiteApp(lolram.app.SiteApp):
 		elif action == 'set':
 			child_id = int(self.context.request.query.getfirst('child'))
 			child = cms.get_article(child_id)
-			child.parents = child.parents | set([article])
-			child.save()
+			child_ver = child.edit()
+			child_ver.parents = child.parents | set([article])
+			child_ver.save()
 		elif action == 'delete':
 			child_id = int(self.context.request.query.getfirst('child'))
 			child = cms.get_article(child_id)
-			child.parents = child.parents - set([article])
-			child.save()
+			child_ver = child.edit()
+			child_ver.parents = child.parents - set([article])
+			child_ver.save()
 			
 	def account_basic_test(self):
 		self.context.response.ok()

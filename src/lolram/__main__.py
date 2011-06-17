@@ -62,7 +62,9 @@ if __name__ == '__main__':
 	logger.debug(sys.argv)
 	
 	if options.port:
-		app = validator(app.WSGIApp(options.conf))		
+#		app = validator(app.WSGIApp(options.conf))
+		# XXX: Validator does not support length for readlines
+		app = app.WSGIApp(options.conf)
 		httpd = make_server('', int(options.port), app)
 		httpd.serve_forever()
 	else:
