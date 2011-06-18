@@ -24,6 +24,8 @@
 __doctype__ = 'restructuredtext en'
 
 import base64
+import datetime
+
 import magic
 
 magic_cookie = magic.open(magic.MAGIC_NONE)
@@ -50,3 +52,10 @@ def b32low_to_bytes(s):
 		s = '%s%s' % (s, '=' * (8 - length % 8))
 	
 	return  base64.b32decode(str(s), True, 'l')
+
+def datetime_to_naive(d):
+	st = d.utctimetuple()
+	naive_d = datetime.datetime(st.tm_year, st.tm_mon, st.tm_mday,
+		st.tm_hour, st.tm_min, st.tm_sec, d.microsecond
+	)
+	return naive_d

@@ -142,6 +142,12 @@ def publish_text(text):
 	doc_info.errors = error_stream.read()
 	doc_info.title = document.get('title')
 	doc_info.subtitle = document.get('subtitle')
+	
+	if not doc_info.subtitle:
+		for element in document:
+			if element.tagname == 'subtitle':
+				doc_info.subtitle = element.astext()
+	
 	doc_info.meta = {}
 	i = publisher.document.first_child_matching_class(docutils.nodes.docinfo)
 	if i is not None:
