@@ -24,18 +24,26 @@ __doctype__ = 'restructuredtext en'
 import collections
 import re
 import cStringIO as StringIO
+import subprocess
+import cgi
+import os
 
 import docutils.parsers.rst
 import docutils.utils
 import docutils.parsers.rst.directives
 import docutils.core
 import docutils.io
+import docutils.parsers.rst.directives.images
 
+import util
 
 FIELD_RE = re.compile(r':(\w*):((?:[^\\][^:])*)')
 PLACEHOLDER_RE = re.compile(r'{{(\w+)}}')
 
-_template_callback = NotImplementedError
+template_callback = NotImplementedError
+math_callback = NotImplementedError
+image_callback = NotImplementedError
+internal_callback = NotImplementedError
 
 class TemplateDirective(docutils.parsers.rst.Directive):
 	required_arguments = 1
@@ -50,7 +58,8 @@ class TemplateDirective(docutils.parsers.rst.Directive):
 		fn_result = template_callback(template_name)
 		
 		if fn_result is None:
-			raise self.error(u'Template ‘%s’ not found' % template_name)
+			# FIXME: error messages in unicode not supported
+			raise self.error('Template %s not found' % template_name)
 		
 		else:
 			subs_dict = {}
@@ -76,13 +85,46 @@ class MathDirective(docutils.parsers.rst.Directive):
 	option_spec = {}
 	has_content = True
 #	final_argument_whitespace = False
-	
+
 	def run(self):
-		l = []
-		for s in self.content:
-			l.append(docutils.nodes.Text(s))
+		text = '\n'.join(self.content)
+		p = subprocess.Popen(['texvc', '/tmp/', '/tmp/', 
+			text, 'utf8'], stdout=subprocess.PIPE)
+		out, err = p.communicate()
 		
+		texvc_info = util.texvc_lexor(out)
+		
+		l = []
+		
+		if texvc_info.has_error:
+			l.append(docutils.nodes.literal_block(text))
+		elif texvc_info.html:
+			l.append(docutils.nodes.raw('', texvc_info.html, format='html'))
+		else:
+			image_path = os.path.join('/tmp/', '%s.png' % texvc_info.hash)
+			src = math_callback(image_path)
+			
+			l.append(docutils.nodes.image(src, alt=text, uri=src))
+			
 		return l
+
+
+class ImageDirective(docutils.parsers.rst.directives.images.Image):
+	def run(self):
+		self.arguments[0] = image_callback(self.arguments[0])
+		return docutils.parsers.rst.directives.images.Image.run(self)
+
+
+class InternalDirective(docutils.parsers.rst.Directive):
+	required_arguments = 1
+	optional_arguments = 0
+	option_spec = {}
+	has_content = False
+#	final_argument_whitespace = False
+
+	def run(self):
+		content = internal_callback(*self.arguments)
+		return [docutils.nodes.raw('', content, format='html')]
 
 def format_tree(document):
 	if isinstance(document, docutils.nodes.Text):
@@ -105,14 +147,40 @@ def format_tree(document):
 
 docutils.parsers.rst.directives.register_directive('template', TemplateDirective)
 docutils.parsers.rst.directives.register_directive('math', MathDirective)
+docutils.parsers.rst.directives.register_directive('internal', InternalDirective)
+docutils.parsers.rst.directives.register_directive('image', ImageDirective)
 
-@property
-def template_callback():
-	return _template_callback
-
-@template_callback.setter
-def template_callback(f):
-	_template_callback = f
+#@property
+#def template_callback():
+#	return _template_callback
+#
+#@template_callback.setter
+#def template_callback(f):
+#	_template_callback = f
+#
+#@property
+#def math_callback():
+#	return _math_callback
+#
+#@math_callback.setter
+#def math_callback(f):
+#	_math_callback = f
+#
+#@property
+#def image_callback():
+#	return _image_callback
+#
+#@image_callback.setter
+#def image_callback(f):
+#	_image_callback = f
+#
+#@property
+#def internal_callback():
+#	return _internal_callback
+#
+#@internal_callback.setter
+#def interal_callback(f):
+#	_internal_callback = f
 
 def publish_text(text):
 	error_stream = StringIO.StringIO()

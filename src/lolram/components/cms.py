@@ -226,7 +226,13 @@ class CMS(base.BaseComponent):
 		db.add(CMSArticlesMeta, CMSArticleTreeMeta, CMSHistoryMeta,
 			CMSAddressesMeta)
 		
+		# FIXME: db is needed for the callback but we shouldnt be doing
+		# this on the singleton context level
+		self._db = self.context.get_instance(database.Database, singleton=True)
 		restpub.template_callback = self._restpub_template_callback
+		restpub.image_callback = self._restpub_image_callback
+		restpub.math_callback = self._restpub_math_callback
+		restpub.internal_callback = self._restpub_image_callback
 		
 		acc = self.context.get_instance(accounts.Accounts)
 		acc.register_role(ActionRole.NAMESPACE, 
@@ -244,6 +250,23 @@ class CMS(base.BaseComponent):
 		
 		if article:
 			return article.current.text
+	
+	def _restpub_image_callback(self, name):
+		article = self.get_article(address=name)
+		
+		if not article:
+			article = self.get_article(uuid=name)
+		
+		if not article:
+			return name
+		
+		return u'%s/%s' % (self.RAW, self.model_uuid_str(article.current))
+	
+	def _restpub_math_callback(self, filename):
+		return 'not implemented'
+	
+	def _restpub_internal_callback(self, *args):
+		return 'not implemented'
 	
 	def setup(self):
 		self._db = self.context.get_instance(database.Database)
@@ -690,7 +713,7 @@ class ArticleView(dataobject.BaseView):
 #			element.append(meta_table)
 			
 			if doc_info.errors:
-				element.append(lxmlbuilder.PRE(model.text))
+				element.append(lxmlbuilder.PRE(unicode(model.text)))
 			else:
 				if article_format == cls.ARTICLE_FORMAT_SINGLE:
 					element.append(lxml.html.fromstring(
@@ -772,8 +795,8 @@ class ArticleView(dataobject.BaseView):
 	@classmethod
 	def build_article_detailed_metadata(cls, context, model):
 		ul = lxmlbuilder.UL(
-			lxmlbuilder.LI(str(model.article.uuid)),
-			lxmlbuilder.LI(str(model.uuid)),
+			lxmlbuilder.LI('Article ' +model.article.uuid.urn),
+			lxmlbuilder.LI('Version ' +model.uuid.urn),
 			lxmlbuilder.CLASS('articleDetailedMetadata')
 		)
 		
@@ -1052,11 +1075,15 @@ class ArticleHistoryWriteWrapper(ArticleHistoryReadWrapper):
 
 		article_model = self._article_wrapper._model
 		article_model.title = self.metadata.get(ArticleMetadataFields.TITLE) \
-			or self.metadata.get(ArticleMetadataFields.FILENAME)
+			or self.metadata.get(ArticleMetadataFields.FILENAME) \
+			or self.text[:160]
 		article_model.date = self.publish_date \
 			or datetime.datetime.utcnow()
 		article_model.view_mode = self.metadata.get(ArticleMetadataFields.VIEW_MODE)
 		article_model.version = self._model.version
+		
+		if not article_model.primary_address and self.addresses:
+			article_model.primary_address = tuple(self.addresses)[0]
 		
 		assert article_model.date
 		assert article_model.title

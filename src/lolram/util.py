@@ -25,6 +25,7 @@ __doctype__ = 'restructuredtext en'
 
 import base64
 import datetime
+import collections
 
 import magic
 
@@ -59,3 +60,31 @@ def datetime_to_naive(d):
 		st.tm_hour, st.tm_min, st.tm_sec, d.microsecond
 	)
 	return naive_d
+
+texvc_info = collections.namedtuple('textvc_info', 
+	['code', 'hash', 'html', 'mathml', 'has_error', 'error_arg'])
+
+def texvc_lexor(s):
+	code = s[0]
+	has_error = code in ('S', 'E', 'F', '-')
+	mathml = None
+	html = None
+	hash = None
+	error_arg = None
+	
+	if code == 'F':
+		error_arg = s[1:]
+	
+	if not has_error:
+		hash = s[1:1+32]
+	
+		if code == 'X':
+			mathml = s[33:]
+		else:
+			html, nul, mathml = s[33:].partition('\x00')
+			html = html
+			mathml = mathml
+	
+	t = texvc_info(code=code, has_error=has_error, mathml=mathml,
+		html=html, hash=hash, error_arg=error_arg)
+	return t
