@@ -83,25 +83,26 @@ class Database(base.BaseComponent):
 		session.close()
 		_logger.info(u'End migrate')
 	
-	def add(self, table_meta_class):
-		assert issubclass(table_meta_class, TableMeta)
-		assert table_meta_class.uuid
-		assert table_meta_class.defs
-		assert isinstance(table_meta_class.defs, tuple) or isinstance(table_meta_class.defs, list)
-		table_meta = table_meta_class()
-		
-		_logger.debug(u'Add table meta ‘%s’', table_meta.__class__.__name__)
-		self.singleton._table_meta_list.append(table_meta)
-		model = table_meta.get()
-		name = model.__class__.__name__
-		if name == 'DeclarativeMeta':
-			name = str(model).rsplit('.', 1)[-1].rsplit("'", 1)[0]
-		_logger.debug(u'Add model ‘%s’', name)
-		model.metadata.bind = self.engine
-		setattr(self.models, name, model)
-		
-		if self.context.config.automigrate:
-			table_meta.migrate(self.engine, self.get_new_session())
+	def add(self, *table_meta_classes):
+		for table_meta_class in table_meta_classes:
+			assert issubclass(table_meta_class, TableMeta)
+			assert table_meta_class.uuid
+			assert table_meta_class.defs
+			assert isinstance(table_meta_class.defs, tuple) or isinstance(table_meta_class.defs, list)
+			table_meta = table_meta_class()
+			
+			_logger.debug(u'Add table meta ‘%s’', table_meta.__class__.__name__)
+			self.singleton._table_meta_list.append(table_meta)
+			model = table_meta.get()
+			name = model.__class__.__name__
+			if name == 'DeclarativeMeta':
+				name = str(model).rsplit('.', 1)[-1].rsplit("'", 1)[0]
+			_logger.debug(u'Add model ‘%s’', name)
+			model.metadata.bind = self.engine
+			setattr(self.models, name, model)
+			
+			if self.context.config.automigrate:
+				table_meta.migrate(self.engine, self.get_new_session())
 	
 	@property
 	def models(self):

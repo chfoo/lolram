@@ -31,7 +31,7 @@ class SiteApp(lolram.app.SiteApp):
 		self.router.set('/manual_cms_test', self.manual_cms_test)
 		self.router.set('/res_pool_text_test', self.res_pool_text_test)
 		self.router.set('/res_pool_file_test', self.res_pool_file_test)
-		
+		self.router.set('/manual_accounts_test', self.manual_accounts_test)		
 	
 	def delete_data(self):
 		self.context.logger.info(u'Request to delete test db rows and data')
@@ -260,3 +260,6 @@ class SiteApp(lolram.app.SiteApp):
 			f = self.context.request.form['file'].file
 			return [str(respool.set_file(f))]
 		
+	def manual_accounts_test(self):
+		acc = self.context.get_instance(lolram.components.accounts.Accounts)
+		return acc.serve()

@@ -98,6 +98,7 @@ class CMSArticlesMeta(database.TableMeta):
 			uuid = Column(LargeBinary(length=16), default=lambda:uuid.uuid4().bytes, index=True)
 			view_mode = Column(Integer)
 			version = Column(Integer, nullable=False)
+			primary_address = Column(Unicode(length=160))
 		
 		desc = 'new table'
 		model = CMSArticle
@@ -222,12 +223,16 @@ class CMS(base.BaseComponent):
 	
 	def init(self):
 		db = self.context.get_instance(database.Database)
-		db.add(CMSArticlesMeta)
-		db.add(CMSArticleTreeMeta)
-		db.add(CMSHistoryMeta)
-		db.add(CMSAddressesMeta)
+		db.add(CMSArticlesMeta, CMSArticleTreeMeta, CMSHistoryMeta,
+			CMSAddressesMeta)
 		
 		restpub.template_callback = self._restpub_template_callback
+		
+		acc = self.context.get_instance(accounts.Accounts)
+		acc.register_role(ActionRole.NAMESPACE, 
+			ActionRole.COMMENTER,
+			ActionRole.WRITER,
+		)
 	
 	def _restpub_template_callback(self, name):
 		article = self.get_article(address=name)
@@ -565,7 +570,7 @@ class CMS(base.BaseComponent):
 			self.context.str_url(fill_path=True, 
 				fill_args=True, fill_params=True, fill_query=True))
 		
-		if not self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER) and False:
+		if not self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER):
 			self._doc.add_message('Sorry, you cannot upload files', 
 				'You do not have the permissions necessary to upload files')
 			
@@ -604,7 +609,7 @@ class CMS(base.BaseComponent):
 			self.context.str_url(fill_path=True, 
 				fill_args=True, fill_params=True, fill_query=True))
 		
-		if not self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.COMMENTER) and False:
+		if not self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.COMMENTER):
 			self._doc.add_message('Sorry, you cannot upload files', 
 				'You do not have the permissions necessary to upload files')
 			

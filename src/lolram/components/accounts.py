@@ -34,8 +34,11 @@ from sqlalchemy.orm import relationship, synonym
 import base
 from .. import dataobject
 from .. import configloader
+from .. import models
+from .. import views
 import database
 import session
+import wui
 
 class AccountsMeta(database.TableMeta):
 	class D1(database.TableMeta.Def):
@@ -50,13 +53,13 @@ class AccountsMeta(database.TableMeta):
 			modified = Column(DateTime, default=datetime.datetime.utcnow,
 				onupdate=datetime.datetime.utcnow)
 			nickname = Column(Unicode(length=160))
-			_roles = Column(Unicode(length=255))
-			_sessions = Column(Unicode(length=255))
-			_profile_data = Column(UnicodeText)
+			_roles = Column('roles', Unicode(length=255))
+			_sessions = Column('sessions', Unicode(length=255))
+			_profile_data = Column('profile_data', UnicodeText)
 			
 			@property
 			def roles(self):
-				return frozenset(json.loads(self._roles or '[]'))
+				return frozenset(map(tuple, json.loads(self._roles or '[]')))
 			
 			@roles.setter
 			def roles(self, iterable):
@@ -120,7 +123,7 @@ class AccountLogsMeta(database.TableMeta):
 			namespace = Column(Unicode(length=8), nullable=False)
 			action_code = Column(Integer, nullable=False)
 			created = Column(DateTime, default=datetime.datetime.utcnow)
-			_info = Column(Unicode(length=255))
+			_info = Column('info', Unicode(length=255))
 			
 			@property
 			def info(self):
@@ -154,8 +157,8 @@ class Accounts(base.BaseComponent):
 	
 	def init(self):
 		db = self.context.get_instance(database.Database)
-		db.add(AccountsMeta)
-		db.add(AccountLogsMeta)
+		db.add(AccountsMeta, AccountLogsMeta)
+		self._roles = set()
 		
 	def setup(self):
 		db = self.context.get_instance(database.Database)
@@ -169,6 +172,10 @@ class Accounts(base.BaseComponent):
 		
 		sess = self.context.get_instance(session.Session)
 		self._account_id = sess.data._accounts_account_id
+	
+	def register_role(self, namespace, *roles):
+		for role in roles:
+			self.singleton._roles.add((namespace, role))
 	
 	def is_authenticated(self):
 		return self._account_id is not None
@@ -187,6 +194,14 @@ class Accounts(base.BaseComponent):
 	@property
 	def account_id(self):
 		return self._account_id
+	
+	@property
+	def account_model(self):
+		if self.account_id:
+			db = self.context.get_instance(database.Database)
+			query = db.session.query(db.models.Account).filter_by(
+				id=self.account_id)
+			return query.first()
 	
 	def authenticate_openid_stage_1(self, url):
 		# TODO
@@ -269,5 +284,111 @@ class Accounts(base.BaseComponent):
 		query = db.session.query(db.models.Account).filter_by(id=account_id)
 		
 		return query.first()
+	
+	def serve(self):
+		
+		if self.context.request.args:
+			action = self.context.request.args[0]
+		else:
+			action = None
+		
+		self.context.response.ok()
+		
+		if action == 'edit':
+			self._check_perm()
+			self._serve_account_edit()
+		elif action == 'list':
+			self._check_perm()
+			self._serve_list()
+	
+	def _check_perm(self):
+		if not self.account_model or self.account_model.username != self.context.config.accounts.master_test_password:
+			self.context.response.set_status(403)
+			return
+	
+	def _serve_list(self):
+		db = self.context.get_instance(database.Database)
+		page_info = self.context.page_info()
+		table = models.Table()
+		table.header = ('ID', 'Username', 'Roles', 'Sessions', 'Profile')
+		
+		search_name = self.context.request.query.getfirst('search-name')
+		
+		query = db.session.query(db.models.Account) \
+		
+		if search_name:
+			query = query.filter(db.models.Account.username.like(u'%s%%' % search_name))
+		
+		query = query.limit(page_info.limit + 1).offset(page_info.offset)
+		
+		form = models.Form()
+		form.textbox('search-name', 'Search username')
+		form.button('submit', 'Search')
+		
+		counter = 0
+		for result in query:
+			url = self.context.str_url(fill_controller=True,
+				args=('edit', str(result.id))
+			)
+			
+			table.rows.append([
+				(str(result.id), url),
+				result.username,
+				unicode(result.roles),
+				unicode(result.sessions),
+				unicode(result.profile_data),
+			])
+			
+			if counter > page_info.limit:
+				page_info.more = True
+		
+		doc = self.context.get_instance(wui.Document)
+		doc.append(dataobject.MVPair(form))
+		doc.append(dataobject.MVPair(table, 
+			row_views=(views.LabelURLToLinkView, None, None, None, None, None)))
+		doc.append(dataobject.MVPair(page_info, views.PagerView))
+	
+	def _serve_account_edit(self):
+		doc = self.context.get_instance(wui.Document)
+		db = self.context.get_instance(database.Database)
+		account_id = self.context.request.args[1]
+		
+		account = db.session.query(db.models.Account) \
+			.filter_by(id=account_id).first()
+		
+		if 'submit' in self.context.request.form:
+			new_roles = set()
+			
+			for s in self.context.request.form.getlist('roles'):
+				namespace, role = json.loads(s)
+				new_roles.add((namespace, role))
+		
+			self.log_event(AccountLogsMeta.NS_ACCOUNTS,
+				AccountLogsMeta.CODE_ROLE_MODIFY,
+				{'ip': self.context.environ.get('REMOTE_ADDR'),
+				'new': list(new_roles)
+				},
+			)
+			
+			account.roles = new_roles
+			
+			doc.add_message('Account saved', str(new_roles))
+			
+			return
+		
+		form = models.Form(method=models.Form.POST)
+		opts = form.options('roles', 'Roles', True)
+		
+		for namespace, role in self.singleton._roles:
+			active = (namespace, role) in self.singleton._roles
+			
+			opts.option(json.dumps([namespace, role]), 
+				u'%s %s' % (namespace, role),
+				active)
+		
+		form.button('submit', 'Save')
+		
+		doc.title = u'Edit %s' % account.username
+		doc.append(dataobject.MVPair(form))
 
 __all__ = ('Accounts', 'AccountsMeta', 'AccountLogsMeta',)
