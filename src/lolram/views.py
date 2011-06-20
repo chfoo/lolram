@@ -41,7 +41,7 @@ class FormView(dataobject.BaseView):
 				input = lxmlbuilder.INPUT(type=input_type, name=model.name, value=name)	
 				element.append(input)
 				
-				if context.request.form.getfirst(model.name) == name:
+				if context.request.form.getfirst(model.name) == name or active:
 					input.set('checked', 'checked')
 			
 			return element		

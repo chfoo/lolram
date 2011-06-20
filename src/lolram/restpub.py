@@ -40,10 +40,10 @@ import util
 FIELD_RE = re.compile(r':(\w*):((?:[^\\][^:])*)')
 PLACEHOLDER_RE = re.compile(r'{{(\w+)}}')
 
-template_callback = NotImplementedError
-math_callback = NotImplementedError
-image_callback = NotImplementedError
-internal_callback = NotImplementedError
+#template_callback = NotImplementedError
+#math_callback = NotImplementedError
+#image_callback = NotImplementedError
+#internal_callback = NotImplementedError
 
 class TemplateDirective(docutils.parsers.rst.Directive):
 	required_arguments = 1
@@ -55,7 +55,8 @@ class TemplateDirective(docutils.parsers.rst.Directive):
 	def run(self):
 		template_name = self.arguments[0]
 		
-		fn_result = template_callback(template_name)
+		fn_result = self.state.document.settings \
+			.restpub_callbacks['template'](template_name)
 		
 		if fn_result is None:
 			# FIXME: error messages in unicode not supported
@@ -102,7 +103,8 @@ class MathDirective(docutils.parsers.rst.Directive):
 			l.append(docutils.nodes.raw('', texvc_info.html, format='html'))
 		else:
 			image_path = os.path.join('/tmp/', '%s.png' % texvc_info.hash)
-			src = math_callback(image_path)
+			src = self.state.document.settings \
+				.restpub_callbacks['math'](texvc_info.hash, image_path)
 			
 			l.append(docutils.nodes.image(src, alt=text, uri=src))
 			
@@ -111,7 +113,8 @@ class MathDirective(docutils.parsers.rst.Directive):
 
 class ImageDirective(docutils.parsers.rst.directives.images.Image):
 	def run(self):
-		self.arguments[0] = image_callback(self.arguments[0])
+		self.arguments[0] = self.state.document.settings \
+			.restpub_callbacks['image'](self.arguments[0])
 		return docutils.parsers.rst.directives.images.Image.run(self)
 
 
@@ -123,7 +126,8 @@ class InternalDirective(docutils.parsers.rst.Directive):
 #	final_argument_whitespace = False
 
 	def run(self):
-		content = internal_callback(*self.arguments)
+		content = self.state.document.settings \
+			.restpub_callbacks['internal'](*self.arguments)
 		return [docutils.nodes.raw('', content, format='html')]
 
 def format_tree(document):
@@ -182,13 +186,20 @@ docutils.parsers.rst.directives.register_directive('image', ImageDirective)
 #def interal_callback(f):
 #	_internal_callback = f
 
-def publish_text(text):
+def publish_text(text, template_callback=None, math_callback=None,
+image_callback=None, internal_callback=None):
 	error_stream = StringIO.StringIO()
 	settings = {
 		'halt_level' : 5,
 		'warning_stream' : error_stream,
 		'file_insertion_enabled' : False,
 		'raw_enabled' : False,
+		'restpub_callbacks': {
+			'template': template_callback,
+			'math': math_callback,
+			'image': image_callback,
+			'internal': internal_callback,
+		},
 	}
 	
 	output, publisher = docutils.core.publish_programmatically(

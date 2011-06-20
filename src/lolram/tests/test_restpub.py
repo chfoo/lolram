@@ -143,16 +143,12 @@ TEXT_5 = u'''
 '''
 
 class TestRestPub(unittest.TestCase):
-	def setUp(self):
-		def template_lookup_fn(name):
-			if name == 'template1':
-				return TEMPLATE_1
-		
-		def math_callback_fn(filename):
-			return filename
-		
-		restpub.template_callback = template_lookup_fn
-		restpub.math_callback = math_callback_fn
+	def template_lookup_fn(self, name):
+		if name == 'template1':
+			return TEMPLATE_1
+	
+	def math_callback_fn(self, filename):
+		return filename
 	
 	def my_test_doc_info(self, doc_info):
 		self.assertTrue(doc_info)
@@ -167,7 +163,8 @@ class TestRestPub(unittest.TestCase):
 		self.assertEqual(doc_info.meta['author'], u'author name')
 	
 	def test_template(self):
-		doc_info = restpub.publish_text(TEXT_2)
+		doc_info = restpub.publish_text(TEXT_2, 
+			template_callback=self.template_lookup_fn)
 		self.my_test_doc_info(doc_info)
 		self.assertEqual(unicode(doc_info.tree).find('{{0}}'), -1)
 		self.assertEqual(unicode(doc_info.tree).find('{{1}}'), -1)
@@ -176,32 +173,22 @@ class TestRestPub(unittest.TestCase):
 		self.assertNotEqual(unicode(doc_info.tree).find('ZZZZZZZZZ'), -1)
 	
 	def test_nonexistng_template(self):
-		doc_info = restpub.publish_text(TEXT_5)
+		doc_info = restpub.publish_text(TEXT_5, 
+			template_callback=self.template_lookup_fn)
 		self.assertTrue(doc_info.errors)
 	
 #	def test_template_func(self):
 #		self.assertRaises(NotImplementedError, lambda: self.pub2.publish(TEXT_1))
 		
 	def test_simple_math(self):
-		doc_info = restpub.publish_text(TEXT_3)
+		doc_info = restpub.publish_text(TEXT_3, 
+			math_callback=self.math_callback_fn)
 		self.my_test_doc_info(doc_info)
 		self.assertNotEqual(unicode(doc_info.tree).find(u'&pi'), -1)
 	
 	def test_complex_math(self):
-		doc_info = restpub.publish_text(TEXT_4)
+		doc_info = restpub.publish_text(TEXT_4,
+			math_callback=self.math_callback_fn)
 		self.my_test_doc_info(doc_info)
 		self.assertNotEqual(unicode(doc_info.tree).find(u'image'), -1)
 	
-	
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		

@@ -74,11 +74,6 @@ class Database(base.BaseComponent):
 		self._table_meta_list = table_meta_list
 		self._migrated = False
 		
-		# FIXME: below is for singleton instances, but we shouldn't be doing
-		# this
-		_logger.debug('New db session')
-		self._session = self.singleton._Session()
-	
 	def migrate(self):
 		_logger.info(u'Begin migrate')
 		session = self.singleton._Session()
