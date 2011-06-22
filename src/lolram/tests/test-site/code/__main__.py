@@ -189,6 +189,7 @@ class SiteApp(lolram.app.SiteApp):
 			article = cms.get_article(address=address)
 			article_version = article.edit()
 			article_version.addresses = article.current.addresses - set([address])
+			article_version.primary_address = None
 			article_version.save()
 			return ['ok']
 	

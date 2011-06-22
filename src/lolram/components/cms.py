@@ -97,6 +97,7 @@ class ArticleMetadataFields(object):
 	PARENTS = 'parents'
 	ADDRESSES = 'addresses'
 	VIEW_MODE = 'viewmode'
+	PRIMARY_ADDRESS = 'primaddr'
 
 class CMSArticlesMeta(database.TableMeta):
 	class D1(database.TableMeta.Def):
@@ -1339,6 +1340,10 @@ class ArticleHistoryReadWrapper(dataobject.ProtectedObject, dataobject.BaseModel
 		return self.metadata.get(ArticleMetadataFields.VIEW_MODE)
 	
 	@property
+	def primary_address(self):
+		return self.metadata.get(ArticleMetadataFields.PRIMARY_ADDRESS)
+	
+	@property
 	def doc_info(self):
 		if self.text and not self._doc_info:
 			self._doc_info = restpub.publish_text(self.text,
@@ -1394,10 +1399,13 @@ class ArticleHistoryWriteWrapper(ArticleHistoryReadWrapper):
 	@ArticleHistoryReadWrapper.view_mode.setter
 	def view_mode(self, mode):
 		self.metadata[ArticleMetadataFields.VIEW_MODE] = mode
+		
+	@ArticleHistoryReadWrapper.primary_address.setter
+	def primary_address(self, s):
+		self.metadata[ArticleMetadataFields.PRIMARY_ADDRESS] = s
 	
 	def save(self):
 		assert self._text or self._file
-		assert self.view_mode is not None
 
 		article_model = self._article_wrapper._model
 		article_model.title = self.metadata.get(ArticleMetadataFields.TITLE) \
@@ -1408,9 +1416,17 @@ class ArticleHistoryWriteWrapper(ArticleHistoryReadWrapper):
 			or datetime.datetime.utcnow()
 		article_model.view_mode = self.metadata.get(ArticleMetadataFields.VIEW_MODE)
 		article_model.version = self._model.version
+		article_model.primary_address = self.primary_address
 		
 		if not article_model.primary_address and self.addresses:
-			article_model.primary_address = tuple(self.addresses)[0]
+			self.primary_address = tuple(self.addresses)[0]
+			article_model.primary_address = self.primary_address
+		elif not self.addresses:
+			article_model.primary_address = None
+			self.primary_address = None
+			
+		if self.addresses:
+			assert self.primary_address in self.addresses
 		
 		if article_model.primary_address:
 			assert article_model.primary_address in self.addresses

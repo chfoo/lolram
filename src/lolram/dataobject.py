@@ -178,13 +178,18 @@ class Context(ProtectedObject):
 	controller=None, fill_controller=False,
 	args=None, fill_args=False,
 	params=None, fill_params=False,
-	query=None, fill_query=False):
+	query=None, fill_query=False, fill_host=False):
 		'''Build a URL instance
 		
 		:rtype: `URL`
 		'''
 	
 		url = urln11n.URL()
+		
+		if fill_host:
+			url.hostname = self._request.url.hostname
+			url.scheme = self._request.url.scheme
+			url.port = self._request.url.port
 		
 		if path:
 			url.path = path

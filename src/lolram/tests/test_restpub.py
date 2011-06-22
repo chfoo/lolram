@@ -147,7 +147,7 @@ class TestRestPub(unittest.TestCase):
 		if name == 'template1':
 			return TEMPLATE_1
 	
-	def math_callback_fn(self, filename):
+	def math_callback_fn(self, hash, filename):
 		return filename
 	
 	def my_test_doc_info(self, doc_info):

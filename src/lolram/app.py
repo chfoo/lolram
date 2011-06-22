@@ -496,7 +496,7 @@ class Launcher(object):
 			local_path=urln11n.collapse_path(environ['PATH_INFO'].split(';', 1)[0]),
 			controller=controller,
 			args=args,
-			form=cgi.FieldStorage(fp=environ['wsgi.input'], 
+			form=urln11n.FieldStorage(fp=environ['wsgi.input'], 
 				environ=environ, keep_blank_values=True),
 		)
 	

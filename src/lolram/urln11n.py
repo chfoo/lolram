@@ -25,6 +25,7 @@ import urlparse
 import urllib
 import copy
 import cStringIO
+import cgi
 
 DEFAULT_PORTS = {
 	'ftp' : 21,
@@ -49,16 +50,16 @@ class URLQuery(dict):
 			q = urlparse.parse_qs(string, True)
 		
 			for key, value in q.iteritems():
-				vl = map(unquote, value)
+				vl = decode(value)
 				vl.sort()
 				self[key] = vl
 		
 		if query:
 			for key, value in query.iteritems():
 				if isinstance(value, list) or isinstance(value, tuple):
-					vl = value
+					vl = map(decode, value)
 				else:
-					vl = [value]
+					vl = [decode(value)]
 				
 				self[key] = vl
 	
@@ -237,7 +238,7 @@ class URL(object):
 		self.scheme = p.scheme
 		self.path = p.path
 		self.params = p.params
-		self.query = p.query
+		self.query = URLQuery(string=p.query)
 		
 #		self.query_first = {}
 #		
@@ -255,8 +256,36 @@ class URL(object):
 		if self._port:
 			self._port = int(self.port)
 	
+	def get_query_first(self):
+		d = {}
+		
+		for k in self.query:
+			d[k] = self.query.getfirst(k)
+		
+		return d
+	
 	def copy(self):
 		return copy.copy(self)
+
+class FieldStorage(cgi.FieldStorage):
+	def getfirst(self, *args, **kargs):
+		v = self.getfirst(*args, **kargs)
+		
+		if isinstance(v, str):
+			return v.decode('utf8')
+		else:
+			return v
+	
+	def getlist(self, *args, **kargs):
+		l = self.getlist(*args, **kargs)
+		
+		new_list = l
+		
+		for i in xrange(len(l)):
+			v = l[i]
+			
+			if isinstance(v, str):
+				new_list[i] = v.decode('utf8')
 
 def is_allowable_hostname(s):
 	# 
@@ -276,6 +305,12 @@ def unquote(s):
 			return urllib.unquote(str(s)).decode('utf8')
 		except UnicodeEncodeError:
 			return s
+
+def decode(s):
+	if isinstance(s, str):
+		return s.decode('utf8')
+	else:
+		return s
 
 def quote(s):
 	return urllib.quote(s.encode('utf8'))
