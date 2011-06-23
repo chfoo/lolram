@@ -24,7 +24,7 @@ ID number for the given resource.
 #	You should have received a copy of the GNU General Public License
 #	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
 
-__doctype__ = 'restructuredtext en'
+__docformat__ = 'restructuredtext en'
 
 import os
 import shutil

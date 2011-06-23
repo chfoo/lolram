@@ -20,7 +20,7 @@
 #	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__doctype__ = 'restructuredtext en'
+__docformat__ = 'restructuredtext en'
 
 import os.path
 import UserDict

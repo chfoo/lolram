@@ -25,7 +25,7 @@ import os.path
 from lolram.urln11n import URL
 from lolram import urln11n 
 
-__doctype__ = 'restructuredtext en'
+__docformat__ = 'restructuredtext en'
 
 class TestURL(unittest.TestCase):
 #	def test_parse_mailto(self):
