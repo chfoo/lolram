@@ -37,6 +37,8 @@ import openid.consumer.consumer
 import openid.association
 import openid.store.nonce
 
+from lxml.html import builder as lxmlbuilder
+
 import base
 from .. import dataobject
 from .. import configloader
@@ -366,6 +368,7 @@ class Accounts(base.BaseComponent):
 		db = self.context.get_instance(database.Database)
 		db.add(AccountsMeta, AccountLogsMeta, OpenIDAssocMeta, OpenIDNonceMeta)
 		self._roles = set()
+		self._testing_account_sign_in_rate_limiter = [0, 0]
 		
 	def setup(self):
 		db = self.context.get_instance(database.Database)
@@ -526,7 +529,7 @@ class Accounts(base.BaseComponent):
 		
 		return query.first()
 	
-	def serve(self):
+	def serve(self, success_redirect_url=None):
 		doc = self.context.get_instance(wui.Document)
 		if self.context.request.args:
 			action = self.context.request.args[0]
@@ -550,30 +553,6 @@ class Accounts(base.BaseComponent):
 			doc.meta.title = 'Sign out'
 			self.cancel_account_id()
 			doc.add_message('You are now signed out')
-		elif action == 'openidphase2':
-			display_name, openid_id, result_code = self.authenticate_openid_stage_2()
-			db = self.context.get_instance(database.Database)
-			
-			if openid_id:
-				query = db.session.query(db.models.Account) \
-					.filter_by(username=openid_id)
-				
-				account_model = query.first()
-				
-				if not account_model:
-					account_model = db.models.Account()
-					account_model.username = openid_id
-					account_model.nickname = display_name
-					db.session.add(account_model)
-					db.session.flush()
-				
-				self.apply_account_id(account_model.id) 
-				
-				doc.add_message('You are now signed in', u'Hello %s' % display_name)
-			else:
-				doc.add_message('Sorry, there was a problem during the sign in process',
-					'Please try again later. (Error code %s' % result_code)
-
 		else:
 			doc.meta.title = 'Sign in'
 			
@@ -583,10 +562,22 @@ class Accounts(base.BaseComponent):
 			username = self.context.request.form.getfirst('username')
 			
 			dest_url = self.context.str_url(fill_controller=True,
-				args=('openidphase2',), fill_host=True)
+				fill_args=True, params='openidphase2', fill_host=True)
 			
 			if root_password:
+				
+				if time.time() < self.singleton._testing_account_sign_in_rate_limiter[1]:
+					self.context.response.set_status(403)
+					doc.add_message('Rate limit exceeded')
+					return
+				
 				self.authenticate_testing_password(root_password)
+				
+				if not self.is_authenticated():
+					self.singleton._testing_account_sign_in_rate_limiter[0] += 1
+					self.singleton._testing_account_sign_in_rate_limiter[1] = time.time() + 10 * self.singleton._testing_account_sign_in_rate_limiter[0]
+				else:
+					self.singleton._testing_account_sign_in_rate_limiter = [0, 0]
 			
 			elif openid_url:
 				return self.context.response.redirect(
@@ -602,38 +593,53 @@ class Accounts(base.BaseComponent):
 				return self.context.response.redirect(
 					self.authenticate_openid_stage_1(openid_url, dest_url), 303)
 			
+			elif self.context.request.params == 'openidphase2':
+				display_name, openid_id, result_code = self.authenticate_openid_stage_2()
+				db = self.context.get_instance(database.Database)
+				
+				if openid_id:
+					query = db.session.query(db.models.Account) \
+						.filter_by(username=openid_id)
+					
+					account_model = query.first()
+					
+					if not account_model:
+						account_model = db.models.Account()
+						account_model.username = openid_id
+						account_model.nickname = display_name
+						db.session.add(account_model)
+						db.session.flush()
+					
+					self.apply_account_id(account_model.id) 
+					
+					doc.add_message('You are now signed in', u'Hello %s' % display_name)
+				else:
+					doc.add_message('Sorry, there was a problem during the sign in process',
+						'Please try again later. (Error code %s' % result_code)
+
+			
 			if self.is_authenticated():
 				doc.add_message('You are now signed in')
+				
+				nav = models.Nav()
+				nav.add('Browse users', self.context.str_url(fill_controller=True,
+					args=('list',)))
+				doc.append(dataobject.MVPair(nav))
+				
+				if success_redirect_url:
+					return self.context.response.redirect(success_redirect_url, 303)
+				
 				return
 			
-			form = models.Form(method=models.Form.POST)
-			form.textbox('openid', 'Sign in via OpenID:')
-			form.button('submit', 'Sign in')
-			doc.append(dataobject.MVPair(form))
+			doc.append(dataobject.MVPair(AccountSignInModel()))
 			
-			l = sorted(OpenIDInfo.providers.iteritems(), key=lambda i:i[0])
-			for provider, provider_data in l:
-				url, name = provider_data
-				form = models.Form(method=models.Form.POST)
-				form.textbox('provider', provider, provider, validation=form.Textbox.HIDDEN)
-				
-				if url.find('{{}}') != -1:
-					form.textbox('username', u'%s username' % name)
-				
-				form.button('submit', u'Sign in via %s' % name)
-				
-				doc.append(dataobject.MVPair(form))
-			
-			form = models.Form(method=models.Form.POST)
-			form.textbox('root', 'Sign in via root:', 
-				validation=models.Form.Textbox.PASSWORD)
-			form.button('submit', 'Sign in')
-			doc.append(dataobject.MVPair(form))
-	
+		
 	def _check_perm(self):
-		if not self.account_model or self.account_model.username != self.context.config.accounts.master_test_password:
+		if not self.account_model or self.account_model.username != self.context.config.accounts.master_test_username:
 			self.context.response.set_status(403)
 			return True
+		
+		return False
 	
 	def _serve_list(self):
 		db = self.context.get_instance(database.Database)
@@ -719,6 +725,48 @@ class Accounts(base.BaseComponent):
 		
 		doc.title = u'Edit %s' % account.username
 		doc.append(dataobject.MVPair(form))
+	
+
+class AccountSignInModel(dataobject.BaseModel):
+	class default_view(dataobject.BaseView):
+		@classmethod
+		def to_html(cls, context, model):
+			element = lxmlbuilder.DIV(ID='accounts-sign-in-wrapper')
+			
+			div = lxmlbuilder.DIV(lxmlbuilder.H3('OpenID'))
+			form = models.Form(method=models.Form.POST)
+			form.textbox('openid', 'OpenID')
+			form.button('submit', 'Sign in')
+			div.append(dataobject.MVPair(form).render(context, format='html'))
+			
+			element.append(div)
+			
+			l = sorted(OpenIDInfo.providers.iteritems(), key=lambda i:i[0])
+			for provider, provider_data in l:
+				url, name = provider_data
+				div = lxmlbuilder.DIV(lxmlbuilder.H3(name))
+				
+				form = models.Form(method=models.Form.POST)
+				form.textbox('provider', provider, validation=form.Textbox.HIDDEN)
+				
+				if url.find('{{}}') != -1:
+					form.textbox('username', u'Username', required=True)
+				
+				form.button('submit', u'Sign in via %s' % name)
+				
+				div.append(dataobject.MVPair(form).render(context, format='html'))
+				element.append(div)
+			
+			div = lxmlbuilder.DIV(lxmlbuilder.H3('root'))
+			form = models.Form(method=models.Form.POST)
+			form.textbox('root', 'Password', 
+				validation=models.Form.Textbox.PASSWORD)
+			form.button('submit', 'Sign in')
+			div.append(dataobject.MVPair(form).render(context, format='html'))
+			element.append(div)
+			
+			return element
+			
 
 def guess_provider_from_email(s):
 	for provider, substrings in OpenIDInfo.emails.iteritems():

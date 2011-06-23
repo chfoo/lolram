@@ -757,9 +757,26 @@ def normalize_header_name(name, capwords=True):
 		return name.replace('_', '-')
 
 
-class _MVPair(collections.namedtuple('MVPair', ['model', 'view', 'opts']),
+class MVPair(collections.namedtuple('MVPair', ['model', 'view', 'opts']),
 BaseModel):
+	'''Return a named tuple to be used for view rendering
+	
+	:rtype: `MVPair`
+	'''
+	
 	__slots__ = ()
+	
+	def __new__(cls, model, view=None, **opts):
+		
+		assert isinstance(model, BaseModel)
+		
+		if view:
+			assert issubclass(view, BaseView)
+		else:
+			assert issubclass(model.default_view, BaseView)
+		
+		return super(MVPair, cls).__new__(cls, model, view, opts)
+
 	
 	def render(self, context, format, **opts):
 		opts.update(self.opts)
@@ -771,22 +788,6 @@ BaseModel):
 		
 		return view.render(context, self.model, format, **opts)
 	
-
-def MVPair(model, view=None, **opts):
-	'''Return a named tuple to be used for view rendering
-	
-	:rtype: `_MVPair`
-	'''
-	
-	assert isinstance(model, BaseModel)
-	
-	if view:
-		assert issubclass(view, BaseView)
-	else:
-		assert issubclass(model.default_view, BaseView)
-	
-	return _MVPair(model, view, opts)
-
 
 class PageInfo(collections.namedtuple('PageInfo', 
 ['offset', 'limit', 'all', 'more', 'page', 'page_min', 'page_max']),

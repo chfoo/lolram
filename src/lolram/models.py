@@ -154,3 +154,11 @@ class Table(dataobject.BaseModel):
 		self.rows = o
 
 	
+class Nav(dataobject.BaseModel):
+	default_view = views.NavView
+	
+	def __init__(self):
+		self._data = []
+	
+	def add(self, label, url, icon=None):
+		self._data.append((label, url, icon))

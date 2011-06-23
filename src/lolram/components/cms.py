@@ -432,10 +432,12 @@ class CMS(base.BaseComponent):
 			arg1 = None
 			arg2 = None
 		
-		self._doc.title = 'test %s %s' % (arg1, arg2)
-		
-		if arg1 and not arg2:
-			article = self.get_article(address=arg1)
+		if (arg1 and not arg2) or (arg1 == self.GET and arg2):
+			if arg1 and not arg2:
+				article = self.get_article(address=arg1)
+			else:
+				uuid_bytes = util.b32low_to_bytes(arg2)
+				article = self.get_article(uuid=uuid_bytes)
 			
 			if article:
 				if self._check_permissions(ArticleActions.VIEW_TEXT, article.current):
@@ -454,28 +456,7 @@ class CMS(base.BaseComponent):
 				if article.current.view_mode & ArticleViewModes.CATEGORY:
 					self._build_single_article_listing(article)
 				
-		elif arg1 == self.GET and arg2:
-			uuid_bytes = util.b32low_to_bytes(arg2)
-			article = self.get_article(uuid=uuid_bytes)
-			
-			if article:
-				if self._check_permissions(ArticleActions.VIEW_TEXT, article.current):
-					self.context.response.set_status(403)
-					return
-				
-				self.context.response.ok()
-				
-				if article.current.view_mode & ArticleViewModes.CATEGORY:
-					nested_count = -1
-				else:
-					nested_count = 5
-				
-				self._build_article_page(article.current, nested_count)
-				
-				if article.current.view_mode & ArticleViewModes.CATEGORY:
-					self._build_single_article_listing(article)
-				
-				if article.primary_address:
+				if arg1 == self.GET and arg2 and article.primary_address:
 					self.context.response.headers.add('Link', 
 						u'<%s>' % self.context.str_url(fill_controller=True,
 							args=[article.primary_address]), rel='Canonical')
@@ -577,6 +558,19 @@ class CMS(base.BaseComponent):
 			dest_path = os.path.join(dest_dir, '%s.png' % arg2)
 		
 			return self.context.response.output_file(dest_path)
+		
+		else:
+			self.context.response.set_status(404)
+		
+		
+		nav = models.Nav()
+		nav.add('Browse', self.context.str_url(fill_controller=True,
+			args=(self.BROWSE, 'a')))
+		nav.add('New article', self.context.str_url(fill_controller=True,
+			args=(self.EDIT, self.NEW)))
+		
+		self._doc.append(dataobject.MVPair(nav))
+		
 	
 	def _build_article_page(self, article, nested_count=5):
 		self._doc.title = article.title or article.upload_filename
@@ -801,7 +795,7 @@ class CMS(base.BaseComponent):
 		and self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER):
 			form.textbox('address', 'Address (optional):')
 		
-		if self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER):
+		if self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER) and article_version == 1:
 			opts = form.options('is-article', 'View mode article')
 			opts.option('true', 'Yes', active=True)
 		
@@ -829,7 +823,7 @@ class CMS(base.BaseComponent):
 			
 			article_history.addresses = frozenset(addresses)
 			if address:
-				article_history.article._model.primary_address = address
+				article_history.primary_address = address
 			
 			parent_list = []
 			for uuid_hex in parents:
@@ -1043,9 +1037,10 @@ class ArticleView(dataobject.BaseView):
 					page_info.more = True
 					break
 			
-			element.append(views.PagerView.to_html(context, page_info))
+			if counter > 1:
+				element.append(views.PagerView.to_html(context, page_info))
 			
-		elif article_format == cls.ARTICLE_FORMAT_NORMAL and model.article.children:
+		elif article_format == cls.ARTICLE_FORMAT_NORMAL and is_nested_child and model.article.children:
 			element.append(lxmlbuilder.A('(More)', href=
 				context.str_url(
 				args=(CMS.GET, CMS.model_uuid_str(model.article),),
@@ -1105,6 +1100,7 @@ class ArticleWrapper(dataobject.ProtectedObject):
 		self._model = model
 		self._cms = context.get_instance(CMS)
 		self._db = context.get_instance(database.Database)
+		self._read_wrapper_cache = None
 		
 	def __hash__(self):
 		return self._model.__hash__()
@@ -1124,7 +1120,7 @@ class ArticleWrapper(dataobject.ProtectedObject):
 	
 	@property
 	def current(self):
-		if self._model.version:
+		if not self._read_wrapper_cache and self._model.version:
 			query = self._db.session.query(self._db.models.CMSHistory) \
 				.filter_by(article_id=self.id) \
 				.filter_by(version=self._model.version)
@@ -1132,7 +1128,9 @@ class ArticleWrapper(dataobject.ProtectedObject):
 			model = query.first()
 			
 			if model:
-				return ArticleHistoryReadWrapper(self._context, model)
+				self._read_wrapper_cache = ArticleHistoryReadWrapper(self._context, model)
+				
+		return self._read_wrapper_cache
 	
 	@property
 	def uuid(self):

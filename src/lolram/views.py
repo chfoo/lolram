@@ -31,7 +31,8 @@ class FormView(dataobject.BaseView):
 			element = lxmlbuilder.DIV(lxmlbuilder.DIV(model.label))
 			
 			for name, label, active in model:
-				element.append(lxmlbuilder.LABEL(label))
+				div = lxmlbuilder.E.menu()
+				div.append(lxmlbuilder.LABEL(label))
 				
 				if model.multi or len(model) == 1:
 					input_type = 'checkbox' 
@@ -39,10 +40,12 @@ class FormView(dataobject.BaseView):
 					input_type = 'radio'
 				
 				input = lxmlbuilder.INPUT(type=input_type, name=model.name, value=name)	
-				element.append(input)
+				div.append(input)
 				
 				if context.request.form.getfirst(model.name) == name or active:
 					input.set('checked', 'checked')
+				
+				element.append(div)
 			
 			return element		
 	
@@ -183,7 +186,7 @@ class LabelURLToLinkView(dataobject.BaseView):
 class PagerView(dataobject.BaseView):
 	@classmethod
 	def to_html(cls, context, model, **opts):
-		ul = lxmlbuilder.UL(CLASS='pager')
+		ul = lxmlbuilder.E.nav(CLASS='pager')
 		
 		def add(label, page):
 			url = context.str_url(fill_path=True, fill_query=True, 
@@ -206,3 +209,16 @@ class PagerView(dataobject.BaseView):
 		
 		return ul
 
+class NavView(dataobject.BaseView):
+	@classmethod
+	def to_html(cls, context, model):
+		ul = lxmlbuilder.E.nav(lxmlbuilder.CLASS('navView'))
+		
+		for label, url, icon in model._data:
+			a = lxmlbuilder.A(label, href=url)
+			if icon:
+				a.insert(0, lxmlbuilder.IMG(src=icon))
+			
+			ul.append(lxmlbuilder.LI(a))
+		
+		return ul

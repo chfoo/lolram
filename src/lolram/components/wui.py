@@ -64,8 +64,7 @@ class WUI(base.BaseComponent):
 	@content.setter
 	def content(self, o):
 		self._content = o
-
-
+	
 class DocumentView(dataobject.BaseView):
 	@classmethod
 	def to_html(cls, context, model, **opts):
@@ -129,7 +128,7 @@ class DocumentView(dataobject.BaseView):
 				messages_wrapper.append(element)
 		
 		for content in model:
-			assert isinstance(content, dataobject._MVPair)
+			assert isinstance(content, dataobject.MVPair)
 			c = content.render(context, 'html', **opts)
 			content_wrapper_element.append(c)
 		

@@ -269,7 +269,7 @@ class URL(object):
 
 class FieldStorage(cgi.FieldStorage):
 	def getfirst(self, *args, **kargs):
-		v = self.getfirst(*args, **kargs)
+		v = cgi.FieldStorage.getfirst(self, *args, **kargs)
 		
 		if isinstance(v, str):
 			return v.decode('utf8')
@@ -277,7 +277,7 @@ class FieldStorage(cgi.FieldStorage):
 			return v
 	
 	def getlist(self, *args, **kargs):
-		l = self.getlist(*args, **kargs)
+		l = cgi.FieldStorage.getlist(self, *args, **kargs)
 		
 		new_list = l
 		
@@ -286,6 +286,8 @@ class FieldStorage(cgi.FieldStorage):
 			
 			if isinstance(v, str):
 				new_list[i] = v.decode('utf8')
+		
+		return new_list
 
 def is_allowable_hostname(s):
 	# 
