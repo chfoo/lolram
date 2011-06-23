@@ -187,7 +187,7 @@ class ResPool(base.BaseComponent):
 		
 		db = self.context.get_instance(database.Database)
 		
-		sha256_obj = hashlib.sha256(text)
+		sha256_obj = hashlib.sha256(text.encode('utf8'))
 		digest = sha256_obj.digest()
 		
 		query = db.session.query(db.models.ResPoolText)

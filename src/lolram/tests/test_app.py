@@ -201,8 +201,8 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 	def test_file_pool(self):
 		'''It should store and retrieve files'''
 		
-		text1 = u'Stochastic Ruby Dragon'
-		text2 = u'Stochastic Ruby Dragon⁓'
+		text1 = u'Stochastic Ruby Dragon'.encode('utf8')
+		text2 = u'Stochastic Ruby Dragon⁓'.encode('utf8')
 		
 		response = self.request('/res_pool_file_test',
 			query={'action':'get', 'id': '8000000'})
