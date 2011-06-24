@@ -271,7 +271,18 @@ class Responder(object):
 		http_range = self.environ.get('HTTP_RANGE')
 		if http_range and 'bytes' in http_range:
 			range_type, range_value = http_range.split('=')
-			range_lower, range_upper = map(int, range_value.split('-'))
+			range_lower, range_upper = range_value.split('-')
+			
+			if range_lower:
+				range_lower = int(range_lower)
+			else:
+				range_lower = 0
+			
+			if range_upper:
+				range_upper = int(range_upper)
+			else:
+				range_upper = os.path.getsize(path)
+				
 		else:
 			range_lower = 0
 			range_upper = os.path.getsize(path)
@@ -508,7 +519,7 @@ class Launcher(object):
 			environ=environ)
 		app = context.get_instance(self._class)
 			
-#		context.logger.debug(environ)
+		context.logger.debug(environ)
 		context.logger.debug(u'Reconstructed URL: %s', url)
 		
 		

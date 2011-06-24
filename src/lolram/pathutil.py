@@ -53,43 +53,51 @@ def common(path_a, path_b):
 	return (common, a, b)
 	
 def application_uri(environ):
-    """Return the application's base URI (no PATH_INFO or QUERY_STRING)
-    
-    This version of `wsgiref.util.request_uri` does not incorrectly qoute
-    the ``;`` parameter notation.
-    """
-    url = environ['wsgi.url_scheme']+'://'
-#    from urllib import quote
+	"""Return the application's base URI (no PATH_INFO or QUERY_STRING)
+	
+	This version of `wsgiref.util.request_uri` does not incorrectly qoute
+	the ``;`` parameter notation.
+	"""
+	url = environ['wsgi.url_scheme']+'://'
+#	from urllib import quote
 
-    if environ.get('HTTP_HOST'):
-        url += environ['HTTP_HOST']
-    else:
-        url += environ['SERVER_NAME']
+	if environ.get('HTTP_HOST'):
+		url += environ['HTTP_HOST']
+	else:
+		url += environ['SERVER_NAME']
 
-        if environ['wsgi.url_scheme'] == 'https':
-            if environ['SERVER_PORT'] != '443':
-                url += ':' + environ['SERVER_PORT']
-        else:
-            if environ['SERVER_PORT'] != '80':
-                url += ':' + environ['SERVER_PORT']
-
-    url += urllib.quote(environ.get('SCRIPT_NAME') or '/', '/;')
-    return url
+		if environ['wsgi.url_scheme'] == 'https':
+			if environ['SERVER_PORT'] != '443':
+				url += ':' + environ['SERVER_PORT']
+		else:
+			if environ['SERVER_PORT'] != '80':
+				url += ':' + environ['SERVER_PORT']
+	
+	# Try to not accept things such as myscript.fcgi even though its not
+	# visible in the url
+	script_name = environ.get('SCRIPT_NAME')
+	
+	if 'REQUEST_URI' in environ:
+		c, a, b = common(script_name, environ['REQUEST_URI'])
+		script_name = c
+	
+	url += urllib.quote(script_name or '/', '/;')
+	return url
 
 
 def request_uri(environ, include_query=1):
-    """Return the full request URI, optionally including the query string
-    
-    This version of `wsgiref.util.request_uri` does not incorrectly qoute
-    the ``;`` parameter notation.
-    """
-    url = application_uri(environ)
-#    from urllib import quote
-    path_info = environ.get('PATH_INFO','')
-    if not environ.get('SCRIPT_NAME'):
-        url += path_info[1:]
-    else:
-        url += path_info
-    if include_query and environ.get('QUERY_STRING'):
-        url += '?' + environ['QUERY_STRING']
-    return url
+	"""Return the full request URI, optionally including the query string
+	
+	This version of `wsgiref.util.request_uri` does not incorrectly qoute
+	the ``;`` parameter notation.
+	"""
+	url = application_uri(environ)
+#	from urllib import quote
+	path_info = environ.get('PATH_INFO','')
+	if not environ.get('SCRIPT_NAME'):
+		url += path_info[1:]
+	else:
+		url += path_info
+	if include_query and environ.get('QUERY_STRING'):
+		url += '?' + environ['QUERY_STRING']
+	return url

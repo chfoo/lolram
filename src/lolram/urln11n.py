@@ -138,7 +138,10 @@ class URL(object):
 	
 	@property
 	def port(self):
-		return self._port
+		if self._port:
+			return self._port
+		else:
+			return DEFAULT_PORTS.get(self.scheme)
 	
 	@port.setter
 	def port(self, n):
