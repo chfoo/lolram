@@ -136,7 +136,7 @@ def format_tree(document):
 	elif isinstance(document, docutils.nodes.reference):
 		return {
 			'tag' : document.tagname,
-			'values' : [document.attributes['refuri']]
+			'values' : [document.attributes.get('refuri')]
 		}
 	else:
 		d = {}
@@ -186,6 +186,18 @@ docutils.parsers.rst.directives.register_directive('image', ImageDirective)
 #def interal_callback(f):
 #	_internal_callback = f
 
+#collections.namedtuple('restpub_doc_info', 
+#	('errors', 'title', 'tree', 'subtitle', 'meta', 'refs', 'html_parts'))
+class DocInfo(object):
+	def __init__(self):
+		self.errors = None
+		self.title = None
+		self.tree = None
+		self.subtitle = None
+		self.meta = None
+		self.refs = None
+		self.html_parts = None
+
 def publish_text(text, template_callback=None, math_callback=None,
 image_callback=None, internal_callback=None):
 	error_stream = StringIO.StringIO()
@@ -213,9 +225,8 @@ image_callback=None, internal_callback=None):
 		settings=None, settings_spec=None, settings_overrides=settings, 
 		config_section=None, enable_exit_status=None) 
 	
-	doc_info = collections.namedtuple('restpub_doc_info', 
-		('errors', 'title', 'tree', 'subtitle', 'meta', 'refs', 'html_parts'))
 	document = publisher.writer.document
+	doc_info = DocInfo()
 	doc_info.tree = format_tree(document)
 	error_stream.seek(0)
 	doc_info.errors = error_stream.read()

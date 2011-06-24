@@ -188,7 +188,7 @@ class SiteApp(lolram.app.SiteApp):
 		elif action == 'delete':
 			article = cms.get_article(address=address)
 			article_version = article.edit()
-			article_version.addresses = article.current.addresses - set([address])
+			article_version.addresses = article_version.addresses - set([address])
 			article_version.primary_address = None
 			article_version.save()
 			return ['ok']

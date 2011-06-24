@@ -28,10 +28,11 @@ Lolram requires
 5. magic for content management (python-magic)
 6. RestructuredText for content text formatting (python-docutils)
 7. OpenID for login (python-openid)
+8. memcached (python-memcache and memcached)
 
 and optionally,
 
-8. epydoc for API documentation (python-epydoc)
+9. epydoc for API documentation (python-epydoc)
 
 Architecture
 ============

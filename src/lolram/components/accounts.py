@@ -370,15 +370,23 @@ class Accounts(base.BaseComponent):
 		self._roles = set()
 		self._testing_account_sign_in_rate_limiter = [0, 0]
 		
-	def setup(self):
-		db = self.context.get_instance(database.Database)
-		username = self.context.config.accounts.master_test_username
-		query = db.session.query(db.models.Account).filter_by(
-			username=username)
+		if self.context.config.accounts.master_test_username:
+			self._has_test_account_setup = False
+		else:
+			self._has_test_account_setup = True
 		
-		if not query.first() and username:
-			model = db.models.Account(username=username)
-			db.session.add(model)
+	def setup(self):
+		if not self.singleton._has_test_account_setup:
+			db = self.context.get_instance(database.Database)
+			username = self.context.config.accounts.master_test_username
+			query = db.session.query(db.models.Account).filter_by(
+				username=username)
+		
+			if not query.first() and username:
+				model = db.models.Account(username=username)
+				db.session.add(model)
+			
+			self.singleton._has_test_account_setup = True
 		
 		sess = self.context.get_instance(session.Session)
 		self._account_id = sess.data._accounts_account_id
@@ -455,6 +463,10 @@ class Accounts(base.BaseComponent):
 	
 	def authenticate_testing_password(self, password):
 		db = self.context.get_instance(database.Database)
+		
+		if isinstance(password, unicode):
+			password = password.encode('utf8')
+		
 		sha256_obj = hashlib.sha256(password)
 		
 		salt = self.context.config.accounts.master_test_password_salt
@@ -715,7 +727,7 @@ class Accounts(base.BaseComponent):
 		opts = form.options('roles', 'Roles', True)
 		
 		for namespace, role in self.singleton._roles:
-			active = (namespace, role) in self.singleton._roles
+			active = (namespace, role) in account.roles
 			
 			opts.option(json.dumps([namespace, role]), 
 				u'%s %s' % (namespace, role),

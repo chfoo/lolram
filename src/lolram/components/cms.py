@@ -43,6 +43,7 @@ import database
 import accounts
 import wui
 import respool
+import cache
 #import dbutil.nestedsets
 from .. import dataobject
 from .. import configloader
@@ -70,15 +71,9 @@ class ActionRole(object):
 
 class ArticleViewModes(object):
 	VIEWABLE = 0b1
-	
-	TEXT = 0b00
 	FILE = 0b10
-	
 	ARTICLE = 0b100
-	COMMENT = 0b000
-	
 	ALLOW_COMMENTS = 0b1000
-	
 	CATEGORY = 0b10000
 
 class ArticleActions(object):
@@ -456,7 +451,7 @@ class CMS(base.BaseComponent):
 				if article.current.view_mode & ArticleViewModes.CATEGORY:
 					self._build_single_article_listing(article)
 				
-				if arg1 == self.GET and arg2 and article.primary_address:
+				if article.primary_address:
 					self.context.response.headers.add('Link', 
 						u'<%s>' % self.context.str_url(fill_controller=True,
 							args=[article.primary_address]), rel='Canonical')
@@ -472,6 +467,11 @@ class CMS(base.BaseComponent):
 				
 				self.context.response.ok()
 				self._build_article_version(article)
+				
+				if article.article.primary_address:
+					self.context.response.headers.add('Link', 
+						u'<%s>' % self.context.str_url(fill_controller=True,
+							args=[article.article.primary_address]), rel='Canonical')
 		
 		elif arg1 == self.BROWSE and arg2:
 			self.context.response.ok()
@@ -571,7 +571,6 @@ class CMS(base.BaseComponent):
 		
 		self._doc.append(dataobject.MVPair(nav))
 		
-	
 	def _build_article_page(self, article, nested_count=5):
 		self._doc.title = article.title or article.upload_filename
 		
@@ -629,14 +628,15 @@ class CMS(base.BaseComponent):
 				page_info.more = True
 				break
 		
-		self._doc.append(dataobject.MVPair(page_info, views.PagerView))
-		self._doc.append(dataobject.MVPair(table, 
-			row_views=(views.LabelURLToLinkView, None)))
-		self._doc.append(dataobject.MVPair(page_info, views.PagerView))
+		if counter:
+			self._doc.append(dataobject.MVPair(page_info, views.PagerView))
+			self._doc.append(dataobject.MVPair(table, 
+				row_views=(views.LabelURLToLinkView, None)))
+			self._doc.append(dataobject.MVPair(page_info, views.PagerView))
 	
 	def _build_single_article_listing(self, article):
 		page_info = self.context.page_info(limit=50)
-		sort_method = self.context.request.query.getfirst('s', 'date')
+		sort_method = self.context.request.query.getfirst('s', 'title')
 		sort_desc = self.context.request.query.getfirst('o')
 		children = article.get_children(page_info.offset, page_info.limit + 1,
 			sort_method=sort_method, sort_desc=sort_desc,
@@ -659,9 +659,10 @@ class CMS(base.BaseComponent):
 				page_info.more = True
 				break
 		
-		self._doc.append(dataobject.MVPair(table, 
-			row_views=(views.LabelURLToLinkView, None)))
-		self._doc.append(dataobject.MVPair(page_info, views.PagerView))
+		if counter:
+			self._doc.append(dataobject.MVPair(table, 
+				row_views=(views.LabelURLToLinkView, None)))
+			self._doc.append(dataobject.MVPair(page_info, views.PagerView))
 	
 	def _build_article_history_listing(self, article):
 		page_info = self.context.page_info(limit=50)
@@ -753,7 +754,7 @@ class CMS(base.BaseComponent):
 				article_version.publish_date = date
 			
 			article_version.metadata[ArticleMetadataFields.TITLE] = (doc_info.title or article_version.text)[:160]
-			article_version.view_mode = ArticleViewModes.TEXT | ArticleViewModes.ALLOW_COMMENTS | ArticleViewModes.VIEWABLE
+			article_version.view_mode = ArticleViewModes.ALLOW_COMMENTS | ArticleViewModes.VIEWABLE
 			
 			if self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER):
 				if not article_version.addresses and address:
@@ -837,10 +838,8 @@ class CMS(base.BaseComponent):
 			
 			# FIXME: better table lookup
 			d = {
-				'text': ArticleViewModes.TEXT,
 				'file': ArticleViewModes.FILE,
 				'article': ArticleViewModes.ARTICLE,
-				'comment': ArticleViewModes.COMMENT,
 				'category': ArticleViewModes.CATEGORY,
 				'viewable': ArticleViewModes.VIEWABLE,
 				'comments': ArticleViewModes.ALLOW_COMMENTS,
@@ -866,14 +865,10 @@ class CMS(base.BaseComponent):
 			large=True)
 		
 		opts = form.options('view-modes', 'View Modes', multi=True)
-		opts.option('text', 'Text', 
-			article_history.view_mode & ArticleViewModes.TEXT)
 		opts.option('file', 'File', 
 			article_history.view_mode & ArticleViewModes.FILE)
 		opts.option('article', 'Is an article', 
 			article_history.view_mode & ArticleViewModes.ARTICLE)
-		opts.option('comment', 'Is a comment', 
-			article_history.view_mode & ArticleViewModes.COMMENT)
 		opts.option('category', 'Is a category', 
 			article_history.view_mode & ArticleViewModes.CATEGORY)
 		opts.option('viewable', 'Viewable', 
@@ -886,7 +881,6 @@ class CMS(base.BaseComponent):
 		
 		self._doc.append(dataobject.MVPair(form))
 
-	
 	def _check_permissions(self, action, article_history):
 		if action == ArticleActions.VIEW_TEXT \
 		and not article_history.view_mode & ArticleViewModes.VIEWABLE:
@@ -925,7 +919,7 @@ class CMS(base.BaseComponent):
 	
 	@classmethod
 	def model_uuid_str(cls, model):
-		return util.bytes_to_b32low(model.uuid.bytes)
+		return util.bytes_to_b32low(model.uuid_bytes)
 
 class ArticleView(dataobject.BaseView):
 	PLAIN_TEXT = 'plain'
@@ -1144,6 +1138,10 @@ class ArticleWrapper(dataobject.ProtectedObject):
 		return uuid.UUID(bytes=self._model.uuid)
 	
 	@property
+	def uuid_bytes(self):
+		return self._model.uuid
+	
+	@property
 	def parents(self):
 		return self.current.parents
 	
@@ -1310,8 +1308,13 @@ class ArticleHistoryReadWrapper(dataobject.ProtectedObject, dataobject.BaseModel
 	
 	@property
 	def uuid(self):
-		return uuid.UUID(bytes=self._model.uuid)
+		if self._model.uuid:
+			return uuid.UUID(bytes=self._model.uuid)
 	
+	@property
+	def uuid_bytes(self):
+		return self._model.uuid
+		
 	@property
 	def article(self):
 		return self._cms.get_article(id=self._model.article_id)
@@ -1343,13 +1346,24 @@ class ArticleHistoryReadWrapper(dataobject.ProtectedObject, dataobject.BaseModel
 	
 	@property
 	def doc_info(self):
-		if self.text and not self._doc_info:
-			self._doc_info = restpub.publish_text(self.text,
-				math_callback=self._cms._restpub_math_callback,
-				internal_callback=self._cms._restpub_internal_callback,
-				image_callback=self._cms._restpub_image_callback,
-				template_callback=self._cms._restpub_template_callback,
-			)
+		if self.text:
+			cac = self._context.get_instance(cache.Cache)
+			
+			if self.uuid:
+				self._doc_info = cac.get('cms%s' % self.uuid)
+			else:
+				self._doc_info = None
+			
+			if not self._doc_info:
+				self._doc_info = restpub.publish_text(self.text,
+					math_callback=self._cms._restpub_math_callback,
+					internal_callback=self._cms._restpub_internal_callback,
+					image_callback=self._cms._restpub_image_callback,
+					template_callback=self._cms._restpub_template_callback,
+				)
+				
+				if self.uuid:
+					cac.set('cms%s' % self.uuid, self._doc_info)
 		
 		return self._doc_info
 	
@@ -1455,11 +1469,12 @@ class ArticleHistoryWriteWrapper(ArticleHistoryReadWrapper):
 			self._model.data_id = self._respool.set_text(
 				json.dumps(self._data), create=True)
 		
-		query = self._db.session.query(self._db.models.CMSAddress)
+		query = self._db.session.query(self._db.models.CMSAddress) \
+			.filter_by(article_id=article_model.id)
 		
 		if self.addresses:
 			# If this condition is removed, then contradictions may occur
-			query = query.filter(~self._db.models.CMSAddress.name.in_(self.addresses))
+			query = query.filter(~self._db.models.CMSAddress.name.in_(self.addresses)) \
 			
 		query.delete(synchronize_session='fetch')
 		

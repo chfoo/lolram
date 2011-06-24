@@ -32,14 +32,15 @@ class FormView(dataobject.BaseView):
 			
 			for name, label, active in model:
 				div = lxmlbuilder.E.menu()
-				div.append(lxmlbuilder.LABEL(label))
+				div.append(lxmlbuilder.LABEL(label, lxmlbuilder.FOR(model.name+name)))
 				
 				if model.multi or len(model) == 1:
 					input_type = 'checkbox' 
 				else:
 					input_type = 'radio'
 				
-				input = lxmlbuilder.INPUT(type=input_type, name=model.name, value=name)	
+				input = lxmlbuilder.INPUT(type=input_type, id=model.name+name, 
+					name=model.name, value=name)	
 				div.append(input)
 				
 				if context.request.form.getfirst(model.name) == name or active:
@@ -98,8 +99,8 @@ class FormView(dataobject.BaseView):
 					type=model.validation or 'text', 
 					placeholder=model.label)
 				
-				if model.value is not None:
-					input_element.set('value', model.value)
+				if model.value or value:
+					input_element.set('value', model.value or value)
 				
 				if model.required:
 					input_element.set('required', 'required')

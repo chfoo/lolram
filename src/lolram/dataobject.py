@@ -70,7 +70,8 @@ class Context(ProtectedObject):
 	'''Provides context information about the current request and response'''
 	 
 	def __init__(self, singleton_instances=None, id=None, request=None, 
-	response=None, environ=None, config=None, dirinfo=None, logger=None,):
+	response=None, environ=None, config=None, dirinfo=None, logger=None,
+	is_testing=None):
 		self._context_aware_instances = {}
 		self._singleton_instances = singleton_instances
 		self._id = id
@@ -81,6 +82,7 @@ class Context(ProtectedObject):
 		self._dirinfo = dirinfo
 		self._logger = logger
 		self._errors = []
+		self._is_testing = is_testing
 	
 	def get_instance(self, class_, singleton=False):
 		'''Get a context aware instance
@@ -248,7 +250,10 @@ class Context(ProtectedObject):
 		
 		return PageInfo(offset=offset, limit=limit, all=all, page=page, 
 			page_min=page_min, page_max=page_max, more=more)
-
+		
+	@property
+	def is_testing(self):
+		return self._is_testing
 
 class ContextAwareInitError(Exception):
 	__slots__ = ()

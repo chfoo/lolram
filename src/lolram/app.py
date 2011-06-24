@@ -47,6 +47,7 @@ except AttributeError, e:
 	warnings.warn(str(e))
 	from backports import runpy
 import cgi
+import time
 import cgitb
 
 import configloader
@@ -65,6 +66,7 @@ import components.cms
 import components.accounts
 #import components.lion
 import components.respool
+import components.cache
 
 LT = '\r\n'
 HTTP_TIME_PARSE_STR = '%a, %d %b %Y %H:%M:%S %Z'
@@ -111,7 +113,7 @@ class WSGIApp(object):
 				path)
 		
 		try:
-			launcher = Launcher(path, conf.site.script_name)
+			launcher = Launcher(path, conf.site.script_name, testing)
 			self.launcher = launcher
 		except:
 			logger.exception(u'Unable to launch site')
@@ -341,8 +343,8 @@ class Responder(object):
 			self.headers['transfer-encoding'] = 'chunked'
 			iterable = chunked(iterable)
 		
-		if 'accept-encoding' in self.headers \
-		and self.headers['accept-encoding'].find('gzip') != -1 \
+		if 'HTTP_ACCEPT_ENCODING' in self.environ \
+		and self.environ['HTTP_ACCEPT_ENCODING'].find('gzip') != -1 \
 		and 'content-type' in self.headers \
 		and self.headers['content-type'].startswith('text'):
 			# If the MIME type is text-like, then we can probably compress 
@@ -390,7 +392,7 @@ class BufferFile(object):
 		return self.buffer_old.read()
 
 class Launcher(object):
-	def __init__(self, dirpath, script_name):
+	def __init__(self, dirpath, script_name, is_testing):
 		self._script_name = urln11n.collapse_path(script_name)
 		self._singleton_instances = {}
 		self._dirinfo = dataobject.DirInfo(dirpath)
@@ -398,6 +400,7 @@ class Launcher(object):
 		self._conf = configloader.load(self._confname)
 		self._app = None
 		self._class = None
+		self._is_testing = is_testing
 		
 		path = self._dirinfo.code
 #		globals_dict = runpy.run_path(path)
@@ -458,6 +461,7 @@ class Launcher(object):
 			dirinfo=self._dirinfo,
 			logger=logger,
 			singleton_instances=self._singleton_instances,
+			is_testing=self._is_testing,
 			**kargs
 		)
 	
@@ -614,7 +618,8 @@ class SiteApp(dataobject.BaseMVC):
 	)
 	default_components = [
 		components.staticfile.StaticFile,
-		components.database.Database, 
+		components.cache.Cache,
+		components.database.Database,
 		components.session.Session,
 		components.respool.ResPool,
 #		components.lion.Lion,

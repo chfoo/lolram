@@ -45,8 +45,7 @@ class SessionSecretsMeta(database.TableMeta):
 			__tablename__ = 'session_secrets'
 			
 			id = Column(Integer, primary_key=True)
-			key = Column(LargeBinary(length=16), unique=True, nullable=False,
-				index=True)
+			key = Column(LargeBinary(length=16), unique=True, nullable=False)
 			created = Column(DateTime, default=datetime.datetime.utcnow)
 		
 		desc = 'new table'
@@ -145,7 +144,7 @@ class Session(base.BaseComponent):
 		
 		self.context.response.headers.add('set-cookie', 
 			cookie_obj.output(header='', sep=''))
-			
+	
 	def _get_session(self):
 		db = self.context.get_instance(database.Database)
 		self.context.logger.debug(u'Get session')
@@ -161,43 +160,43 @@ class Session(base.BaseComponent):
 			cookie_obj = Cookie.SimpleCookie()
 			cookie_obj.load(header_value)
 			
-			perm_key = None
-			temp_key = None
+			def get_key(name):
+				if name in cookie_obj:
+					morsel = cookie_obj[name]
+					try:
+						id_, key = json.loads(base64.b64decode(morsel.value))
+						key = key.decode('base64')
+						self.context.logger.debug(u'Got %s key %s', name, id_)
+						return (id_, key)
+					except TypeError:
+						pass
+					except ValueError:
+						pass
+				
+				return (None, None)
 			
-			if perm_name in cookie_obj:
-				morsel = cookie_obj[perm_name]
-				try:
-					perm_key = base64.b64decode(morsel.value)
-					self.context.logger.debug(u'Got perm key')
-				except TypeError:
-					pass
-			
-			if temp_name in cookie_obj:
-				morsel = cookie_obj[temp_name]
-				try:
-					temp_key = base64.b64decode(morsel.value)
-					self.context.logger.debug(u'Got temp key')
-				except TypeError:
-					pass
+			perm_id, perm_key = get_key(perm_name)
+			temp_id, temp_key = get_key(temp_name)
 			
 			key_max_date = datetime.datetime.utcfromtimestamp(
 				time.time() - self.context.config.session.key_max_age)
 			
-			query = db.session.query(db.models.SessionData) \
-				.filter(db.models.SessionSecret.key==temp_key) \
-				.filter(
-					db.models.SessionSecret.id== \
-					db.models.SessionData.temp_secret_id) \
-				.filter(db.models.SessionSecret.created>key_max_date)
-			model = query.first()
+			model = None
 			
-			if not model:
+			if temp_id:
 				query = db.session.query(db.models.SessionData) \
 					.filter(db.models.SessionSecret.key==temp_key) \
-					.filter(
-						db.models.SessionSecret.id== \
-						db.models.SessionData.temp_secret_id) \
-					.filter(db.models.SessionSecret.created>key_max_date)
+					.filter(db.models.SessionSecret.id==temp_id) \
+					.filter(db.models.SessionSecret.created>key_max_date) \
+					.filter(temp_id==db.models.SessionData.temp_secret_id)
+				model = query.first()
+					
+			if not model and perm_id:
+				query = db.session.query(db.models.SessionData) \
+					.filter(db.models.SessionSecret.key==perm_key) \
+					.filter(db.models.SessionSecret.id==perm_id) \
+					.filter(db.models.SessionSecret.created>key_max_date) \
+					.filter(perm_id==db.models.SessionData.perm_secret_id)
 				model = query.first()
 			
 			if model:
@@ -244,13 +243,15 @@ class Session(base.BaseComponent):
 			or model.perm_secret and model.perm_secret.created < key_rotation_date:
 				key_model = self._new_key()
 				model.perm_secret = key_model
-				self._set_cookie(perm_name, base64.b64encode(key_model.key))
+				db.session.flush()
+				self._set_cookie(perm_name, base64.b64encode(json.dumps([key_model.id, key_model.key.encode('base64')])))
 		else:
 			if not model.temp_secret \
 			or model.temp_secret and model.temp_secret.created < key_rotation_date:
 				key_model = self._new_key()
 				model.temp_secret = key_model
-				self._set_cookie(temp_name, base64.b64encode(key_model.key))
+				db.session.flush()
+				self._set_cookie(temp_name, base64.b64encode(json.dumps([key_model.id, key_model.key.encode('base64')])))
 		
 	def _new_key(self):
 		db = self.context.get_instance(database.Database)

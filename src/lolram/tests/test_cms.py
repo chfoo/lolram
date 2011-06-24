@@ -110,6 +110,7 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		
 		address1 = 'kitteh'
 		address2 = 'kitten'
+		address3 = 'doggeh'
 		article_id = '19395'
 		
 		# Non-existent
@@ -140,7 +141,7 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 			query={'action':'get', 'address':address2})
 		self.assertEqual(response.read(), article_id)
 		
-		# Delete them
+		# Delete one
 		response = self.request('/address_test', 
 			query={'action':'delete', 'address':address1})
 		self.assertEqual(response.status, 200)
@@ -148,7 +149,26 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		response = self.request('/address_test', 
 			query={'action':'get', 'address':address1})
 		self.assertEqual(response.read(), 'not found')
-	
+		
+		response = self.request('/address_test', 
+			query={'action':'get', 'address':address2})
+		self.assertEqual(response.read(), article_id)
+		
+		response = self.request('/article_text_test', 
+			query={'action':'new', 'text': 'asdf'})
+		article_id_2 = response.read()
+		
+		self.assertTrue(article_id != article_id_2)
+		
+		response = self.request('/address_test', 
+			query={'action':'set', 'address': address3, 'id': article_id_2})
+		self.assertEqual(response.status, 200)
+		
+		response = self.request('/address_test', 
+			query={'action':'get', 'address':address2})
+		self.assertEqual(response.read(), article_id)
+		
+		
 	def test_article_tree(self):
 		'''It should build article tree'''
 		

@@ -56,12 +56,6 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		confname = os.path.join(os.path.dirname(__file__), 'app.conf')
 		self.start_server(confname)
 		
-		# XXX: wait until intialized
-		time.sleep(0.25)
-		
-		response = self.request('/cleanup')
-		self.assertEqual(response.status, 200)
-		
 	def setUp(self):
 		server_base.ServerBase.setUp(self)
 	
@@ -230,7 +224,10 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		text2_id = response.read()
 		
 		self.assertTrue(text2_id != text1_id)
-		
+	
+	def test_zzz_cleanup(self):
+		response = self.request('/cleanup')
+		self.assertEqual(response.status, 200)
 
 class TestAppFuncs(unittest.TestCase):
 	

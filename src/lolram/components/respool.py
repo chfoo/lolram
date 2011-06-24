@@ -36,6 +36,7 @@ import sqlalchemy.sql
 
 import database
 import base
+import cache
 from .. import util
 
 class ResPoolTextMeta(database.TableMeta):
@@ -108,6 +109,9 @@ class ResPool(base.BaseComponent):
 		db.add(ResPoolFileMeta)
 		db.add(ResPoolTextMeta)
 	
+	def setup(self):
+		self._cache = self.context.get_instance(cache.Cache)
+	
 	def _get_text_model(self, id):
 		db = self.context.get_instance(database.Database)
 		query = db.session.query(db.models.ResPoolText)
@@ -126,11 +130,20 @@ class ResPool(base.BaseComponent):
 		:rtype: `ResPoolUnicodeType`
 		'''
 		
-		model = self._get_text_model(id)
+		k = 'respool-text-%s' % id
+		d = self._cache.get(k)
 		
-		if model:
-			s = ResPoolUnicodeType(model.text)
-			s.hash = model.hash
+		if not d:
+			model = self._get_text_model(id)
+			
+			if model:
+				d = (model.text, model.hash)
+				self._cache.set(k, d)
+		
+		if d:
+			s = ResPoolUnicodeType(d[0])
+			s.hash = d[1]
+			
 			return s
 	
 	def _get_file_path(self, id):
