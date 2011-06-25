@@ -81,6 +81,7 @@ class Form(dataobject.BaseModel):
 	
 	GET = 'GET'
 	POST = 'POST'
+	FORM_ID = 'lrfid'
 	
 	def __init__(self, method='GET', url=''):
 		super(Form, self).__init__()
@@ -89,6 +90,7 @@ class Form(dataobject.BaseModel):
 		self._data = []
 		self._group = None
 		self.id = util.bytes_to_b32low(os.urandom(4))
+		self.textbox(self.FORM_ID, self.id, validation=self.Textbox.HIDDEN)
 	
 	def group_start(self, *args, **kargs):
 		self._group = self.Group(*args, **kargs)
@@ -119,6 +121,9 @@ class Form(dataobject.BaseModel):
 		else:
 			self._data.append(o)
 	
+	def validate(self, context):
+		#TODO
+		pass
 
 class Table(dataobject.BaseModel):
 	default_view = views.TableView

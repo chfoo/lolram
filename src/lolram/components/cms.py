@@ -237,14 +237,15 @@ class CMS(base.BaseComponent):
 			CMSAddressesMeta)
 		
 		acc = self.context.get_instance(accounts.Accounts)
-		acc.register_role(ActionRole.NAMESPACE, 
-			ActionRole.COMMENTER,
-			ActionRole.WRITER,
-			ActionRole.MODERATOR,
-			ActionRole.VIEWER,
-			ActionRole.BOT,
-			ActionRole.CURATOR,
-		)
+		
+		roles = accounts.AccountRoleConfig(ActionRole.NAMESPACE)
+		roles.add(ActionRole.COMMENTER, 'Commenter')
+		roles.add(ActionRole.WRITER, 'Writer')
+		roles.add(ActionRole.MODERATOR, 'Moderator')
+		roles.add(ActionRole.VIEWER, 'Viewer')
+		roles.add(ActionRole.BOT, 'Bot')
+		roles.add(ActionRole.CURATOR, 'Curator')
+		acc.register_role_config(roles)
 	
 	def _restpub_template_callback(self, name):
 		article = self.get_article(address=name)
@@ -271,7 +272,7 @@ class CMS(base.BaseComponent):
 			return name
 		
 		return self.context.str_url(fill_controller=True,
-			args=(self.RAW, self.model_uuid_str(article.current)))
+			args=[self.model_uuid_str(article.current)], params=self.RAW, )
 	
 	def _restpub_math_callback(self, hash, filename):
 		basename = os.path.basename(filename)
@@ -286,8 +287,7 @@ class CMS(base.BaseComponent):
 			os.rename(filename, dest_path)
 		
 		return self.context.str_url(fill_controller=True,
-			args=(self.TEXVC, hash)
-		)
+			args=[hash], params=self.TEXVC)
 	
 	def _restpub_internal_callback(self, *args):
 		return 'not implemented'
@@ -417,22 +417,27 @@ class CMS(base.BaseComponent):
 	
 	def serve(self):
 		arg1 = None
-		arg2 = None
+		action = self.context.request.params
 		
-		if len(self.context.request.args) >= 1:
+		if len(self.context.request.args) == 1:
 			arg1 = self.context.request.args[0]
-		if len(self.context.request.args) == 2:
-			arg2 = self.context.request.args[1]
-		elif len(self.context.request.args) > 2:
-			arg1 = None
-			arg2 = None
+		elif len(self.context.request.args) > 1:
+			action = None
 		
-		if (arg1 and not arg2) or (arg1 == self.GET and arg2):
-			if arg1 and not arg2:
-				article = self.get_article(address=arg1)
-			else:
-				uuid_bytes = util.b32low_to_bytes(arg2)
+		if arg1 and not action:
+			article = None
+			uuid_bytes = None
+			
+			try:
+				uuid_bytes = util.b32low_to_bytes(arg1)
+			except TypeError:
+				pass
+			
+			if uuid_bytes:
 				article = self.get_article(uuid=uuid_bytes)
+			
+			if not article:
+				article = self.get_article(address=arg1)
 			
 			if article:
 				if self._check_permissions(ArticleActions.VIEW_TEXT, article.current):
@@ -456,8 +461,8 @@ class CMS(base.BaseComponent):
 						u'<%s>' % self.context.str_url(fill_controller=True,
 							args=[article.primary_address]), rel='Canonical')
 		
-		elif arg1 == self.GET_VERSION and arg2:
-			uuid_bytes = util.b32low_to_bytes(arg2)
+		elif action == self.GET_VERSION and arg1:
+			uuid_bytes = util.b32low_to_bytes(arg1)
 			article = self.get_article_history(uuid=uuid_bytes)
 			
 			if article:
@@ -473,32 +478,32 @@ class CMS(base.BaseComponent):
 						u'<%s>' % self.context.str_url(fill_controller=True,
 							args=[article.article.primary_address]), rel='Canonical')
 		
-		elif arg1 == self.BROWSE and arg2:
+		elif action and action[0] == self.BROWSE:
 			self.context.response.ok()
 			
-			if arg2 == self.ARTICLES:
+			if action[1] == self.ARTICLES:
 				self._build_article_listing(True, False)
-			elif arg2 == self.FILES:
+			elif action[1] == self.FILES:
 				self._build_article_listing(False, True)
 			else:
 				self._build_article_listing()
 		
-		elif arg1 == self.HISTORY and arg2:
-			uuid_bytes = util.b32low_to_bytes(arg2)
+		elif action == self.HISTORY and arg1:
+			uuid_bytes = util.b32low_to_bytes(arg1)
 			article = self.get_article(uuid=uuid_bytes)
 			
 			if article:
 				self.context.response.ok()
 				self._build_article_history_listing(article)
 		
-		elif arg1 in (self.EDIT, self.UPLOAD) and arg2:
+		elif action and action[0] in (self.EDIT, self.UPLOAD):
 			edit_type = self.FILES
 			
-			if arg1 == self.UPLOAD:
+			if len(action) == 2 and action[1] == self.UPLOAD:
 				edit_type = self.UPLOAD
 			
-			if arg2 != self.NEW:
-				uuid_bytes = util.b32low_to_bytes(arg2)
+			if arg1:
+				uuid_bytes = util.b32low_to_bytes(arg1)
 				article = self.get_article(uuid=uuid_bytes)
 				article_version = article.edit()
 				
@@ -511,7 +516,7 @@ class CMS(base.BaseComponent):
 				
 			self.context.response.ok()
 			
-			if arg1 == self.EDIT:
+			if action[0] == self.EDIT:
 				if (article_version.text or 'text' in self.context.request.form)\
 				and not 'submit-publish' in self.context.request.form:
 					# FIXME: due to dependencies, text must be set for previewer
@@ -522,8 +527,8 @@ class CMS(base.BaseComponent):
 			else:
 				self._build_upload_page(article_version)
 		
-		elif arg1 == self.RAW and arg2:
-			uuid_bytes = util.b32low_to_bytes(arg2)
+		elif action == self.RAW and arg1:
+			uuid_bytes = util.b32low_to_bytes(arg1)
 			article = self.get_article_history(uuid=uuid_bytes)
 			
 			if article:
@@ -541,8 +546,8 @@ class CMS(base.BaseComponent):
 				
 				return self._serve_raw(article)
 		
-		elif arg1 == self.EDIT_VIEW and arg2:
-			uuid_bytes = util.b32low_to_bytes(arg2)
+		elif action == self.EDIT_VIEW and arg1:
+			uuid_bytes = util.b32low_to_bytes(arg1)
 			article = self.get_article(uuid=uuid_bytes)
 			article_version = article.edit()
 			
@@ -553,9 +558,9 @@ class CMS(base.BaseComponent):
 			self.context.response.ok()
 			self._build_article_edit_view_page(article_version)
 		
-		elif arg1 == self.TEXVC and arg2:
-			dest_dir = os.path.join(self.context.dirinfo.var, 'texvc', arg2[0:2])
-			dest_path = os.path.join(dest_dir, '%s.png' % arg2)
+		elif action == self.TEXVC and arg1:
+			dest_dir = os.path.join(self.context.dirinfo.var, 'texvc', arg1[0:2])
+			dest_path = os.path.join(dest_dir, '%s.png' % arg1)
 		
 			return self.context.response.output_file(dest_path)
 		
@@ -565,9 +570,16 @@ class CMS(base.BaseComponent):
 		
 		nav = models.Nav()
 		nav.add('Browse', self.context.str_url(fill_controller=True,
-			args=(self.BROWSE, 'a')))
-		nav.add('New article', self.context.str_url(fill_controller=True,
-			args=(self.EDIT, self.NEW)))
+			args=[''],
+			params=self.BROWSE+'a'))
+		
+		if self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER):
+			nav.add('New article', self.context.str_url(fill_controller=True,
+				args=[''],
+				params=self.EDIT+self.NEW))
+			nav.add('Upload', self.context.str_url(fill_controller=True,
+				args=[''],
+				params=self.UPLOAD+self.NEW))
 		
 		self._doc.append(dataobject.MVPair(nav))
 		
@@ -619,7 +631,8 @@ class CMS(base.BaseComponent):
 			table.rows.append((
 				(article.title or article.current.upload_filename or '(untitled)', 
 					self.context.str_url(fill_controller=True,
-					args=(CMS.GET, util.bytes_to_b32low(article.uuid.bytes),))), 
+					args=[util.bytes_to_b32low(article.uuid.bytes)],
+					)), 
 				str(article.publish_date), 
 			))
 			
@@ -650,7 +663,8 @@ class CMS(base.BaseComponent):
 			table.rows.append((
 				(article.title or article.current.upload_filename or '(untitled)', 
 					self.context.str_url(fill_controller=True,
-					args=(CMS.GET, util.bytes_to_b32low(article.uuid.bytes),))), 
+					args=[util.bytes_to_b32low(article.uuid.bytes)],
+					)), 
 				str(article.publish_date), 
 			))
 			
@@ -673,7 +687,7 @@ class CMS(base.BaseComponent):
 		counter = 0
 		for info in article.get_history(page_info.offset, page_info.limit):
 			url = self.context.str_url(fill_controller=True,
-				args=(self.GET_VERSION, CMS.model_uuid_str(info)))
+				args=[CMS.model_uuid_str(info)], params=self.GET_VERSION,)
 			
 			table.rows.append((
 				str(info.version), 
@@ -713,6 +727,9 @@ class CMS(base.BaseComponent):
 			article_version.file = self.context.request.form['file'].file
 			article_version.reason = self.context.request.form.getfirst('reason')
 			
+			if self.context.request.form.getfirst('use-filename'):
+				address = self.context.request.form['file'].filename
+			
 			if not article_version.addresses and address:
 				article_version.addresses = article_version.addresses | \
 					frozenset([address])
@@ -728,6 +745,9 @@ class CMS(base.BaseComponent):
 		
 		if not article_version.addresses:
 			form.textbox('address', 'Address (optional):')
+			opts = form.options('use-filename', 'Use upload filename as address')
+			opts.option('yes', 'Yes', active=True)
+			
 		
 		form.textbox('file', 'File:', validation=form.Textbox.FILE, required=True)
 		form.textbox('reason', 'Reason or changes (optional):')
@@ -972,7 +992,10 @@ class ArticleView(dataobject.BaseView):
 			url = context.str_url(fill_controller=True, 
 				args=[CMS.RAW, CMS.model_uuid_str(model)])
 			
-			element.append(lxmlbuilder.IMG(src=url)) 
+			if model.metadata[ArticleMetadataFields.MIMETYPE].find('image') != -1:
+				element.append(lxmlbuilder.IMG(src=url))
+			else:
+				element.append(lxmlbuilder.A('Download', href=url))
 			
 		if article_format == cls.ARTICLE_FORMAT_SINGLE:
 			element.append(cls.build_article_detailed_metadata(context, model))
@@ -984,33 +1007,37 @@ class ArticleView(dataobject.BaseView):
 		
 		if article_format in (cls.ARTICLE_FORMAT_NORMAL, cls.ARTICLE_FORMAT_SINGLE):
 			add('Raw', context.str_url(
-				args=(CMS.RAW, CMS.model_uuid_str(model)),
+				args=[CMS.model_uuid_str(model)],
+				params=CMS.RAW,
 				fill_controller=True,
 			))
 		
-		if article_format == cls.ARTICLE_FORMAT_NORMAL:
+		acc = context.get_instance(accounts.Accounts)
+		if article_format == cls.ARTICLE_FORMAT_NORMAL and acc.is_authorized(ActionRole.NAMESPACE, ActionRole.COMMENTER):
 			add('Edit', context.str_url(
-				args=(CMS.EDIT if model.text else CMS.UPLOAD, 
-					CMS.model_uuid_str(model.article)),
+				args=[CMS.model_uuid_str(model.article)],
+				params=CMS.EDIT if model.text else CMS.UPLOAD,
 				fill_controller=True,
 			))
 			add('Admin', context.str_url(
-				args=(CMS.EDIT_VIEW, 
-					CMS.model_uuid_str(model.article)),
+				args=[CMS.model_uuid_str(model.article)],
+				params=CMS.EDIT_VIEW,
 				fill_controller=True,
 			))
 			add('History', context.str_url(
-				args=(CMS.HISTORY, CMS.model_uuid_str(model.article)),
+				args=[CMS.model_uuid_str(model.article)],
+				params=CMS.HISTORY,
 				fill_controller=True,
 			))
 			add('Reply', context.str_url(
-				args=(CMS.EDIT, CMS.NEW),
+				args=[''],
+				params=CMS.EDIT+CMS.NEW,
 				fill_controller=True, 
 					query=dict(parent=CMS.model_uuid_str(model.article))
 			))
 		elif article_format ==  cls.ARTICLE_FORMAT_SINGLE:
 			add(u'View current version', context.str_url(
-				args=(CMS.GET, CMS.model_uuid_str(model.article),),
+				args=[CMS.model_uuid_str(model.article)],
 				fill_controller=True,
 			))
 		
@@ -1037,7 +1064,7 @@ class ArticleView(dataobject.BaseView):
 		elif article_format == cls.ARTICLE_FORMAT_NORMAL and is_nested_child and model.article.children:
 			element.append(lxmlbuilder.A('(More)', href=
 				context.str_url(
-				args=(CMS.GET, CMS.model_uuid_str(model.article),),
+				args=[CMS.model_uuid_str(model.article)],
 				fill_controller=True,)
 			))
 		
@@ -1064,7 +1091,8 @@ class ArticleView(dataobject.BaseView):
 				url = '#%s' % CMS.model_uuid_str(parent_model)
 			else:
 				url = context.str_url(fill_controller=True,
-					args=(CMS.GET, CMS.model_uuid_str(parent_model)))
+					args=[CMS.model_uuid_str(parent_model)],
+				)
 			
 			ul.insert(0, lxmlbuilder.LI(lxmlbuilder.A(label, href=url)))
 		

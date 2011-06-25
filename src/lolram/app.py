@@ -487,18 +487,15 @@ class Launcher(object):
 		recon_url = pathutil.request_uri(environ)
 		url = dataobject.URL(recon_url)
 		request_headers = dataobject.HTTPHeaders(environ=environ)
-		path_list = urln11n.collapse_path(environ['PATH_INFO']).split('/')
-		script_path = urln11n.collapse_path(environ['SCRIPT_NAME'])
-		
-		request_uri = environ.get('REQUEST_URI')
-		if request_uri:
-			common, a, b = pathutil.common(script_path, request_uri)
-			script_path = urln11n.collapse_path(common) 
 		
 		controller = None
 		args = []
 		
-		if path_list:
+		script_path, a, local_path = pathutil.common(
+			pathutil.application_uri(environ), url.path)
+		
+		if local_path:
+			path_list = local_path.split('/')
 			controller = path_list[0]
 			args = path_list[1:]
 		
@@ -508,7 +505,7 @@ class Launcher(object):
 			path_info=environ['PATH_INFO'],
 			url=url,
 			script_path=script_path,
-			local_path=urln11n.collapse_path(environ['PATH_INFO'].split(';', 1)[0]),
+			local_path=local_path,
 			controller=controller,
 			args=args,
 			form=urln11n.FieldStorage(fp=environ['wsgi.input'], 

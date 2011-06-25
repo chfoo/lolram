@@ -40,7 +40,7 @@ class TestPathUtil(unittest.TestCase):
 	def test_common_leading_trailing_slashes(self):
 		self.assertEqual(pathutil.common('/a', 'a'), ('a', '', ''))
 		self.assertEqual(pathutil.common('a/', 'a'), ('a', '', ''))
-		self.assertEqual(pathutil.common('a/b/c/', '/a/b'), ('a/b', 'c', ''))
+		self.assertEqual(pathutil.common('a/b/c/', '/a/b'), ('a/b', 'c/', ''))
 	
 	
 	

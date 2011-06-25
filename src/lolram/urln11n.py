@@ -86,7 +86,7 @@ class URLQuery(dict):
 class URL(object):
 	def __init__(self, string=None, scheme=None, username=None, 
 	password=None, hostname=None, port=None, path=None, params=None,
-	query=None, fragment=None):
+	query=None, fragment=None, keep_trailing_slash=False):
 		self._scheme = scheme
 		self._username = username
 		self._password = password
@@ -96,6 +96,8 @@ class URL(object):
 		self._params = params
 		self._query = URLQuery(query=query)
 		self._fragment = fragment
+		self._keep_trailing_slash = keep_trailing_slash
+		self._has_trailing_slash = False
 #		self.ajax_url = None
 #		self.query_first = None
 		
@@ -149,11 +151,13 @@ class URL(object):
 	
 	@property
 	def path(self):
-		return self._path
+		slash = self._keep_trailing_slash or self.params and self._has_trailing_slash
+		return collapse_path(self._path, slash)
 	
 	@path.setter
 	def path(self, s):
-		self._path = collapse_path(s)
+		self._has_trailing_slash = s.endswith(u'/')
+		self._path = collapse_path(s, True)
 	
 	@property
 	def params(self):
@@ -209,10 +213,10 @@ class URL(object):
 			s.write(':')
 			s.write(str(self._port))
 		
-		if self._path and not self._path.startswith('/') and self._path != '/':
+		if self.path and not self.path.startswith('/') and self.path != '/':
 			s.write('/')
-		if self._path and self._path != '/':
-			s.write(urllib.quote(self._path.encode('utf8')))
+		if self.path and self.path != '/':
+			s.write(urllib.quote(self.path.encode('utf8')))
 		
 		if self._params:
 			s.write(';')
@@ -237,6 +241,9 @@ class URL(object):
 	
 	def parse(self, string):
 		p = urlparse.urlparse(string)
+		
+		if p.path.endswith('/') and p.params:
+			self._has_trailing_slash = True
 		
 		self.scheme = p.scheme
 		self.path = p.path
@@ -320,7 +327,7 @@ def decode(s):
 def quote(s):
 	return urllib.quote(s.encode('utf8'))
 
-def collapse_path(s):
+def collapse_path(s, keep_trailing_slash=False):
 	l = []
 	
 	for part in s.replace('//', '/').split('/'):
@@ -328,7 +335,7 @@ def collapse_path(s):
 		if part == u'..':
 			if len(l):
 				del l[-1]
-		elif part and part != u'.':
+		elif (part or l and keep_trailing_slash) and part != u'.':
 			l.append(part)
 	
 	return u'/'.join(l)

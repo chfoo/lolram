@@ -217,6 +217,8 @@ class OpenIDInfo(object):
 		('microsoft', ('hotmail', 'live', 'msn', 'sympatico', 'passport')),
 		('yahoo', ('yahoo', 'rogers')),
 	]
+	
+
 
 class OpenIDDBStore(openid.store.interface.OpenIDStore):
 	def __init__(self, context):
@@ -357,6 +359,14 @@ class OpenIDDBStore(openid.store.interface.OpenIDStore):
 		
 		return count
 
+class AccountRoleConfig(object):
+	def __init__(self, namespace):
+		self.namespace = namespace
+		self.roles = []
+	
+	def add(self, code, label=None):
+		self.roles.append((code, label))
+
 class Accounts(base.BaseComponent):
 	default_config = configloader.DefaultSectionConfig('accounts',
 		master_test_password_salt=0,
@@ -393,7 +403,11 @@ class Accounts(base.BaseComponent):
 	
 	def register_role(self, namespace, *roles):
 		for role in roles:
-			self.singleton._roles.add((namespace, role))
+			self.singleton._roles.add((namespace, role, None))
+	
+	def register_role_config(self, role_config):
+		for code, label in role_config.roles:
+			self.singleton._roles.add((role_config.namespace, code, label))
 	
 	def is_authenticated(self):
 		return self._account_id is not None
@@ -726,11 +740,11 @@ class Accounts(base.BaseComponent):
 		form = models.Form(method=models.Form.POST)
 		opts = form.options('roles', 'Roles', True)
 		
-		for namespace, role in self.singleton._roles:
+		for namespace, role, label in self.singleton._roles:
 			active = (namespace, role) in account.roles
 			
 			opts.option(json.dumps([namespace, role]), 
-				u'%s %s' % (namespace, role),
+				u'%s %s (%s)' % (namespace, role, label),
 				active)
 		
 		form.button('submit', 'Save')
@@ -786,4 +800,4 @@ def guess_provider_from_email(s):
 			if s.find(substring) != -1:
 				return provider
 
-__all__ = ('Accounts', 'AccountsMeta', 'AccountLogsMeta',)
+__all__ = ('Accounts', 'AccountsMeta', 'AccountLogsMeta', 'AccountRoleConfig')

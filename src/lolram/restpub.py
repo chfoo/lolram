@@ -64,17 +64,20 @@ class TemplateDirective(docutils.parsers.rst.Directive):
 		
 		else:
 			subs_dict = {}
-		
-			for key, value in re.findall(FIELD_RE, self.arguments[1]):
-				subs_dict[key] = value
-		
-			def f(match):
-				key = match.groups()[0]
 			
-				if key in subs_dict:
-					return subs_dict[key]
-		
-			text = re.sub(PLACEHOLDER_RE, f, fn_result)
+			if len(self.arguments) >= 2:
+				for key, value in re.findall(FIELD_RE, self.arguments[1]):
+					subs_dict[key] = value
+			
+				def f(match):
+					key = match.groups()[0]
+				
+					if key in subs_dict:
+						return subs_dict[key]
+			
+				text = re.sub(PLACEHOLDER_RE, f, fn_result)
+			else:
+				text = fn_result
 		
 			self.state_machine.insert_input([text], template_name)
 		
@@ -117,6 +120,12 @@ class ImageDirective(docutils.parsers.rst.directives.images.Image):
 			.restpub_callbacks['image'](self.arguments[0])
 		return docutils.parsers.rst.directives.images.Image.run(self)
 
+class FigureDirective(docutils.parsers.rst.directives.images.Figure):
+	def run(self):
+		self.arguments[0] = self.state.document.settings \
+			.restpub_callbacks['image'](self.arguments[0])
+		return docutils.parsers.rst.directives.images.Figure.run(self)
+
 
 class InternalDirective(docutils.parsers.rst.Directive):
 	required_arguments = 1
@@ -153,6 +162,8 @@ docutils.parsers.rst.directives.register_directive('template', TemplateDirective
 docutils.parsers.rst.directives.register_directive('math', MathDirective)
 docutils.parsers.rst.directives.register_directive('internal', InternalDirective)
 docutils.parsers.rst.directives.register_directive('image', ImageDirective)
+docutils.parsers.rst.directives.register_directive('figure', FigureDirective)
+
 
 #@property
 #def template_callback():

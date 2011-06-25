@@ -37,8 +37,8 @@ def common(path_a, path_b):
 	
 	:rtype: `tuple`
 	'''
-	parts_a = path_a.strip('/').split('/')
-	parts_b = path_b.strip('/').split('/')
+	parts_a = path_a.lstrip('/').split('/')
+	parts_b = path_b.lstrip('/').split('/')
 	
 	i = 0
 	while i < len(parts_a) and i < len(parts_b):
@@ -79,7 +79,7 @@ def application_uri(environ):
 	
 	if 'REQUEST_URI' in environ:
 		c, a, b = common(script_name, environ['REQUEST_URI'])
-		script_name = c
+		script_name = c.partition(';')[0]
 	
 	url += urllib.quote(script_name or '/', '/;')
 	return url
