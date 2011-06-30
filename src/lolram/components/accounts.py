@@ -1,6 +1,7 @@
 # encoding=utf8
 
 '''User account and profiles'''
+from lolram import util
 
 #	Copyright © 2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -26,9 +27,9 @@ import hashlib
 import datetime
 import time
 import json
-import random
 import cPickle as pickle
 
+import sqlalchemy
 from sqlalchemy import *
 from sqlalchemy.orm import relationship, synonym
 
@@ -74,10 +75,10 @@ class AccountsMeta(database.TableMeta):
 				self._roles = json.dumps(tuple(iterable))
 			
 			def add_role(self, namespace, code):
-				self.roles = self.roles | frozenset((namespace, code))
+				self.roles = self.roles | frozenset([(namespace, code)])
 			
 			def remove_role(self, namespace, code):
-				self.roles = self.roles - frozenset((namespace, code))
+				self.roles = self.roles - frozenset([(namespace, code)])
 			
 			roles = synonym('_roles', descriptor=roles)
 			
@@ -199,6 +200,32 @@ class OpenIDAssocMeta(database.TableMeta):
 	defs = (D1,)
 
 
+class AccountCaptchaMeta(database.TableMeta):
+	class D1(database.TableMeta.Def):
+		class AccountCaptcha(database.TableMeta.Def.base()):
+			__tablename__ = 'account_captchas'
+			
+			id = Column(Integer, primary_key=True)
+			key = Column(LargeBinary(length=4), default=lambda: os.urandom(4),
+				nullable=False)
+			created = Column(DateTime, default=datetime.datetime.utcnow)
+			question = Column(Unicode(length=12), nullable=False)
+			answer = Column(Unicode(length=12), nullable=False)
+			valid = Column(Boolean, default=True, nullable=False)
+		
+		desc = 'new table'
+		model = AccountCaptcha
+		
+		def upgrade(self, engine, session):
+			self.model.__table__.create(engine)
+		
+		def downgrade(self, engine, session):
+			self.model.__table__.drop(engine) 
+	
+	uuid = 'urn:uuid:e7b83618-5eee-4a34-9550-92131513eeac'
+	defs = [D1,]
+
+
 class OpenIDInfo(object):
 	providers = {
 		'google' : ('google.com/accounts/o8/id', 'Google'),
@@ -304,7 +331,7 @@ class OpenIDDBStore(openid.store.interface.OpenIDStore):
 		self.context.logger.debug(u'Use nonce %s:%s:%s', server_url, timestamp, salt)
 		
 		if abs(timestamp - time.time()) > openid.store.nonce.SKEW:
-			logger.debug(u'\t…false')
+			self.context.logger.debug(u'\t…false')
 			return False
 		
 		sess = self.get_session()
@@ -330,7 +357,7 @@ class OpenIDDBStore(openid.store.interface.OpenIDStore):
 		sess = self.get_session()
 		
 		q = sess.query(self.OpenIDNonce)\
-			.filter(self.OpenIDNonce.lifetime < time.time())
+			.filter(self.OpenIDNonce.timestamp < time.time() - openid.store.nonce.SKEW)
 		
 		count = 0
 		for o in q:
@@ -374,9 +401,13 @@ class Accounts(base.BaseComponent):
 		master_test_username='root',
 	)
 	
+	CAPTCHA_KEY = 'lraccc'
+	CAPTCHA_KEY_ANS = CAPTCHA_KEY + 'ans'
+	
 	def init(self):
 		db = self.context.get_instance(database.Database)
-		db.add(AccountsMeta, AccountLogsMeta, OpenIDAssocMeta, OpenIDNonceMeta)
+		db.add(AccountsMeta, AccountLogsMeta, OpenIDAssocMeta, OpenIDNonceMeta,
+			AccountCaptchaMeta)
 		self._roles = set()
 		self._testing_account_sign_in_rate_limiter = [0, 0]
 		
@@ -546,6 +577,10 @@ class Accounts(base.BaseComponent):
 		
 		self._account_id = None
 		sess = self.context.get_instance(session.Session)
+		
+		# suppress warning unused sess variable
+		sess
+		
 		del sess.data._accounts_account_id
 		
 	
@@ -579,6 +614,8 @@ class Accounts(base.BaseComponent):
 			doc.meta.title = 'Sign out'
 			self.cancel_account_id()
 			doc.add_message('You are now signed out')
+		elif action == 'profile' and self.account_id:
+			self._serve_account_profile()
 		else:
 			doc.meta.title = 'Sign in'
 			
@@ -597,7 +634,8 @@ class Accounts(base.BaseComponent):
 					doc.add_message('Rate limit exceeded')
 					return
 				
-				self.authenticate_testing_password(root_password)
+				if self.validate_captcha_form():
+					self.authenticate_testing_password(root_password)
 				
 				if not self.is_authenticated():
 					self.singleton._testing_account_sign_in_rate_limiter[0] += 1
@@ -648,8 +686,14 @@ class Accounts(base.BaseComponent):
 				doc.add_message('You are now signed in')
 				
 				nav = models.Nav()
-				nav.add('Browse users', self.context.str_url(fill_controller=True,
-					args=('list',)))
+				
+				if not self._check_perm(False): 
+					nav.add('Browse users', self.context.str_url(fill_controller=True,
+						args=('list',)))
+				
+				nav.add('Edit profile', self.context.str_url(fill_controller=True,
+					args=['profile']))
+				
 				doc.append(dataobject.MVPair(nav))
 				
 				if success_redirect_url:
@@ -660,9 +704,10 @@ class Accounts(base.BaseComponent):
 			doc.append(dataobject.MVPair(AccountSignInModel()))
 			
 		
-	def _check_perm(self):
+	def _check_perm(self, set_status=True):
 		if not self.account_model or self.account_model.username != self.context.config.accounts.master_test_username:
-			self.context.response.set_status(403)
+			if set_status:
+				self.context.response.set_status(403)
 			return True
 		
 		return False
@@ -717,7 +762,7 @@ class Accounts(base.BaseComponent):
 		account = db.session.query(db.models.Account) \
 			.filter_by(id=account_id).first()
 		
-		if 'submit' in self.context.request.form:
+		if self.context.request.is_post:
 			new_roles = set()
 			
 			for s in self.context.request.form.getlist('roles'):
@@ -752,6 +797,80 @@ class Accounts(base.BaseComponent):
 		doc.title = u'Edit %s' % account.username
 		doc.append(dataobject.MVPair(form))
 	
+	def _serve_account_profile(self):
+		doc = self.context.get_instance(wui.Document)
+		doc.meta.title = 'Profile'
+		form = doc.new_form(models.Form.POST)
+		
+		if self.context.request.is_post and doc.validate_form(form):
+			nickname = self.context.request.form.getfirst('nickname')
+			
+			if nickname:
+				self.account_model.nickname = nickname
+			
+			doc.add_message('Profile saved')
+		
+		elif self.context.request.is_post:
+			doc.add_message('There was an error. Please try again.')
+		
+		form.textbox('nickname', 'Nickname', default=self.account_model.nickname)
+		form.button('submit', 'Save Changes')
+		
+		doc.append(dataobject.MVPair(form))
+	
+	def run_maintenance(self):
+		openid_store = OpenIDDBStore(self.context)
+		openid_store.cleanup()
+		
+		db = self.context.get_instance(database.Database)
+		AccountCaptcha = db.models.AccountCaptcha
+		query = db.session.query(AccountCaptcha) \
+			.filter(sqlalchemy.or_(AccountCaptcha.valid==False, AccountCaptcha.created < time.time() - 3600))
+		query.delete()
+	
+	def add_captcha_to_form(self, form):
+		captcha = self.get_captcha()
+		val = '%s.%s' % (captcha.id, util.bytes_to_b32low(captcha.key))
+		
+		form.textbox(self.CAPTCHA_KEY, val, validation=form.Textbox.HIDDEN)
+		form.textbox(self.CAPTCHA_KEY_ANS, captcha.question, required=True)
+		
+		return form
+	
+	def get_captcha(self):
+		db = self.context.get_instance(database.Database)
+		
+		captcha = db.models.AccountCaptcha()
+		captcha.question, captcha.answer = util.make_math1()
+		
+		db.session.add(captcha)
+		db.session.flush()
+		
+		return captcha
+	
+	def validate_captcha_form(self):
+		val = self.context.request.form.getfirst(self.CAPTCHA_KEY)
+		ans = self.context.request.form.getfirst(self.CAPTCHA_KEY_ANS)
+		
+		id_, key = val.split('.')
+		key = util.b32low_to_bytes(key)
+		
+		return self.validate_captcha(id_, key, ans)
+	
+	def validate_captcha(self, id_, key, answer):
+		db = self.context.get_instance(database.Database)
+		query = db.session.query(db.models.AccountCaptcha) \
+			.filter_by(id=id_).filter_by(key=key).filter_by(valid=True)
+		
+		captcha = query.first()
+		
+		if captcha:
+			captcha.valid = False
+		
+		if captcha and util.str_to_int(answer) == int(captcha.answer):
+			return True
+		
+		return False
 
 class AccountSignInModel(dataobject.BaseModel):
 	class default_view(dataobject.BaseView):
@@ -783,10 +902,13 @@ class AccountSignInModel(dataobject.BaseModel):
 				div.append(dataobject.MVPair(form).render(context, format='html'))
 				element.append(div)
 			
+			acc = context.get_instance(Accounts)
+			
 			div = lxmlbuilder.DIV(lxmlbuilder.H3('root'))
 			form = models.Form(method=models.Form.POST)
 			form.textbox('root', 'Password', 
 				validation=models.Form.Textbox.PASSWORD)
+			acc.add_captcha_to_form(form)
 			form.button('submit', 'Sign in')
 			div.append(dataobject.MVPair(form).render(context, format='html'))
 			element.append(div)

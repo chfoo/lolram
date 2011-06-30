@@ -129,14 +129,15 @@ class FigureDirective(docutils.parsers.rst.directives.images.Figure):
 
 class InternalDirective(docutils.parsers.rst.Directive):
 	required_arguments = 1
-	optional_arguments = 0
+	optional_arguments = 9
 	option_spec = {}
 	has_content = False
 #	final_argument_whitespace = False
 
 	def run(self):
+		additional_settings = self.state.document.settings.restpub_additional_settings
 		content = self.state.document.settings \
-			.restpub_callbacks['internal'](*self.arguments)
+			.restpub_callbacks['internal'](*self.arguments, **additional_settings)
 		return [docutils.nodes.raw('', content, format='html')]
 
 def format_tree(document):
@@ -210,7 +211,7 @@ class DocInfo(object):
 		self.html_parts = None
 
 def publish_text(text, template_callback=None, math_callback=None,
-image_callback=None, internal_callback=None):
+image_callback=None, internal_callback=None, **additional_settings):
 	error_stream = StringIO.StringIO()
 	settings = {
 		'halt_level' : 5,
@@ -223,6 +224,7 @@ image_callback=None, internal_callback=None):
 			'image': image_callback,
 			'internal': internal_callback,
 		},
+		'restpub_additional_settings': additional_settings,
 	}
 	
 	output, publisher = docutils.core.publish_programmatically(

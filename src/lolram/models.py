@@ -36,8 +36,8 @@ class Form(dataobject.BaseModel):
 			self.name = name
 			self.label = label
 		
-		def option(self, name, label, active=False):
-			self.append((name, label, active))
+		def option(self, name, label, active=False, default=None):
+			self.append((name, label, active, default))
 		
 		
 	class Group(list, dataobject.BaseModel):
@@ -67,14 +67,15 @@ class Form(dataobject.BaseModel):
 		
 		default_view = views.FormView.Textbox
 		
-		def __init__(self, name, label, value=None, validation=None,
-		large=False, required=False):
+		def __init__(self, name, label, value=None, default=None, 
+		validation=None, large=False, required=False):
 			self.name = name
 			self.label = label
 			self.value = value
 			self.validation = validation
 			self.large = large
 			self.required = required
+			self.default = default
 		
 		
 	default_view = views.FormView
@@ -90,7 +91,6 @@ class Form(dataobject.BaseModel):
 		self._data = []
 		self._group = None
 		self.id = util.bytes_to_b32low(os.urandom(4))
-		self.textbox(self.FORM_ID, self.id, validation=self.Textbox.HIDDEN)
 	
 	def group_start(self, *args, **kargs):
 		self._group = self.Group(*args, **kargs)
@@ -121,10 +121,6 @@ class Form(dataobject.BaseModel):
 		else:
 			self._data.append(o)
 	
-	def validate(self, context):
-		#TODO
-		pass
-
 class Table(dataobject.BaseModel):
 	default_view = views.TableView
 	

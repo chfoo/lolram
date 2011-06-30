@@ -21,14 +21,12 @@
 
 __docformat__ = 'restructuredtext en'
 
-import random
-import os
 import os.path
-import shutil
 import uuid
-import hashlib
 import datetime
 import json
+import time
+import httplib
 
 from sqlalchemy import *
 from sqlalchemy.orm import relationship
@@ -44,6 +42,7 @@ import accounts
 import wui
 import respool
 import cache
+import session
 #import dbutil.nestedsets
 from .. import dataobject
 from .. import configloader
@@ -230,6 +229,9 @@ class CMS(base.BaseComponent):
 	RAW = 'r'
 	EDIT_VIEW = 'd'
 	TEXVC = 'x'
+	CAPTCHA = 'c'
+	
+	SESSION_CAPTCHA_KEY = '_cms_captcha'
 	
 	def init(self):
 		db = self.context.get_instance(database.Database)
@@ -289,8 +291,15 @@ class CMS(base.BaseComponent):
 		return self.context.str_url(fill_controller=True,
 			args=[hash], params=self.TEXVC)
 	
-	def _restpub_internal_callback(self, *args):
-		return 'not implemented'
+	def _restpub_internal_callback(self, *args, **kargs):
+		if kargs.get('allow_intern'):
+			return self.restpub_internal_callback(*args)
+		else:
+			# TODO do something better than blow up
+			raise Exception('For internal use only')
+	
+	def restpub_internal_callback(self, *args):
+		raise NotImplementedError()
 	
 	def setup(self):
 		self._db = self.context.get_instance(database.Database)
@@ -460,6 +469,8 @@ class CMS(base.BaseComponent):
 					self.context.response.headers.add('Link', 
 						u'<%s>' % self.context.str_url(fill_controller=True,
 							args=[article.primary_address]), rel='Canonical')
+				
+				article.current._allow_intern = True
 		
 		elif action == self.GET_VERSION and arg1:
 			uuid_bytes = util.b32low_to_bytes(arg1)
@@ -477,6 +488,8 @@ class CMS(base.BaseComponent):
 					self.context.response.headers.add('Link', 
 						u'<%s>' % self.context.str_url(fill_controller=True,
 							args=[article.article.primary_address]), rel='Canonical')
+				
+				article.current._allow_intern = True
 		
 		elif action and action[0] == self.BROWSE:
 			self.context.response.ok()
@@ -497,35 +510,42 @@ class CMS(base.BaseComponent):
 				self._build_article_history_listing(article)
 		
 		elif action and action[0] in (self.EDIT, self.UPLOAD):
-			edit_type = self.FILES
-			
-			if len(action) == 2 and action[1] == self.UPLOAD:
-				edit_type = self.UPLOAD
-			
-			if arg1:
-				uuid_bytes = util.b32low_to_bytes(arg1)
-				article = self.get_article(uuid=uuid_bytes)
-				article_version = article.edit()
+			if self._check_session_captcha():
+				edit_type = self.FILES
 				
-				if self._check_permissions(ArticleActions.EDIT_TEXT, article_version):
-					self.context.response.set_status(403)
-					return
+				if len(action) == 2 and action[1] == self.UPLOAD:
+					edit_type = self.UPLOAD
+				
+				if arg1:
+					uuid_bytes = util.b32low_to_bytes(arg1)
+					article = self.get_article(uuid=uuid_bytes)
+					article_version = article.edit()
+					
+					if self._check_permissions(ArticleActions.EDIT_TEXT, article_version):
+						self.context.response.set_status(403)
+						return
+				else:
+					article = self.new_article()
+					article_version = article.edit()
+					
+				self.context.response.ok()
+				
+				if self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER):
+					article_version._allow_intern = True
+				
+				if action[0] == self.EDIT:
+					if (article_version.text or 'text' in self.context.request.form)\
+					and not 'submit-publish' in self.context.request.form:
+						# FIXME: due to dependencies, text must be set for previewer
+						article_version.text = self.context.request.form.getfirst('text', article_version.text)
+						self._build_article_preview(article_version)
+					
+					self._build_article_edit_page(article_version)
+				else:
+					self._build_upload_page(article_version)
 			else:
-				article = self.new_article()
-				article_version = article.edit()
-				
-			self.context.response.ok()
-			
-			if action[0] == self.EDIT:
-				if (article_version.text or 'text' in self.context.request.form)\
-				and not 'submit-publish' in self.context.request.form:
-					# FIXME: due to dependencies, text must be set for previewer
-					article_version.text = self.context.request.form.getfirst('text', article_version.text)
-					self._build_article_preview(article_version)
-				
-				self._build_article_edit_page(article_version)
-			else:
-				self._build_upload_page(article_version)
+				self.context.response.ok()
+				self._build_captcha_page()
 		
 		elif action == self.RAW and arg1:
 			uuid_bytes = util.b32low_to_bytes(arg1)
@@ -663,7 +683,7 @@ class CMS(base.BaseComponent):
 			table.rows.append((
 				(article.title or article.current.upload_filename or '(untitled)', 
 					self.context.str_url(fill_controller=True,
-					args=[util.bytes_to_b32low(article.uuid.bytes)],
+					args=[article.primary_address or util.bytes_to_b32low(article.uuid.bytes)],
 					)), 
 				str(article.publish_date), 
 			))
@@ -757,12 +777,11 @@ class CMS(base.BaseComponent):
 		
 	
 	def _build_article_edit_page(self, article_version):
-		form = models.Form(models.Form.POST, 
+		form = self._doc.new_form(models.Form.POST, 
 			self.context.str_url(fill_path=True, 
 				fill_args=True, fill_params=True, fill_query=True))
 		
-		if 'submit-publish' in self.context.request.form:
-			
+		if 'submit-publish' in self.context.request.form and self._doc.validate_form(form):
 			article_version.text = self.context.request.form.getfirst('text')
 			address = self.context.request.form.getfirst('address')
 			article_version.reason = self.context.request.form.getfirst('reason')
@@ -807,6 +826,9 @@ class CMS(base.BaseComponent):
 			
 			return
 		
+		elif 'submit-publish' in self.context.request.form:
+			self._doc.add_message('There was an error. Please try again.')
+		
 		text = ''
 		if 'submit-preview' not in self.context.request.form:
 			# XXX must be pure unicode otherwise lxml complains
@@ -831,11 +853,11 @@ class CMS(base.BaseComponent):
 		if article_history.view_mode is None:
 			article_history.view_mode = 0
 		
-		form = models.Form(models.Form.POST, 
+		form = self._doc.new_form(models.Form.POST, 
 			self.context.str_url(fill_path=True, 
 				fill_args=True, fill_params=True, fill_query=True))
 		
-		if 'submit' in self.context.request.form:
+		if self.context.request.is_post and self._doc.validate_form(form):
 			address = self.context.request.form.getfirst('address')
 			addresses = self.context.request.form.getfirst('addresses')
 			addresses = filter(None, addresses.splitlines())
@@ -875,6 +897,9 @@ class CMS(base.BaseComponent):
 			self._doc.add_message('Changes have been saved')
 			
 			return
+		
+		elif self.context.request.is_post:
+			self._doc.add_message('There was an error. Please try again.')
 		
 		form.textbox('address', 'Prefered address', 
 			article_history.article.primary_address or '')
@@ -925,7 +950,7 @@ class CMS(base.BaseComponent):
 		and article_history.article \
 		and not article_history.article.owner_account.id == self._acc.account_id) \
 		or (not article_history.view_mode & ArticleViewModes.ARTICLE \
-		and not self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER))):
+		and not self._acc.is_authorized(ActionRole.NAMESPACE, ActionRole.COMMENTER))):
 			self._doc.add_message(u'Sorry, you may not edit this article')
 			return True
 		
@@ -936,6 +961,66 @@ class CMS(base.BaseComponent):
 			return True
 		
 		return False
+	
+	def _check_session_captcha(self):
+		sess = self.context.get_instance(session.Session)
+		account = self._acc.account_model
+		
+		if (ActionRole.NAMESPACE, ActionRole.COMMENTER) not in account.roles:
+			result = False
+		elif self.SESSION_CAPTCHA_KEY not in sess.data:
+			result = False
+		elif sess.data[self.SESSION_CAPTCHA_KEY] < time.time() - 3600:
+			result = False
+		else:
+			result = True
+		
+		if not result:
+			self.context.response.redirect(self.context.str_url(
+				fill_controller=True,
+				fill_args=True,
+				fill_params=True,
+				fill_query=True,
+				query={self.CAPTCHA:self.CAPTCHA}
+				), httplib.SEE_OTHER)
+		
+		return result
+	
+	def _build_captcha_page(self):
+		sess = self.context.get_instance(session.Session)
+		
+		self._doc.title = 'CAPTCHA'
+		
+		form = self._doc.new_form(models.Form.POST)
+		
+		if self.context.request.is_post \
+		and self._doc.validate_form(form) \
+		and self._acc.validate_captcha_form():
+			sess.data[self.SESSION_CAPTCHA_KEY] = time.time()
+			
+			account = self._acc.account_model
+			
+			# FIXME: this block should be done in the accounts component 
+			if (ActionRole.NAMESPACE, ActionRole.COMMENTER) not in account.roles:
+				account.add_role(ActionRole.NAMESPACE, ActionRole.COMMENTER)
+				self._acc.log_event(accounts.AccountLogsMeta.NS_ACCOUNTS,
+					accounts.AccountLogsMeta.CODE_ROLE_MODIFY,
+					{'ip': self.context.environ.get('REMOTE_ADDR'),
+					'reason':'captcha-self-promote'
+					},
+				)
+			
+			self.context.response.redirect(
+				self.context.str_url(fill_controller=True, fill_args=True,
+					fill_params=True, fill_query=True,
+			), httplib.SEE_OTHER)
+			return
+		
+		self._acc.add_captcha_to_form(form)
+		
+		form.button('submit', 'Submit')
+		
+		self._doc.append(dataobject.MVPair(form))
 	
 	@classmethod
 	def model_uuid_str(cls, model):
@@ -956,7 +1041,7 @@ class ArticleView(dataobject.BaseView):
 		if article_format in (cls.ARTICLE_FORMAT_NORMAL, cls.ARTICLE_FORMAT_SINGLE):
 			element.set('id', CMS.model_uuid_str(model.article))
 			
-			element.append(cls.build_article_brief_metadata(context, model, is_nested_child))
+			element.append(cls.build_article_brief_metadata(context, model, is_nested_child, article_format))
 		
 		if model.text:
 			doc_info = model.doc_info
@@ -987,10 +1072,10 @@ class ArticleView(dataobject.BaseView):
 					lxml.html.fromstring(
 						doc_info.html_parts['fragment'] or '<div></div>'),
 					])
-		
+			
 		elif model.file:
 			url = context.str_url(fill_controller=True, 
-				args=[CMS.RAW, CMS.model_uuid_str(model)])
+				args=[CMS.model_uuid_str(model)], params=CMS.RAW)
 			
 			if model.metadata[ArticleMetadataFields.MIMETYPE].find('image') != -1:
 				element.append(lxmlbuilder.IMG(src=url))
@@ -1000,10 +1085,14 @@ class ArticleView(dataobject.BaseView):
 		if article_format == cls.ARTICLE_FORMAT_SINGLE:
 			element.append(cls.build_article_detailed_metadata(context, model))
 		
-		ul = lxmlbuilder.UL(CLASS='articleActions')
+		ul = lxmlbuilder.E.nav(CLASS='articleActions')
 		
 		def add(label, url):
-			ul.append(lxmlbuilder.LI(lxmlbuilder.A(label, href=url)))
+			e = lxmlbuilder.SPAN(lxmlbuilder.A(label, href=url))
+			e.tail = u' '
+			ul.append(e)
+		
+		acc = context.get_instance(accounts.Accounts)
 		
 		if article_format in (cls.ARTICLE_FORMAT_NORMAL, cls.ARTICLE_FORMAT_SINGLE):
 			add('Raw', context.str_url(
@@ -1011,14 +1100,24 @@ class ArticleView(dataobject.BaseView):
 				params=CMS.RAW,
 				fill_controller=True,
 			))
+			
+			if acc.is_authorized(ActionRole.NAMESPACE, ActionRole.COMMENTER) \
+			and model.article.owner_account == acc.account_model:
+				add('Edit', context.str_url(
+					args=[CMS.model_uuid_str(model.article)],
+					params=CMS.EDIT if model.text else CMS.UPLOAD,
+					fill_controller=True,
+				))
+			
+			if model.view_mode & ArticleViewModes.ALLOW_COMMENTS and acc.account_id:
+				add('Reply', context.str_url(
+					args=[''],
+					params=CMS.EDIT+CMS.NEW,
+					fill_controller=True, 
+						query=dict(parent=CMS.model_uuid_str(model.article))
+				))
 		
-		acc = context.get_instance(accounts.Accounts)
-		if article_format == cls.ARTICLE_FORMAT_NORMAL and acc.is_authorized(ActionRole.NAMESPACE, ActionRole.COMMENTER):
-			add('Edit', context.str_url(
-				args=[CMS.model_uuid_str(model.article)],
-				params=CMS.EDIT if model.text else CMS.UPLOAD,
-				fill_controller=True,
-			))
+		if article_format == cls.ARTICLE_FORMAT_NORMAL and acc.is_authorized(ActionRole.NAMESPACE, ActionRole.CURATOR):
 			add('Admin', context.str_url(
 				args=[CMS.model_uuid_str(model.article)],
 				params=CMS.EDIT_VIEW,
@@ -1028,12 +1127,6 @@ class ArticleView(dataobject.BaseView):
 				args=[CMS.model_uuid_str(model.article)],
 				params=CMS.HISTORY,
 				fill_controller=True,
-			))
-			add('Reply', context.str_url(
-				args=[''],
-				params=CMS.EDIT+CMS.NEW,
-				fill_controller=True, 
-					query=dict(parent=CMS.model_uuid_str(model.article))
 			))
 		elif article_format ==  cls.ARTICLE_FORMAT_SINGLE:
 			add(u'View current version', context.str_url(
@@ -1071,18 +1164,28 @@ class ArticleView(dataobject.BaseView):
 		return element
 	
 	@classmethod
-	def build_article_brief_metadata(cls, context, model, is_nested_child):
+	def build_article_brief_metadata(cls, context, model, is_nested_child, article_format):
 		date = '(%s)' % (model.publish_date or model.date)
 		author_name = '(unknown)'
 		
 		if model._model.account and model._model.account.nickname:
 			author_name = model._model.account.nickname
 		
-		ul = lxmlbuilder.UL(
-			lxmlbuilder.LI(date),
-			lxmlbuilder.LI(author_name),
-			lxmlbuilder.CLASS('articleBriefMetadata')
+		roles = model._model.account.roles
+		if (ActionRole.NAMESPACE, ActionRole.CURATOR) in roles \
+		or (ActionRole.NAMESPACE, ActionRole.MODERATOR) in roles:
+			author_name = u'★ %s' % author_name
+		
+		ul = lxmlbuilder.H3(
+			lxmlbuilder.SPAN(date, lxmlbuilder.CLASS('articleDate')), ' ',
+			lxmlbuilder.SPAN(author_name, lxmlbuilder.CLASS('articleAuthorName')),
+			lxmlbuilder.CLASS('articleMetadata'),
 		)
+		
+		if article_format == cls.ARTICLE_FORMAT_NORMAL and model.version > 1:
+			e = lxmlbuilder.SPAN(u'(%d edits)' % model.version)
+			e.tail = u' '
+			ul.insert(1, e)
 		
 		for parent_model in model.parents:
 			label = u'In reply to “%s”' % (parent_model.title or parent_model.upload_filename or '(untitled')
@@ -1094,7 +1197,9 @@ class ArticleView(dataobject.BaseView):
 					args=[CMS.model_uuid_str(parent_model)],
 				)
 			
-			ul.insert(0, lxmlbuilder.LI(lxmlbuilder.A(label, href=url)))
+			e = lxmlbuilder.A(label, href=url)
+			e.tail = u' '
+			ul.insert(0, e)
 		
 		return ul
 	
@@ -1275,7 +1380,8 @@ class ArticleHistoryReadWrapper(dataobject.ProtectedObject, dataobject.BaseModel
 		self._reason = self._respool.get_text(model.reason)
 		self._file = self._respool.get_file(model.file_id)
 		self._doc_info = None
-	
+		self._allow_intern = False
+		
 	@property
 	def editor_account(self):
 		return self._model.account_id
@@ -1388,6 +1494,7 @@ class ArticleHistoryReadWrapper(dataobject.ProtectedObject, dataobject.BaseModel
 					internal_callback=self._cms._restpub_internal_callback,
 					image_callback=self._cms._restpub_image_callback,
 					template_callback=self._cms._restpub_template_callback,
+					allow_intern=self._allow_intern,
 				)
 				
 				if self.uuid:

@@ -26,6 +26,7 @@ import lolram.app
 
 class LolramVanity(base.BaseComponent):
 	def setup(self):
-		self.context.response.headers['X-Script'] = 'lolram/%s' % lolram.app.__version__
+		if self.context.response:
+			self.context.response.headers['X-Script'] = 'lolram/%s' % lolram.app.__version__
 
 	

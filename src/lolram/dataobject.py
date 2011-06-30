@@ -68,7 +68,7 @@ class ProtectedObject(object):
 
 class Context(ProtectedObject):
 	'''Provides context information about the current request and response'''
-	 
+	
 	def __init__(self, singleton_instances=None, id=None, request=None, 
 	response=None, environ=None, config=None, dirinfo=None, logger=None,
 	is_testing=None):
@@ -381,6 +381,10 @@ class BaseMVC(ContextAware):
 		'''Operations after a response has been prepared'''
 		
 		pass
+	
+	def run_maintenance(self):
+		'''Perform long running tasks and maintenance operations'''
+		pass
 
 
 class DirInfo(ProtectedObject):
@@ -442,7 +446,7 @@ class RequestInfo(ProtectedObject):
 	
 	def __init__(self, script_name=None, path_info=None, args=None,
 	form=None, url=None, headers=None, controller=None, script_path=None,
-	local_path=None):
+	local_path=None, is_post=None):
 		self._script_name = script_name
 		self._path_info = path_info
 		self._args = args
@@ -452,6 +456,7 @@ class RequestInfo(ProtectedObject):
 		self._controller = controller
 		self._local_path = local_path
 		self._script_path = script_path
+		self._is_post = is_post
 	
 	@property
 	def args(self):
@@ -561,6 +566,10 @@ class RequestInfo(ProtectedObject):
 		
 		return self._controller
 	
+	@property
+	def is_post(self):
+		return self._is_post
+	
 class HTTPHeaders(UserDict.DictMixin):
 	'''A dictionary-like mapping of HTTP Headers
 	
@@ -642,11 +651,13 @@ class HTTPHeaders(UserDict.DictMixin):
 		
 		if value.find(';') != -1:
 			header.value, sep, vl = value.partition(',')
+			del sep
 		
 			for i in vl.split(';'):
 				k, sep, v = i.partition('=')
 				k = k.strip()
 				v = v.strip()
+				del sep
 			
 				if k:
 					header.params[k] = v

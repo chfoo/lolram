@@ -23,13 +23,8 @@ import unittest
 import os.path
 import gzip
 import cStringIO
-import wsgiref.util
-import sys
-import os
-import httplib
 import Cookie
 import subprocess
-import time
 
 import server_base
 from lolram import app
@@ -64,7 +59,7 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		
 	def test_basic(self):
 		'''It should not crash'''
-		response = self.request('/')
+		self.request('/')
 	
 	def test_session_empty(self):
 		'''It should not set cookie if there is no session data'''

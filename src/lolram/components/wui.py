@@ -28,11 +28,13 @@ import glob
 from lxml.html.builder import *
 
 import base
+import session
 from .. import dataobject
 from .. import serializer
 from .. import resoptimizer
 from .. import configloader
-from .. import util
+from .. import models
+
 
 class WUI(base.BaseComponent):
 	default_config = configloader.DefaultSectionConfig('wui',
@@ -156,7 +158,8 @@ class DocumentView(dataobject.BaseView):
 			head.append(element_class(s.read()))
 		else:
 			for p in filenames:
-				url = fardel.make_url(paths=(fardel.com.static_file.name, p))
+				url = context.str(
+					path='%s/%' % (context.config.static_file.path_name, p))
 				href = unicode(url)
 				head.append(element_class(href=href))
 
@@ -169,6 +172,8 @@ class Document(dataobject.ContextAware, dataobject.BaseModel, list):
 	'''
 	
 	default_view = DocumentView
+	
+	FORM_SESSION_KEY = '_wui_forms'
 	
 	def __init__(self, *args, **kargs):
 		super(Document, self).__init__(*args, **kargs)
@@ -312,6 +317,28 @@ class Document(dataobject.ContextAware, dataobject.BaseModel, list):
 	@property
 	def messages(self):
 		return self._messages
-
+	
+	def new_form(self, *args, **kargs):
+		sess = self.context.get_instance(session.Session)
+		form = models.Form(*args, **kargs)
+		
+		if self.FORM_SESSION_KEY not in sess.data:
+			sess.data[self.FORM_SESSION_KEY] = form.id
+			
+		form.id = sess.data[self.FORM_SESSION_KEY]
+		form.textbox(form.FORM_ID, form.id, validation=form.Textbox.HIDDEN)
+		
+		return form
+	
+	def validate_form(self, form):
+		sess = self.context.get_instance(session.Session)
+		given_id = self.context.request.form.getfirst(models.Form.FORM_ID)
+		
+		if self.FORM_SESSION_KEY not in sess.data:
+			return False
+		
+		id_ = sess.data[self.FORM_SESSION_KEY]
+		
+		return given_id == id_
 
 

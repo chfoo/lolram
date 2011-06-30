@@ -1,6 +1,8 @@
 # encoding=utf8
 
 '''Utility functions'''
+import random
+import unicodedata
 
 #	Copyright © 2010–2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -84,7 +86,58 @@ def texvc_lexor(s):
 			html, nul, mathml = s[33:].partition('\x00')
 			html = html
 			mathml = mathml
+			del nul
 	
 	t = texvc_info(code=code, has_error=has_error, mathml=mathml,
 		html=html, hash=hash, error_arg=error_arg)
 	return t
+
+def make_math1():
+	a = random.randint(0, 10)
+	b = random.randint(0, 10)
+	c = random.randint(0, 10)
+	
+	if random.random() < 0.5:
+		return (u'%d × %d + %d =' % (a, b, c), a * b + c)
+	else:
+		return (u'%d × %d − %d =' % (a, b, c), a * b - c)
+
+def str_to_int(s):
+	'''Convert unicode string to int. 
+	
+	Supports both half-width and full-width forms. If the final number
+	is rational, the fractional part is discarded.
+	'''
+	
+	assert isinstance(s, unicode)
+	
+	i = 0
+	is_neg = False
+	
+	for char in s:
+		if char in u'-⁒−－()':
+			is_neg = True
+			continue
+		elif char in u'+＋':
+			is_neg = False
+			continue
+		
+		try:
+			r = unicodedata.digit(char)
+			i *= 10
+			i += r
+			
+			continue
+		except ValueError:
+			pass
+		
+		try:
+			r = unicodedata.numeric(char)
+			i += r
+		except ValueError:
+			pass
+	
+	if is_neg:
+		i = -i
+	
+	return int(i)

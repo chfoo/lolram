@@ -127,7 +127,7 @@ class Session(base.BaseComponent):
 		db = self.context.get_instance(database.Database)
 		map(lambda m: db.add(m), (SessionDataMeta, SessionSecretsMeta))
 	
-	def perform_maintenance(self):
+	def run_maintenance(self):
 		self._clear_stale_sessions()
 	
 	def _set_cookie(self, name, value, max_age=None):
@@ -267,10 +267,15 @@ class Session(base.BaseComponent):
 		stale_date = datetime.datetime.utcfromtimestamp(
 			time.time() - self.context.config.session.key_stale_age)
 		
-		query = db.session.query(db.models.SessionSecrets) \
-			.filter(db.models.SessionSecrets.modified<stale_date)
-		
+		query = db.session.query(db.models.SessionSecret) \
+			.filter(db.models.SessionSecret.created<stale_date)
 		query.delete()
-
-
-
+		
+		query = db.session.query(db.models.SessionData) \
+			.filter(db.models.SessionData.modified<stale_date)
+		query.delete()
+	
+	@property
+	def session_id(self):
+		return getattr(self.data.__, 'id', None)
+	

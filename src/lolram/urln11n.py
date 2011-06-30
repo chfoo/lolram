@@ -71,12 +71,18 @@ class URLQuery(dict):
 		for key, value in sorted(self.iteritems(), key=lambda x:x[0]):
 			if isinstance(value, list):
 				for v in sorted(value):
+					if not isinstance(v, str) and not isinstance(v, unicode):
+						v = unicode(v)
+					
 					if v:
 						q.append('%s=%s' % (urllib.quote(key.encode('utf8')),
 							urllib.quote(unicode(v).encode('utf8'))))
 					else:
 						q.append(urllib.quote(key.encode('utf8')))
 			else:
+				if not isinstance(value, str) and not isinstance(value, unicode):
+					value = unicode(value)
+				
 				q.append('%s=%s' % (urllib.quote(key.encode('utf8')),
 					urllib.quote(value.encode('utf8'))))
 		

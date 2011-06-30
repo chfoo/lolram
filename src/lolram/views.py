@@ -30,7 +30,7 @@ class FormView(dataobject.BaseView):
 		def to_html(cls, context, model, **opts):
 			element = lxmlbuilder.DIV(lxmlbuilder.DIV(model.label))
 			
-			for name, label, active in model:
+			for name, label, active, default in model:
 				div = lxmlbuilder.E.menu()
 				div.append(lxmlbuilder.LABEL(label, lxmlbuilder.FOR(model.name+name)))
 				
@@ -43,7 +43,8 @@ class FormView(dataobject.BaseView):
 					name=model.name, value=name)	
 				div.append(input)
 				
-				if context.request.form.getfirst(model.name) == name or active:
+				values = context.request.form.getlist(model.name)
+				if name in values or (name not in values and default) or active:
 					input.set('checked', 'checked')
 				
 				element.append(div)
@@ -78,29 +79,34 @@ class FormView(dataobject.BaseView):
 	class Textbox(dataobject.BaseView):
 		@classmethod
 		def to_html(cls, context, model, **opts):
-			form_element_id = 'form.%s.%s' 
+			form_element_id = 'form.%s.%s' % (opts['form_model'].id, model.name)
 			element = lxmlbuilder.DIV()
 			
-			value = context.request.form.getfirst(model.name, '')
+			value = context.request.form.getfirst(model.name)
 			
 			if model.validation != 'hidden':
-				element.append(lxmlbuilder.LABEL(model.label, FOR=model.name))
+				element.append(lxmlbuilder.LABEL(model.label, 
+					lxmlbuilder.FOR(form_element_id)))
 			
 			if model.validation == 'hidden':
-				element.append( lxmlbuilder.INPUT(
+				element = lxmlbuilder.INPUT(
 					name=model.name,
 					type=model.validation,
-					value=model.value or model.label) )
+					value=model.value or model.default or model.label)
 			elif model.large:
-				element.append(lxmlbuilder.TEXTAREA(model.value or value, name=model.name))
+				element.append(lxmlbuilder.TEXTAREA(
+					model.value or value or model.default or '', 
+					id=form_element_id,
+					name=model.name))
 			else:
 				input_element = lxmlbuilder.INPUT(
+					id=form_element_id,
 					name=model.name,
 					type=model.validation or 'text', 
 					placeholder=model.label)
 				
-				if model.value or value:
-					input_element.set('value', model.value or value)
+				if model.value or value or model.default:
+					input_element.set('value', model.value or value or model.default)
 				
 				if model.required:
 					input_element.set('required', 'required')
@@ -115,10 +121,11 @@ class FormView(dataobject.BaseView):
 		form_element = lxmlbuilder.FORM(method=model.method, action=model.url)
 		
 		if model.method == 'POST':
-			 form_element.set('enctype', "multipart/form-data")
+			form_element.set('enctype', "multipart/form-data")
 		
 		for o in model._data:
-			form_element.append(dataobject.MVPair(o).render(context, 'html'))
+			form_element.append(dataobject.MVPair(o).render(
+				context, 'html', form_model=model))
 		
 		return form_element
 
@@ -192,7 +199,9 @@ class PagerView(dataobject.BaseView):
 		def add(label, page):
 			url = context.str_url(fill_path=True, fill_query=True, 
 				fill_params=True, query={'page':str(page)})
-			ul.append(lxmlbuilder.LI(lxmlbuilder.A(label, href=url)))
+			e = lxmlbuilder.A(label, href=url)
+			e.tail = u' '
+			ul.append(e)
 		
 		if model.page_min and model.page > 1:
 			add(u'⇱', 1)
@@ -217,9 +226,10 @@ class NavView(dataobject.BaseView):
 		
 		for label, url, icon in model._data:
 			a = lxmlbuilder.A(label, href=url)
+			a.tail = u' '
 			if icon:
 				a.insert(0, lxmlbuilder.IMG(src=icon))
 			
-			ul.append(lxmlbuilder.LI(a))
+			ul.append(a)
 		
 		return ul

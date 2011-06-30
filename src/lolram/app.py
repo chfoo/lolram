@@ -21,7 +21,7 @@
 
 __docformat__ = 'restructuredtext en'
 
-__version__ = '0.1'
+__version__ = '0.2'
 
 import gzip
 import cStringIO as StringIO
@@ -35,9 +35,9 @@ import imp
 import traceback
 import tempfile
 import datetime
-import mimetypes
 import itertools
 import contextlib
+import threading
 import runpy
 import logging
 import util
@@ -179,11 +179,6 @@ class Responder(object):
 		
 		self.output = iterable
 	
-	def set_content_type(self, s):
-		'''Set the MIME type'''
-		
-		self.headers['content-type'] = s
-		
 	def output_text(self, text):
 		'''Append text to the output'''
 		
@@ -218,7 +213,8 @@ class Responder(object):
 	def output_file(self, path, download_filename=None):
 		'''Return iterator for a file from the filesystem'''
 		
-		self.headers['X-Sendfile'] = path
+		# FIXME allow a config option for this
+#		self.headers['X-Sendfile'] = path
 		
 		last_modified = datetime.datetime.utcfromtimestamp(
 			os.path.getmtime(path))
@@ -282,7 +278,8 @@ class Responder(object):
 				range_upper = int(range_upper)
 			else:
 				range_upper = os.path.getsize(path)
-				
+			
+			self.set_status(206)
 		else:
 			range_lower = 0
 			range_upper = os.path.getsize(path)
@@ -357,7 +354,8 @@ class Responder(object):
 		if 'HTTP_ACCEPT_ENCODING' in self.environ \
 		and self.environ['HTTP_ACCEPT_ENCODING'].find('gzip') != -1 \
 		and 'content-type' in self.headers \
-		and self.headers['content-type'].startswith('text'):
+		and self.headers['content-type'].startswith('text') \
+		and not 'X-Sendfile' in self.headers:
 			# If the MIME type is text-like, then we can probably compress 
 			# it
 			self.headers['content-encoding'] = 'gzip'
@@ -412,6 +410,9 @@ class Launcher(object):
 		self._app = None
 		self._class = None
 		self._is_testing = is_testing
+		self._maintenance_lock = threading.Lock()
+		self._maintenance_timer = None
+		self.maintenance_interval = 3600 * 7 # weekly
 		
 		path = self._dirinfo.code
 #		globals_dict = runpy.run_path(path)
@@ -465,6 +466,10 @@ class Launcher(object):
 		
 		self._app.init_components()
 		self._app.init()
+		
+		self._maintenance_timer = threading.Timer(self.maintenance_interval,
+			self.run_maintenance)
+		threading.Thread(target=self.run_maintenance).start()
 	
 	def make_context(self, **kargs):
 		return dataobject.Context(
@@ -479,6 +484,7 @@ class Launcher(object):
 	def __call__(self, environ, start_response):
 		logger.debug(u'Shifting %s', self._shift_count)
 		for i in xrange(self._shift_count):
+			del i
 			wsgiref.util.shift_path_info(environ)
 		
 		logger.debug(u'Call')
@@ -493,6 +499,7 @@ class Launcher(object):
 		
 		script_path, a, local_path = pathutil.common(
 			pathutil.application_uri(environ), url.path)
+		del a
 		
 		if local_path:
 			path_list = local_path.split('/')
@@ -510,6 +517,7 @@ class Launcher(object):
 			args=args,
 			form=urln11n.FieldStorage(fp=environ['wsgi.input'], 
 				environ=environ, keep_blank_values=True),
+			is_post=environ.get('REQUEST_METHOD')=='POST',
 		)
 	
 		context = self.make_context(request=request_info, response=responder,
@@ -608,7 +616,15 @@ class Launcher(object):
 					app.do_simple_error_page(tb_text)
 			else:
 				app.do_simple_error_page('A system error has occured')
-		
+	
+	@contextlib.contextmanager
+	def basic_error_handler(self, context):
+		try:
+			yield
+		except Exception, e:
+			context.errors.append(e)
+			logger.exception(u'Maintenance Error ‘%s’', e)
+	
 	def create_dirs(self):
 		logger.debug(u'Create dirs')
 		for dirname in (self._dirinfo.code, self._dirinfo.www, self._dirinfo.var,
@@ -617,6 +633,54 @@ class Launcher(object):
 				logger.debug(u'Directory ‘%s’ does not exist, creating.',
 					dirname)
 				os.mkdir(dirname)
+	
+	def run_maintenance(self):
+		if not self._maintenance_lock.acquire(False):
+			logger.info('Scheduled maintenance skipped as it is already running.')
+			return
+		
+		request_info = dataobject.RequestInfo(
+			headers=dataobject.HTTPHeaders(),
+		)
+		
+		context = self.make_context(request=request_info)
+		app = context.get_instance(self._class)
+		
+		context.logger.info('Running maintenance')
+		
+		start_time = time.time()
+		
+		component_list = []
+		for class_ in app.default_components:
+			component = context.get_instance(class_)
+			component_list.append(component)
+			
+		with self.basic_error_handler(context):
+			for c in component_list:
+				logger.debug(u'Component ‘%s’ setup', c.__class__.__name__)
+				c.setup()
+				
+			app.setup()
+				
+			for c in component_list:
+				logger.debug(u'Component ‘%s’ maintenance', c.__class__.__name__)
+				c.run_maintenance()
+				
+			app.run_maintenance()
+		
+		with self.basic_error_handler(context):
+			app.cleanup()
+		
+		with self.basic_error_handler(context):
+			for c in reversed(component_list):
+				logger.debug(u'Component ‘%s’ cleanup', c.__class__.__name__)
+				c.cleanup()
+		
+		end_time = time.time()
+		duration = end_time - start_time
+		context.logger.info('Info maintenance complete (took %s seconds)', duration)
+		
+		self._maintenance_lock.release()
 
 class SiteApp(dataobject.BaseMVC):
 	default_config = configloader.DefaultSectionConfig('site',
