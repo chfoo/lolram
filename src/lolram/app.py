@@ -49,6 +49,7 @@ except AttributeError, e:
 import cgi
 import time
 import cgitb
+import mimetypes
 
 import configloader
 import mylogger
@@ -144,7 +145,6 @@ class Responder(object):
 		self.status_code = httplib.INTERNAL_SERVER_ERROR
 		self.status_msg = httplib.responses[self.status_code]
 		self.output = []
-		self.headers['content-type'] = 'text/plain'
 		self.chunked = True
 	
 	@property
@@ -210,7 +210,7 @@ class Responder(object):
 		
 		self.chunked = enabled
 	
-	def output_file(self, path, download_filename=None):
+	def output_file(self, path, download_filename=None, content_type=None):
 		'''Return iterator for a file from the filesystem'''
 		
 		# FIXME allow a config option for this
@@ -219,12 +219,16 @@ class Responder(object):
 		last_modified = datetime.datetime.utcfromtimestamp(
 			os.path.getmtime(path))
 		
-		#mt = mimetypes.guess_type(path)
+		mt = content_type or self.headers.get('content-type')
 		
-#		if mt and mt[0]:
-#			self.headers['content-type'] = mt[0]
-
-		mt = util.magic_cookie_mime.file(path)
+		if not mt:
+			mtt = mimetypes.guess_type(download_filename or path)
+			
+			if mtt:
+				mt = mtt[0]
+		
+		if not mt:
+			mt = util.magic_cookie_mime.file(path)
 		
 		if mt:
 			self.headers['content-type'] = mt
@@ -343,6 +347,9 @@ class Responder(object):
 		
 		logger.debug(u'Respond %s:%s', self.status_code, self.status_msg)
 		
+		if 'content-type' not in self.headers:
+			self.headers['content-type'] = 'text/plain'
+		
 		iterable = self.output
 		
 		# chunked transfer is disabled in compliance with WSGI
@@ -403,7 +410,7 @@ class BufferFile(object):
 class Launcher(object):
 	def __init__(self, dirpath, script_name, is_testing):
 		self._script_name = urln11n.collapse_path(script_name)
-		self._singleton_instances = {}
+		self._master_context = None
 		self._dirinfo = dataobject.DirInfo(dirpath)
 		self._confname = os.path.join(dirpath, 'site.conf')
 		self._conf = configloader.load(self._confname)
@@ -440,6 +447,8 @@ class Launcher(object):
 					continue
 				
 				context = self.make_context()
+				context._master = context
+				self._master_context = context
 				self._app = context.get_instance(value, True)
 				self._app._function_router = routes.Router()
 				self._class = value
@@ -476,8 +485,8 @@ class Launcher(object):
 			config=self._conf,
 			dirinfo=self._dirinfo,
 			logger=logger,
-			singleton_instances=self._singleton_instances,
 			is_testing=self._is_testing,
+			master=self._master_context,
 			**kargs
 		)
 	
@@ -694,7 +703,7 @@ class SiteApp(dataobject.BaseMVC):
 		components.database.Database,
 		components.session.Session,
 		components.respool.ResPool,
-#		components.lion.Lion,
+		components.lion.Lion,
 		components.accounts.Accounts,
 		components.wui.WUI,
 		components.cms.CMS,

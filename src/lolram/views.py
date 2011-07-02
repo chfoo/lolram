@@ -21,8 +21,10 @@
 
 __docformat__ = 'restructuredtext en'
 
-import dataobject
 import lxml.html.builder as lxmlbuilder
+
+import dataobject
+import components.lion 
 
 class FormView(dataobject.BaseView):
 	class Options(dataobject.BaseView):
@@ -209,7 +211,9 @@ class PagerView(dataobject.BaseView):
 		if model.page > 2:
 			add(u'⇞', model.page - 1)
 		
-		add(str(model.page), model.page)
+		lio = context.get_instance(components.lion.Lion)
+		
+		add(lio.formatter.number(model.page), model.page)
 		
 		if model.more:
 			add(u'⇟', model.page + 1)

@@ -69,11 +69,10 @@ class ProtectedObject(object):
 class Context(ProtectedObject):
 	'''Provides context information about the current request and response'''
 	
-	def __init__(self, singleton_instances=None, id=None, request=None, 
+	def __init__(self, id=None, request=None, 
 	response=None, environ=None, config=None, dirinfo=None, logger=None,
-	is_testing=None):
+	is_testing=None, master=None):
 		self._context_aware_instances = {}
-		self._singleton_instances = singleton_instances
 		self._id = id
 		self._request = request
 		self._response = response
@@ -83,6 +82,15 @@ class Context(ProtectedObject):
 		self._logger = logger
 		self._errors = []
 		self._is_testing = is_testing
+		self._master = master
+	
+	@property
+	def master(self):
+		return self._master
+	
+	@property
+	def is_master(self):
+		return self._master == self 
 	
 	def get_instance(self, class_, singleton=False):
 		'''Get a context aware instance
@@ -91,13 +99,14 @@ class Context(ProtectedObject):
 		'''
 		
 		if singleton:
-			d = self._singleton_instances 
+			d = self._master._context_aware_instances
 		else:
 			d = self._context_aware_instances
 		
 		if class_ not in d:
 			assert issubclass(class_, ContextAware)
-			instance = class_(context_checked=True, context=self)
+			instance = class_.__new__(class_, context_checked=True, context=self)
+			instance.__init__(context_checked=True, context=self)
 			instance.set_context(self)
 			d[class_] = instance
 		
@@ -259,10 +268,18 @@ class ContextAwareInitError(Exception):
 	__slots__ = ()
 	pass
 
+
+class ContextAwareType(type):
+	def __call__(self, context):
+		return context.get_instance(self)
+
+
 class ContextAware(object):
 	'''Base class for classes which bind to a context'''
 	
-	def __init__(self, context_checked=False, context=None):
+	__metaclass__ = ContextAwareType
+	
+	def __init__(self, context=None, context_checked=False):
 		self._context = context
 		if not context_checked:
 			raise ContextAwareInitError(u'Context aware classes must by '
@@ -356,10 +373,14 @@ class BaseMVC(ContextAware):
 	
 	@property
 	def singleton(self):
-		return self.context.get_instance(self.__class__, singleton=True)
+		return self.master
+	
+	@property
+	def master(self):
+		return self.__class__(self.context.master)
 	
 	def init(self):
-		'''Singleton instance operations'''
+		'''Master instance operations'''
 		pass
 	
 	def setup(self):

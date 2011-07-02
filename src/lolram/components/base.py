@@ -21,36 +21,9 @@
 
 __docformat__ = 'restructuredtext en'
 
-import imp
-
 from .. import dataobject
 
 class BaseComponent(dataobject.BaseMVC):
 	pass
 
-class BaseComponentManager(object):
-	default_config = None
-	agent_class = None
-	name = NotImplemented
-	
-	def __init__(self, fardel):
-		pass
-	
-class BaseComponentAgent(object):
-	def __init__(self, fardel, manager):
-		self._fardel = fardel
-		self._manager = manager
-		
-	def setup(self, fardel):
-		pass
-	
-	def control(self, fardel):
-		pass
-	
-	def render(self, fardel):
-		pass
-	
-	def cleanup(self, fardel):
-		pass
-	
 

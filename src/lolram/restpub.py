@@ -109,7 +109,7 @@ class MathDirective(docutils.parsers.rst.Directive):
 			src = self.state.document.settings \
 				.restpub_callbacks['math'](texvc_info.hash, image_path)
 			
-			l.append(docutils.nodes.image(src, alt=text, uri=src))
+			l.append(docutils.nodes.image(src, alt=text, uri=src, classes=['math']))
 			
 		return l
 

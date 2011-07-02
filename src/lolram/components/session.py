@@ -124,7 +124,7 @@ class Session(base.BaseComponent):
 		return self._data 
 	
 	def init(self):
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		map(lambda m: db.add(m), (SessionDataMeta, SessionSecretsMeta))
 	
 	def run_maintenance(self):
@@ -146,7 +146,7 @@ class Session(base.BaseComponent):
 			cookie_obj.output(header='', sep=''))
 	
 	def _get_session(self):
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		self.context.logger.debug(u'Get session')
 		
 		header_value = self.context.request.headers.get('cookie')
@@ -208,7 +208,7 @@ class Session(base.BaseComponent):
 		return (session_data, persistent)
 	
 	def _save_session(self, data, persistent=False):
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		self.context.logger.debug(u'Save session')
 		
 		model = None
@@ -254,7 +254,7 @@ class Session(base.BaseComponent):
 				self._set_cookie(temp_name, base64.b64encode(json.dumps([key_model.id, key_model.key.encode('base64')])))
 		
 	def _new_key(self):
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		self.context.logger.debug(u'New key requested')
 		bytes = os.urandom(16)
 		model = db.models.SessionSecret()
@@ -263,7 +263,7 @@ class Session(base.BaseComponent):
 		return model
 	
 	def _clear_stale_sessions(self):
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		stale_date = datetime.datetime.utcfromtimestamp(
 			time.time() - self.context.config.session.key_stale_age)
 		

@@ -29,10 +29,11 @@ Lolram requires
 6. RestructuredText for content text formatting (python-docutils)
 7. OpenID for login (python-openid)
 8. memcached (python-memcache and memcached)
+9. babel for locale support (python-pybabel)
 
 and optionally,
 
-9. epydoc for API documentation (python-epydoc)
+10. epydoc for API documentation (python-epydoc)
 
 Architecture
 ============

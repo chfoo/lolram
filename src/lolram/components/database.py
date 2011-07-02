@@ -152,7 +152,7 @@ class DatabaseTableMigration(Base):
 		onupdate=datetime.datetime.utcnow)
 
 
-class TableMeta(dataobject.ContextAware):
+class TableMeta(object):
 	'''Base class for table migration and definitions'''
 	
 	uuid = NotImplemented

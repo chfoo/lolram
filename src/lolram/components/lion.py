@@ -21,32 +21,44 @@
 
 __docformat__ = 'restructuredtext en'
 
+import babel.support
+
 import base
 
-class LionAgent(base.BaseComponentAgent):
-	def setup(self, fardel):
-		self._accepted_languages = []
-		self._current_language = ('en', None)
-		header = fardel.req.headers.get_first('Accept-Language')
+class Lion(base.BaseComponent):
+	def setup(self):
+		self._acceptable_locales = []
+		self._locale = 'en'
+		self._formatter = babel.support.Format(self._locale)
+		
+		header = self.context.request.headers.get_first('Accept-Language')
+		
 		if header:
 			l = header.value.split(',')
+			
 			for i in l:
-				lang, a, locale = i.partition('_')
-				self._accepted_languages.append((lang, locale))
+				s = i.split(';')[0].strip().replace('-', '_')
+				self._acceptable_locales.append(s)
+			
+			if self._acceptable_locales:
+				self._locale = self._acceptable_locales[0]
+				self._formatter = babel.support.Format(self._locale)
 	
 	@property
-	def current_language(self):
-		return self._current_language
+	def locale(self):
+		return self._locale
 	
-	def set_current_language(self, lang, locale=None):
-		self._current_language = (lang, locale)
+	@locale.setter
+	def locale(self, s):
+		self._locale = s
 	
 	@property
-	def accepted_languages(self):
-		return self._accepted_languages
+	def acceptable_locales(self):
+		return self._acceptable_locales
 	
-
-class LionManager(base.BaseComponentManager):
-	name = 'lion'
-	agent_class = LionAgent
+	def t(self, s):
+		return s
 	
+	@property
+	def formatter(self):
+		return self._formatter

@@ -27,10 +27,12 @@ import datetime
 import json
 import time
 import httplib
+import mimetypes
 
 from sqlalchemy import *
 from sqlalchemy.orm import relationship
 import sqlalchemy.sql
+import sqlalchemy.orm
 
 
 import lxml.html.builder as lxmlbuilder
@@ -43,6 +45,7 @@ import wui
 import respool
 import cache
 import session
+import lion
 #import dbutil.nestedsets
 from .. import dataobject
 from .. import configloader
@@ -306,6 +309,7 @@ class CMS(base.BaseComponent):
 		self._cms = self.context.get_instance(CMS)
 		self._acc = self.context.get_instance(accounts.Accounts)
 		self._doc = self.context.get_instance(wui.Document)
+		self._lion = self.context.get_instance(lion.Lion)
 	
 	def new_article(self):
 		'''Create a new article
@@ -489,7 +493,7 @@ class CMS(base.BaseComponent):
 						u'<%s>' % self.context.str_url(fill_controller=True,
 							args=[article.article.primary_address]), rel='Canonical')
 				
-				article.current._allow_intern = True
+				article._allow_intern = True
 		
 		elif action and action[0] == self.BROWSE:
 			self.context.response.ok()
@@ -582,6 +586,7 @@ class CMS(base.BaseComponent):
 			dest_dir = os.path.join(self.context.dirinfo.var, 'texvc', arg1[0:2])
 			dest_path = os.path.join(dest_dir, '%s.png' % arg1)
 		
+			self.context.response.ok()
 			return self.context.response.output_file(dest_path)
 		
 		else:
@@ -653,7 +658,7 @@ class CMS(base.BaseComponent):
 					self.context.str_url(fill_controller=True,
 					args=[util.bytes_to_b32low(article.uuid.bytes)],
 					)), 
-				str(article.publish_date), 
+				self._lion.formatter.datetime(article.publish_date), 
 			))
 			
 			counter += 1
@@ -685,7 +690,7 @@ class CMS(base.BaseComponent):
 					self.context.str_url(fill_controller=True,
 					args=[article.primary_address or util.bytes_to_b32low(article.uuid.bytes)],
 					)), 
-				str(article.publish_date), 
+				self._lion.formatter.datetime(article.publish_date), 
 			))
 			
 			counter += 1
@@ -711,7 +716,7 @@ class CMS(base.BaseComponent):
 			
 			table.rows.append((
 				str(info.version), 
-				str(info.date), 
+				self._lion.formatter.datetime(info.date), 
 				(info.title or info.upload_filename or '(untitled)', url),
 			))
 					
@@ -1022,6 +1027,10 @@ class CMS(base.BaseComponent):
 		
 		self._doc.append(dataobject.MVPair(form))
 	
+	def run_maintenance(self):
+		# TODO: clean up texvc files
+		pass
+	
 	@classmethod
 	def model_uuid_str(cls, model):
 		return util.bytes_to_b32low(model.uuid_bytes)
@@ -1077,7 +1086,10 @@ class ArticleView(dataobject.BaseView):
 			url = context.str_url(fill_controller=True, 
 				args=[CMS.model_uuid_str(model)], params=CMS.RAW)
 			
-			if model.metadata[ArticleMetadataFields.MIMETYPE].find('image') != -1:
+			filename_mimetype = mimetypes.guess_type(model.metadata[ArticleMetadataFields.FILENAME])[0] or ''
+			
+			if model.metadata[ArticleMetadataFields.MIMETYPE].find('image') != -1 \
+			or filename_mimetype.find('image') != -1:
 				element.append(lxmlbuilder.IMG(src=url))
 			else:
 				element.append(lxmlbuilder.A('Download', href=url))
@@ -1109,7 +1121,8 @@ class ArticleView(dataobject.BaseView):
 					fill_controller=True,
 				))
 			
-			if model.view_mode & ArticleViewModes.ALLOW_COMMENTS and acc.account_id:
+			if model.view_mode & ArticleViewModes.ALLOW_COMMENTS and acc.account_id \
+			or acc.is_authorized(ActionRole.NAMESPACE, ActionRole.WRITER):
 				add('Reply', context.str_url(
 					args=[''],
 					params=CMS.EDIT+CMS.NEW,
@@ -1165,7 +1178,9 @@ class ArticleView(dataobject.BaseView):
 	
 	@classmethod
 	def build_article_brief_metadata(cls, context, model, is_nested_child, article_format):
-		date = '(%s)' % (model.publish_date or model.date)
+		lio = context.get_instance(lion.Lion)
+		
+		date = '(%s)' % lio.formatter.datetime(model.publish_date or model.date, 'short')
 		author_name = '(unknown)'
 		
 		if model._model.account and model._model.account.nickname:
