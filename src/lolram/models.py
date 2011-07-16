@@ -21,111 +21,84 @@
 
 __docformat__ = 'restructuredtext en'
 
-import os
-
-import dataobject
-import views
-import util
-
-class Form(dataobject.BaseModel):
-	class Options(list, dataobject.BaseModel):
-		default_view = views.FormView.Options
-		
-		def __init__(self, name, label='', multi=False):
-			self.multi = multi
-			self.name = name
-			self.label = label
-		
-		def option(self, name, label, active=False, default=None):
-			self.append((name, label, active, default))
-		
-		
-	class Group(list, dataobject.BaseModel):
-		default_view = views.FormView.Group
-		
-		def __init__(self, label=None, elements=None):
-			if elements:
-				super(Group, self).__init__(elements)
-			
-			self.label = label
-		
-			
-	class Button(dataobject.BaseModel):
-		default_view = views.FormView.Button
-		
-		def __init__(self, name, label, icon=None):
-			self.name = name
-			self.label = label
-			self.icon = icon
-		
+class BaseModel(object):
+	'''Base class for models'''
 	
-	class Textbox(dataobject.BaseModel):
-		TEXT = 'text'
-		PASSWORD = 'password'
-		HIDDEN = 'hidden'
-		FILE = 'file'
-		
-		default_view = views.FormView.Textbox
-		
-		def __init__(self, name, label, value=None, default=None, 
-		validation=None, large=False, required=False):
-			self.name = name
-			self.label = label
-			self.value = value
-			self.validation = validation
-			self.large = large
-			self.required = required
-			self.default = default
-		
-		
-	default_view = views.FormView
+	pass
+
+
+class ButtonModel(BaseModel):
+	def __init__(self, name=None, label=None, image=None):
+		self.label = label
+		self.name = name
+		self.image = image
+
+
+class TextBoxModel(BaseModel):
+	TEXT = 'text'
+	PASSWORD = 'password'
+	HIDDEN = 'hidden'
+	FILE = 'file'
 	
+	def __init__(self, name=None, label=None, value=None, large=False, 
+	validation=None, required=False, default=None):
+		self.label = label
+		self.name = name
+		self.value = value
+		self.large = large
+		self.validation = validation
+		self.required = required
+		self.default = default
+
+
+class ImageModel(BaseModel):
+	def __init__(self, url=None, alt=None, icon=None):
+		self.url = url
+		self.alt = alt
+		self.icon = icon
+
+
+class OptionModel(BaseModel):
+	def __init__(self,  name=None, label=None, active=False, default=None):
+		self.label = label
+		self.name = name
+		self.active = active
+		self.default = default
+
+
+class OptionGroupModel(BaseModel):
+	def __init__(self, multi=False, name=None, label=u''):
+		self.multi = multi
+		self.name = name
+		self.label = label
+
+
+class LinkModel(BaseModel):
+	def __init__(self, label=None, url=None, image=None):
+		self.label = label
+		self.url = url
+		self.image = image
+
+
+class FormModel(BaseModel):
 	GET = 'GET'
 	POST = 'POST'
 	FORM_ID = 'lrfid'
 	
 	def __init__(self, method='GET', url=''):
-		super(Form, self).__init__()
-		self.method = method
-		self.url = url
-		self._data = []
-		self._group = None
-		self.id = util.bytes_to_b32low(os.urandom(4))
+		self._method = method
+		self._url = url
 	
-	def group_start(self, *args, **kargs):
-		self._group = self.Group(*args, **kargs)
-		self._data.append(self._group)
-		return self._group
+	@property
+	def method(self):
+		return self._method
 	
-	def group_end(self):
-		self._group = None
-	
-	def textbox(self, *args, **kargs):
-		textbox = self.Textbox(*args, **kargs)
-		self._add(textbox)
-		return textbox
-	
-	def options(self, *args, **kargs):
-		options = self.Options(*args, **kargs)
-		self._add(options)
-		return options
-		
-	def button(self, *args):
-		button = self.Button(*args)
-		self._add(button)
-		return button
-	
-	def _add(self, o):
-		if self._group is not None:
-			self._group.append(o)
-		else:
-			self._data.append(o)
-	
-class Table(dataobject.BaseModel):
-	default_view = views.TableView
-	
+	@property
+	def url(self):
+		return self._url
+
+class TableModel(BaseModel):
 	def __init__(self):
-		super(Table, self).__init__()
 		self._rows = []
 		self._header = []
 		self._footer = []
@@ -154,12 +127,3 @@ class Table(dataobject.BaseModel):
 	def rows(self, o):
 		self.rows = o
 
-	
-class Nav(dataobject.BaseModel):
-	default_view = views.NavView
-	
-	def __init__(self):
-		self._data = []
-	
-	def add(self, label, url, icon=None):
-		self._data.append((label, url, icon))

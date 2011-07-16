@@ -1,6 +1,6 @@
 # encoding=utf8
 
-'''Base component'''
+'''Util testing'''
 
 #	Copyright © 2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -19,14 +19,19 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
 
-__docformat__ = 'restructuredtext en'
+import unittest
 
-from lolram import dataobject
+from lolram import util
 
-class BaseGlobalComponent(dataobject.BaseMVC):
-	pass
-
-class BaseComponent(dataobject.BaseMVC):
-	pass
-
-
+class TestUtil(unittest.TestCase):
+	def test_str_to_int(self):
+		'''It should accept ASCII and full-width representation of integers'''
+		
+		self.assertEqual(util.str_to_int(u'00'), 0)
+		self.assertEqual(util.str_to_int(u'28394'), 28394)
+		self.assertEqual(util.str_to_int(u'-28394'), -28394)
+		self.assertEqual(util.str_to_int(u'−28394'), -28394)
+		self.assertEqual(util.str_to_int(u'２８３９４'), 28394)
+		self.assertEqual(util.str_to_int(u'＋２８３９４'), 28394)
+		self.assertEqual(util.str_to_int(u'－２８３９４'), -28394)
+		

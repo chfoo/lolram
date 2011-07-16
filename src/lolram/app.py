@@ -20,54 +20,54 @@
 #	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
 
 __docformat__ = 'restructuredtext en'
+__version__ = '0.3'
 
-__version__ = '0.2'
-
-import gzip
 import cStringIO as StringIO
-import wsgiref.util
-import httplib
-import os
-import warnings
-import inspect
-import sys
-import imp
-import traceback
-import tempfile
-import datetime
-import itertools
+import cgi
+import cgitb
 import contextlib
-import threading
-import runpy
+import datetime
+import gzip
+import httplib
+import imp
+import inspect
+import itertools
 import logging
+import mimetypes
+import os
+import pathutil
+import routes
+import runpy
+import sys
+import tempfile
+import threading
+import time
+import traceback
+import urln11n
 import util
+import warnings
+import wsgiref.util
+
 try:
 	runpy.run_path
 except AttributeError, e:
 	warnings.warn(str(e))
 	from backports import runpy
-import cgi
-import time
-import cgitb
-import mimetypes
 
-import configloader
-import mylogger
-import urln11n
-import dataobject
-import components.database
-import components.session
+from lolram import configloader, dataobject, mylogger
+from lolram.components.accounts import AccountManager
+from lolram.components.cache import GlobalCacheManager
+from lolram.components.cms import CMS, GlobalCMSManager
+from lolram.components.database import Database
+from lolram.components.lion import Lion
+from lolram.components.lolramvanity import LolramVanity
+from lolram.components.respool import GlobalResPoolManager
+from lolram.components.session import Session
+from lolram.components.staticfile import StaticFile
+from lolram.components.wui import WUI
+from lolram.dataobject import BaseMVC
+
 logger = mylogger.get_logger()
-import routes
-import pathutil
-import components.wui
-import components.lolramvanity
-import components.staticfile
-import components.cms
-import components.accounts
-#import components.lion
-import components.respool
-import components.cache
 
 LT = '\r\n'
 HTTP_TIME_PARSE_STR = '%a, %d %b %Y %H:%M:%S %Z'
@@ -410,7 +410,7 @@ class BufferFile(object):
 class Launcher(object):
 	def __init__(self, dirpath, script_name, is_testing):
 		self._script_name = urln11n.collapse_path(script_name)
-		self._master_context = None
+		self._global_context = None
 		self._dirinfo = dataobject.DirInfo(dirpath)
 		self._confname = os.path.join(dirpath, 'site.conf')
 		self._conf = configloader.load(self._confname)
@@ -447,8 +447,8 @@ class Launcher(object):
 					continue
 				
 				context = self.make_context()
-				context._master = context
-				self._master_context = context
+				context._global_context = context
+				self._global_context = context
 				self._app = context.get_instance(value, True)
 				self._app._function_router = routes.Router()
 				self._class = value
@@ -486,7 +486,7 @@ class Launcher(object):
 			dirinfo=self._dirinfo,
 			logger=logger,
 			is_testing=self._is_testing,
-			master=self._master_context,
+			master=self._global_context,
 			**kargs
 		)
 	
@@ -691,23 +691,23 @@ class Launcher(object):
 		
 		self._maintenance_lock.release()
 
-class SiteApp(dataobject.BaseMVC):
+class SiteApp(BaseMVC):
 	default_config = configloader.DefaultSectionConfig('site',
 		create_missing_dirs=True,
 		debugging_tracebacks=True,
 		log_level='info',
 	)
 	default_components = [
-		components.staticfile.StaticFile,
-		components.cache.Cache,
-		components.database.Database,
-		components.session.Session,
-		components.respool.ResPool,
-		components.lion.Lion,
-		components.accounts.Accounts,
-		components.wui.WUI,
-		components.cms.CMS,
-		components.lolramvanity.LolramVanity,
+		StaticFile,
+		GlobalCacheManager,
+		Database,
+		Session,
+		GlobalResPoolManager,
+		Lion,
+		AccountManager,
+		WUI,
+		GlobalCMSManager,
+		LolramVanity,
 	]
 	
 	LOG_LEVELS = {

@@ -31,8 +31,8 @@ import Cookie
 from sqlalchemy import *
 from sqlalchemy.orm import relationship
 
-import base
-import database
+from lolram.components import base
+from lolram.components import database
 from lolram import configloader
 from lolram import dataobject
 

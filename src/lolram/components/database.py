@@ -31,10 +31,9 @@ import sqlalchemy.engine.url
 import sqlalchemy.ext.declarative
 from sqlalchemy import *
 
-import base
-from .. import configloader
-from .. import dataobject
-from .. import mylogger 
+from lolram.components import base
+from lolram import configloader, sqlamp
+from lolram import mylogger 
 _logger = mylogger.get_logger()
 
 Base = sqlalchemy.ext.declarative.declarative_base()
@@ -169,7 +168,9 @@ class TableMeta(object):
 		def base():
 			'''SQLAlchemy base class for table model'''
 			metadata = sqlalchemy.schema.MetaData()
-			Base_ = sqlalchemy.ext.declarative.declarative_base()
+			Base_ = sqlalchemy.ext.declarative.declarative_base(
+				metaclass=sqlamp.DeclarativeMeta
+			)
 			return Base_
 		
 		def upgrade(self, engine, session):

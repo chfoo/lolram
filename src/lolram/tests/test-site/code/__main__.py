@@ -10,8 +10,11 @@ import lolram.components.wui
 import lolram.components.session
 import lolram.components.accounts
 import lolram.components.cms
+import lolram.components.cms.serve
 import lolram.components.database
 import lolram.components.respool
+import lolram.components.accounts.serve
+from lolram.widgets import Document
 
 ABCD = 'abcd'
 
@@ -81,10 +84,10 @@ class SiteApp(lolram.app.SiteApp):
 		doc.meta.subtitle = 'my subtitle'
 		doc.meta.author = 'chris'
 		doc.meta.date = 'date'
-		doc.scripts.append('scripts/test.js')
-		doc.scripts.append('scripts/test2.js')
-		doc.styles.append('styles/test.css')
-		doc.styles.append('styles/test2.css')
+		doc.resources.append(Document.Resource('SCRIPT', 'scripts/test.js'))
+		doc.resources.append(Document.Resource('SCRIPT', 'scripts/test2.js'))
+		doc.resources.append(Document.Resource('SCRIPT', 'styles/test.css'))
+		doc.resources.append(Document.Resource('SCRIPT', 'styles/test2.css'))
 		
 	def form_test(self):
 		form = lolram.components.wui.Form()
@@ -219,7 +222,7 @@ class SiteApp(lolram.app.SiteApp):
 	def account_basic_test(self):
 		self.context.response.ok()
 		
-		acc = self.context.get_instance(lolram.components.accounts.Accounts)
+		acc = lolram.components.accounts.AccountManager(self.context)
 		
 		acc.authenticate_testing_password(
 			self.context.request.query.getfirst('password'))
@@ -227,8 +230,8 @@ class SiteApp(lolram.app.SiteApp):
 		return ['ok' if acc.account_id else 'fail']
 	
 	def manual_cms_test(self):
-		cms = self.context.get_instance(lolram.components.cms.CMS)
-		return cms.serve()
+#		cms = self.context.get_instance(lolram.components.cms.CMS)
+		return lolram.components.cms.serve.serve(self.context)
 	
 	def res_pool_text_test(self):
 		self.context.response.ok()
@@ -262,5 +265,4 @@ class SiteApp(lolram.app.SiteApp):
 			return [str(respool.set_file(f))]
 		
 	def manual_accounts_test(self):
-		acc = self.context.get_instance(lolram.components.accounts.Accounts)
-		return acc.serve()
+		return lolram.components.accounts.serve.serve(self.context)

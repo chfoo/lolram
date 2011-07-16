@@ -31,13 +31,11 @@ import shutil
 import hashlib
 
 from sqlalchemy import *
-from sqlalchemy.orm import relationship
-import sqlalchemy.sql
 
-import database
-import base
-import cache
-from .. import util
+from lolram.components import database
+from lolram.components import base
+from lolram.components import cache
+from lolram import util
 
 class ResPoolTextMeta(database.TableMeta):
 	class D1(database.TableMeta.Def):
@@ -96,6 +94,13 @@ class ResPoolFileType(file):
 class ResPoolFilenameType(unicode):
 	__slots__ = ('hash')
 
+
+class GlobalResPoolManager(base.BaseGlobalComponent):
+	def init(self):
+		db = self.context.get_instance(database.Database)
+		db.add(ResPoolFileMeta)
+		db.add(ResPoolTextMeta)
+
 class ResPool(base.BaseComponent):
 	'''The text pool interface component''' 
 	
@@ -104,22 +109,19 @@ class ResPool(base.BaseComponent):
 	FILE_MAX = 32 ** 8 - 1
 	FILE_DIR_HASH = 997
 	
-	def init(self):
-		db = self.context.get_instance(database.Database)
-		db.add(ResPoolFileMeta)
-		db.add(ResPoolTextMeta)
-	
-	def setup(self):
-		self._cache = self.context.get_instance(cache.Cache)
+	def __init__(self, *args, **kargs):
+		super(ResPool, self).__init__(*args, **kargs)
+		# FIXME: should be a seperate init function
+		self._cache = cache.Cache(self.context)
 	
 	def _get_text_model(self, id):
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		query = db.session.query(db.models.ResPoolText)
 		query = query.filter_by(id=id)
 		return query.first()
 	
 	def _get_file_model(self, id):
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		query = db.session.query(db.models.ResPoolFile)
 		query = query.filter_by(id=id)
 		return query.first()
@@ -198,7 +200,7 @@ class ResPool(base.BaseComponent):
 		:rtype: `int`
 		'''
 		
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		
 		sha256_obj = hashlib.sha256(text.encode('utf8'))
 		digest = sha256_obj.digest()
@@ -236,7 +238,7 @@ class ResPool(base.BaseComponent):
 		
 		# FIXME: don't rely on seek operation
 		
-		db = self.context.get_instance(database.Database)
+		db = database.Database(self.context)
 		
 		sha256_obj = hashlib.sha256()
 		
@@ -285,4 +287,4 @@ class ResPool(base.BaseComponent):
 
 
 __all__ = ('ResPoolTextMeta', 'ResPoolFileMeta', 'ResPool', 'ResPoolUnicodeType', 
-	'ResPoolFile',)
+	'ResPoolFile', 'GlobalResPoolManager')

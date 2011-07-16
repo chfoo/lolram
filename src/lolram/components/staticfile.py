@@ -24,8 +24,8 @@ __docformat__ = 'restructuredtext en'
 import os
 
 import base
-from .. import configloader
-from .. import urln11n
+from lolram import configloader
+from lolram import urln11n
 
 class StaticFile(base.BaseComponent):
 	default_config = configloader.DefaultSectionConfig('static_file',
@@ -41,6 +41,6 @@ class StaticFile(base.BaseComponent):
 	
 	@property
 	def name(self):
-		return self._fardel.conf.static_file.path_name
+		return self.context.config.static_file.path_name
 
 

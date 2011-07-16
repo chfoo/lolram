@@ -23,32 +23,40 @@ __docformat__ = 'restructuredtext en'
 
 import memcache
 
-import base
-from .. import configloader
+from lolram.components import base
+from lolram import configloader
 
-class Cache(base.BaseComponent):
+class GlobalCacheManager(base.BaseGlobalComponent):
 	default_config = configloader.DefaultSectionConfig('cache',
 		servers='localhost:11211'
 	)
 	
 	def init(self):
 		self._client = memcache.Client(self.context.config.cache.servers.split())
-	
+
+class Cache(base.BaseComponent):
 	def set(self, key, value):
 		if not self.context.is_testing:
+			cache_manager = GlobalCacheManager(self.context.global_context)
 			key = hash_key(self.context, key)
+			
 			self.context.logger.debug(u'Cache set %s %s', key, value)
-			self.singleton._client.set(key, value)
+			
+			cache_manager._client.set(key, value)
 	
 	def get(self, key):
 		if not self.context.is_testing:
+			cache_manager = GlobalCacheManager(self.context.global_context)
 			key = hash_key(self.context, key)
-			value = self.singleton._client.get(key)
+			value = cache_manager._client.get(key)
+			
 			self.context.logger.debug(u'Cache get %s %s', key, value)
+			
 			return value
 	
 	def cleanup(self):
-		self.context.logger.debug(unicode(self.singleton._client.get_stats()))
+		cache_manager = GlobalCacheManager(self.context.global_context)
+		self.context.logger.debug(unicode(cache_manager._client.get_stats()))
 	
 def hash_key(context, key):
 	return '%s%s' % (context.dirinfo.app, key)

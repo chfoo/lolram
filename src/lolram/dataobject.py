@@ -31,6 +31,11 @@ import copy
 import collections
 
 import urln11n
+import models
+import views
+
+from models import BaseModel
+from views import BaseView
 
 class ProtectedAttributeError(AttributeError):
 	__slots__ = ()
@@ -82,15 +87,19 @@ class Context(ProtectedObject):
 		self._logger = logger
 		self._errors = []
 		self._is_testing = is_testing
-		self._master = master
+		self._global_context = master
+	
+	@property
+	def global_context(self):
+		return self._global_context
 	
 	@property
 	def master(self):
-		return self._master
+		return self._global_context
 	
 	@property
 	def is_master(self):
-		return self._master == self 
+		return self._global_context == self 
 	
 	def get_instance(self, class_, singleton=False):
 		'''Get a context aware instance
@@ -99,7 +108,7 @@ class Context(ProtectedObject):
 		'''
 		
 		if singleton:
-			d = self._master._context_aware_instances
+			d = self._global_context._context_aware_instances
 		else:
 			d = self._context_aware_instances
 		
@@ -111,6 +120,9 @@ class Context(ProtectedObject):
 			d[class_] = instance
 		
 		return d[class_]
+	
+	def exists(self, class_):
+		return class_ in self._context_aware_instances
 	
 	@property
 	def id(self):
@@ -226,10 +238,10 @@ class Context(ProtectedObject):
 		elif fill_params:
 			url.params = self._request.params
 		
+		if fill_query:
+			url.query.update(self._request.query)
 		if query is not None:
 			url.query.update(query)
-		elif fill_query:
-			url.query = copy.copy(self._request.query)
 		
 		self.norm_url(url)
 		return url
@@ -762,31 +774,6 @@ class URL(urln11n.URL, ProtectedObject):
 		ProtectedObject.__init__(self)
 
 
-class BaseModel(object):
-	'''Base class for models'''
-	
-	default_renderer = NotImplemented
-
-
-class BaseView(object):
-	'''Base class for views
-	
-	Subclasses should define static methods with the name ``to_FORMAT``
-	and have the method signature ``(context, model, **opts)``
-	
-	'''
-	
-	__slots__ = ()
-	
-	@classmethod
-	def supports(cls, format):
-		return 'to_%s' in dir(cls)
-	
-	@classmethod
-	def render(cls, context, model, format, **opts):
-		return getattr(cls, 'to_%s' % format)(context, model, **opts)
-
-
 def normalize_header_name(name, capwords=True):
 	if capwords:
 		return string.capwords(name.replace('_', '-'), '-')
@@ -795,7 +782,7 @@ def normalize_header_name(name, capwords=True):
 
 
 class MVPair(collections.namedtuple('MVPair', ['model', 'view', 'opts']),
-BaseModel):
+models.BaseModel):
 	'''Return a named tuple to be used for view rendering
 	
 	:rtype: `MVPair`
@@ -805,12 +792,12 @@ BaseModel):
 	
 	def __new__(cls, model, view=None, **opts):
 		
-		assert isinstance(model, BaseModel)
+		assert isinstance(model, models.BaseModel)
 		
 		if view:
-			assert issubclass(view, BaseView)
+			assert issubclass(view, views.BaseView)
 		else:
-			assert issubclass(model.default_view, BaseView)
+			assert issubclass(model.default_renderer, views.BaseView)
 		
 		return super(MVPair, cls).__new__(cls, model, view, opts)
 
@@ -819,15 +806,26 @@ BaseModel):
 		opts.update(self.opts)
 		
 		if not self.view:
-			view = self.model.default_view
+			view = self.model.default_renderer
 		else:
 			view = self.view
 		
 		return view.render(context, self.model, format, **opts)
 	
 
-class PageInfo(collections.namedtuple('PageInfo', 
-['offset', 'limit', 'all', 'more', 'page', 'page_min', 'page_max']),
-BaseModel):
-	__slots__ = ()
+#class PageInfo(collections.namedtuple('PageInfo', 
+#['offset', 'limit', 'all', 'more', 'page', 'page_min', 'page_max']),
+#BaseModel):
+#	__slots__ = ()
+
+class PageInfo(models.BaseModel):
+	def __init__(self, offset=None, limit=50, all=None, more=None, page=None,
+	page_min=None, page_max=None):
+		self.offset = offset
+		self.limit = limit
+		self.all = all
+		self.more = more
+		self.page = page
+		self.page_min = page_min
+		self.page_max = page_max
 
