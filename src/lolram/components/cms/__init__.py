@@ -618,9 +618,13 @@ class ArticleHistoryWriteWrapper(ArticleHistoryReadWrapper):
 	
 	def save(self):
 		assert self._text or self._file
-
+		
+		title = self.metadata.get(ArticleMetadataFields.TITLE)
+		if not title and self.text:
+			title = self.doc_info.title
+		
 		article_model = self._article_wrapper._model
-		article_model.title = self.metadata.get(ArticleMetadataFields.TITLE) \
+		article_model.title = title \
 			or self.metadata.get(ArticleMetadataFields.FILENAME) \
 			or self.text[:160]
 		article_model.date = self.publish_date \

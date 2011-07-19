@@ -92,6 +92,8 @@ class Document(dataobject.ContextAware, BaseModel, BaseWidget, list):
 		self._resources = []
 		self._meta = dataobject.DataObject()
 		self._messages = []
+		self.header_content = None
+		self.footer_content = None
 		
 	@property
 	def title(self):

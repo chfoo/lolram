@@ -332,7 +332,7 @@ class SignInWidget(BaseWidget):
 				div = lxmlbuilder.DIV(lxmlbuilder.H3(name))
 				
 				form = Form(method=Form.POST)
-				form['provider'] = TextBox(label=provider, 
+				form['provider'] = TextBox(value=provider, 
 					validation=TextBox.HIDDEN)
 				
 				if url.find('{{}}') != -1:

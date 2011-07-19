@@ -504,6 +504,8 @@ def _build_article_edit_view_page(context, article_history):
 	cms = CMS(context)
 	doc = Document(context)
 	
+	doc.title = article_history.article.uuid.urn
+	
 	if article_history.view_mode is None:
 		article_history.view_mode = 0
 	
