@@ -1,6 +1,6 @@
 # encoding=utf8
 
-'''Static File'''
+'''Utilities for iterators'''
 
 #	Copyright © 2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -21,26 +21,26 @@
 
 __docformat__ = 'restructuredtext en'
 
-import os
-
-import base
-from lolram import configloader
-from lolram2 import urln11n
-
-class StaticFile(base.BaseComponent):
-	default_config = configloader.DefaultSectionConfig('static_file',
-		path_name='zf',
-	)
-
-	def control(self):
-		if self.context.request.controller == unicode(self.context.config.static_file.path_name):
-			self.context.response.ok()
-			return self.context.response.output_file(
-				os.path.join(self.context.dirinfo.www, 
-					urln11n.collapse_path('/'.join(self.context.request.args))))
+def trigger(iterable):
+	'''Trigger generator function execution'''
+		
+	try:
+		iterable_1 = next(iterable)
+		iterable_temp = iterable
+		
+		def f():
+			yield iterable_1
+			
+			try:
+				while True:
+					yield next(iterable_temp)
+			except StopIteration:
+				pass
+		
+		iterable = f()
+	except TypeError:
+		pass
+	except StopIteration:
+		pass
 	
-	@property
-	def name(self):
-		return self.context.config.static_file.path_name
-
-
+	return iterable

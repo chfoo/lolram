@@ -20,10 +20,9 @@
 #	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import os.path
 
-from lolram.urln11n import URL
-from lolram import urln11n 
+from lolram2 import urln11n
+from lolram2.urln11n import URL
 
 __docformat__ = 'restructuredtext en'
 
@@ -52,7 +51,7 @@ class TestURL(unittest.TestCase):
 		self.assertEqual(url.password, 'password')
 		self.assertEqual(url.hostname, 'example.com')
 		self.assertEqual(url.port, 8080)
-		self.assertEqual(url.path, u'~justin/kittens¤')
+		self.assertEqual(url.path, u'/~justin/kittens¤')
 		self.assertEqual(url.params, 'a')
 		self.assertEqual(url.fragment, 's')
 		self.assertEqual(url.query.get('q'), ['a', 'b', 'c']) # sorted
@@ -76,26 +75,26 @@ class TestURL(unittest.TestCase):
 	def test_collapse_path(self):
 		'''It should normalize paths
 		
-		1. Leading slashes are removed.
-		2. Double slahes are collapsed into one.
+		1. Leading slashes are *not removed.
+		2. Double slashes are collapsed into one.
 		3. Relative paths are simplified into the absolute paths
-		4. Trailing slashes are removed
+		4. Trailing slashes are *not* removed
 		'''
 		
 		s = '/a/b/c/../'
-		self.assertEqual(urln11n.collapse_path(s), 'a/b')
+		self.assertEqual(urln11n.collapse_path(s), '/a/b/')
 		
 		s = 'a/b/./c'
 		self.assertEqual(urln11n.collapse_path(s), 'a/b/c')
 		
 		s = '/a/b/c/..'
-		self.assertEqual(urln11n.collapse_path(s), 'a/b')
+		self.assertEqual(urln11n.collapse_path(s), '/a/b/')
 		
 		s = 'a/../b/c'
 		self.assertEqual(urln11n.collapse_path(s), 'b/c')
 		
 		s = '/a//b/'
-		self.assertEqual(urln11n.collapse_path(s), 'a/b')
+		self.assertEqual(urln11n.collapse_path(s), '/a/b/')
 	
 	def test_default_port_removal(self):
 		'''It should accept a URL with the default port for that protocol and
@@ -103,7 +102,7 @@ class TestURL(unittest.TestCase):
 		
 		s = 'http://example.com:80'
 		url = URL(s)
-		self.assertEqual(str(url), 'http://example.com')
+		self.assertEqual(str(url), 'http://example.com/')
 	
 	def test_to_punycode_hostname(self):
 		'''It should correctly encode the international domain'''
@@ -130,7 +129,7 @@ class TestURL(unittest.TestCase):
 		self.assertFalse(urln11n.is_allowable_hostname(u'www.bbéë.com'))
 	
 	def test_norm_unicode_http(self):
-		'''It should normalize the URL with a internation domain'''
+		'''It should normalize the URL with a international domain'''
 		
 		s = u'http://sss.crrffœ³³³éåð.com/ßß³ /dd?df=4ëfð'
 		url = URL(s)
@@ -138,19 +137,25 @@ class TestURL(unittest.TestCase):
 			'/%C3%9F%C3%9F%C2%B3%20/dd?df=4%C3%ABf%C3%B0')
 	
 	def test_norm_http_query_order(self):
-		'''It should sort querys by keys and then values'''
+		'''It should sort queries by keys and then values'''
 		
 		s = u'http://a.c/p?q=b&q=c&q=a'
 		url = URL(s)
 		self.assertEqual(str(url), 'http://a.c/p?q=a&q=b&q=c')
 	
 	def test_norm_http_ending_slash_and_empty_query(self):
-		'''It should remove trailing slash and empty queries'''
+		'''It should *not* remove trailing slash but remove empty queries'''
 		
-		self.assertEqual(str(URL('http://ex.com/')), 'http://ex.com')
-		self.assertEqual(str(URL('http://ex.com/?d')), 'http://ex.com?d')
-		self.assertEqual(str(URL('http://ex.com/a/')), 'http://ex.com/a')
+		self.assertEqual(str(URL('http://ex.com')), 'http://ex.com/')
+		self.assertEqual(str(URL('http://ex.com/')), 'http://ex.com/')
+		
+		self.assertEqual(str(URL('http://ex.com?d')), 'http://ex.com/?d')
+		self.assertEqual(str(URL('http://ex.com/?d')), 'http://ex.com/?d')
+		
+		self.assertEqual(str(URL('http://ex.com/a')), 'http://ex.com/a')
+		self.assertEqual(str(URL('http://ex.com/a/')), 'http://ex.com/a/')
+		
 		self.assertEqual(str(URL('http://ex.com/a/a/?d')), 
-			'http://ex.com/a/a?d')
+			'http://ex.com/a/a/?d')
 
 

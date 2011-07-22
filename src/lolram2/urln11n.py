@@ -1,6 +1,6 @@
 # encoding=utf8
 
-'''URL normalization (URL canonicalization)'''
+'''URL and URI utilities for normalization and canonicalization'''
 
 #	Copyright © 2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -92,7 +92,7 @@ class URLQuery(dict):
 class URL(object):
 	def __init__(self, string=None, scheme=None, username=None, 
 	password=None, hostname=None, port=None, path=None, params=None,
-	query=None, fragment=None, keep_trailing_slash=False):
+	query=None, fragment=None, keep_trailing_slash=True):
 		self._scheme = scheme
 		self._username = username
 		self._password = password
@@ -162,6 +162,9 @@ class URL(object):
 	
 	@path.setter
 	def path(self, s):
+		if not s.startswith('/'):
+			s = u'/%s' % s
+			
 		self._has_trailing_slash = s.endswith(u'/')
 		self._path = collapse_path(s, True)
 	
@@ -219,9 +222,7 @@ class URL(object):
 			s.write(':')
 			s.write(str(self._port))
 		
-		if self.path and not self.path.startswith('/') and self.path != '/':
-			s.write('/')
-		if self.path and self.path != '/':
+		if self.path:
 			s.write(urllib.quote(self.path.encode('utf8')))
 		
 		if self._params:
@@ -333,7 +334,7 @@ def decode(s):
 def quote(s):
 	return urllib.quote(s.encode('utf8'))
 
-def collapse_path(s, keep_trailing_slash=False):
+def collapse_path(s, keep_trailing_slash=True):
 	l = []
 	
 	for part in s.replace('//', '/').split('/'):
@@ -341,7 +342,11 @@ def collapse_path(s, keep_trailing_slash=False):
 		if part == u'..':
 			if len(l):
 				del l[-1]
-		elif (part or l and keep_trailing_slash) and part != u'.':
+				
+				if s.endswith('..'):
+					l.append('')
+				
+		elif (part or keep_trailing_slash) and part != u'.':
 			l.append(part)
 	
 	return u'/'.join(l)

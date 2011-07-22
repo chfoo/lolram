@@ -1,6 +1,6 @@
 # encoding=utf8
 
-'''Static File'''
+'''iterable utils testing'''
 
 #	Copyright © 2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -21,26 +21,27 @@
 
 __docformat__ = 'restructuredtext en'
 
-import os
+import unittest
 
-import base
-from lolram import configloader
-from lolram2 import urln11n
-
-class StaticFile(base.BaseComponent):
-	default_config = configloader.DefaultSectionConfig('static_file',
-		path_name='zf',
-	)
-
-	def control(self):
-		if self.context.request.controller == unicode(self.context.config.static_file.path_name):
-			self.context.response.ok()
-			return self.context.response.output_file(
-				os.path.join(self.context.dirinfo.www, 
-					urln11n.collapse_path('/'.join(self.context.request.args))))
-	
-	@property
-	def name(self):
-		return self.context.config.static_file.path_name
+from lolram2 import iterutils
 
 
+class TestIterUtils(unittest.TestCase):
+	def test_trigger(self):
+		'''It should trigger an error that does not get evaluated immediately'''
+		
+		def my_fn(fn):
+			fn()
+			yield 1
+			yield 2
+			yield 3
+		
+		def my_bad_fn():
+			return 1 / 0
+		
+		r = my_fn(my_bad_fn) # doesn't raise error!
+		
+		# force it to raise
+		self.assertRaises(ZeroDivisionError, lambda:iterutils.trigger(r))
+		
+		

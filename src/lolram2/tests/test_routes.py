@@ -23,7 +23,7 @@ __docformat__ = 'restructuredtext en'
 
 import unittest
 
-from lolram import routes
+from lolram2 import routes
 
 class TestRoutes(unittest.TestCase):
 	def test_route(self):

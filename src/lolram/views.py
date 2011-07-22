@@ -25,7 +25,8 @@ import os
 
 import lxml.html.builder as lxmlbuilder
 
-from lolram import serializer, resoptimizer
+from lolram import serializer
+from lolram2 import resoptimizer
 
 class BaseView(object):
 	'''Base class for views

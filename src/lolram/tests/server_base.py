@@ -35,7 +35,7 @@ sys.path.append('.')
 
 from lolram import app
 from lolram import urllib3
-from lolram import urln11n
+from lolram2 import urln11n
 
 class AppServerThread(threading.Thread):
 	'''Starts a server'''

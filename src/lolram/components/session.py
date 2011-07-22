@@ -142,7 +142,7 @@ class Session(base.BaseComponent):
 		cookie_obj[name]['path'] = u'/%s' % self.context.request.script_path
 		cookie_obj[name]['httponly'] = 'HttpOnly'
 		
-		self.context.response.headers.add('set-cookie', 
+		self.context.response.headers.add_header('set-cookie', 
 			cookie_obj.output(header='', sep=''))
 	
 	def _get_session(self):

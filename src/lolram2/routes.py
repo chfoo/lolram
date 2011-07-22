@@ -2,9 +2,6 @@
 
 '''URL path routing'''
 
-#	This file includes portions from wsgiref.util
-#	   Copyright © 2001-2010 Python Software Foundation; All Rights Reserved
-
 #	Copyright © 2010–2011 Christopher Foo <chris.foo@gmail.com>
 
 #	This file is part of Lolram.
@@ -24,7 +21,7 @@
 
 __docformat__ = 'restructuredtext en'
 
-import urln11n
+from lolram2 import urln11n
 
 class Router(object):
 	def __init__(self):
@@ -33,7 +30,7 @@ class Router(object):
 	
 	def get(self, route, default=None):
 		if isinstance(route, str) or isinstance(route, unicode):
-			route = urln11n.URL(route).path
+			route = urln11n.URL(route).path.strip('/')
 		
 		if default is None:
 			default = self.default
@@ -49,10 +46,13 @@ class Router(object):
 		else:
 			return self.data.get(route, default)
 	
-	def set(self, route, data):
+	def set(self, route, data, default=False):
 		if isinstance(route, str) or isinstance(route, unicode):
-			route = urln11n.URL(route).path
+			route = urln11n.URL(route).path.strip('/')
 		self.data[route] = data
+		
+		if default:
+			self.default = data
 	
 	def set_default(self, data):
 		self.default = data

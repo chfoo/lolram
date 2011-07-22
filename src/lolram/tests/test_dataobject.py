@@ -70,73 +70,7 @@ class TestDataObject(unittest.TestCase):
 		do = DataObject()
 		self.assertEqual(unicode(do), u'{}')
 	
-	def test_header_name(self):
-		'''It should normalize strings to HTTP header names.
-		
-		Example::
-			Http-Header-Name
-		
-		'''
-		
-		self.assertEqual(dataobject.normalize_header_name('ABC_DEF'), 'Abc-Def')
 	
-	def test_headers(self):
-		'''It should
-		
-		1. Support `dict` notation. On assignment, it should replace 
-			all headers with the
-			same key name. On getting, it should retrieve the first header
-			with the same key name.
-		2. Key name should not be case-sensitive
-		'''
-		
-		headers = dataobject.HTTPHeaders()
-		headers['content_type'] = 'text/plain'
-		for k in headers:
-			self.assertEqual(k, 'Content-Type')
-		self.assertEqual(headers['content_type'], 'text/plain')
-		self.assertEqual(headers['content-type'], 'text/plain')
-		self.assertEqual(headers['Content-Type'], 'text/plain')
-		headers['Content-Type'] = 'text/html'
-		self.assertEqual(headers['content_type'], 'text/html')
-		headers.add('aa', 'bb', b_c='dbe', eeE_f='ddd')
-		self.assertEqual(headers['aa'], 'bb; b-c=dbe; eeE-f=ddd')
-	
-	def test_headers2(self):
-		'''It should support adding multiple headers with the same name.
-		It should not overwrite using the ``add`` function'''
-		
-		headers = dataobject.HTTPHeaders()
-		headers.add('set-cookie', 'asdf=123')
-		headers.add('set-cookie', 'qwer=456')
-		self.assertEqual(str(headers), 'Set-Cookie: asdf=123\n\r'
-			'Set-Cookie: qwer=456\n\r')
-		self.assertEqual(headers.items(), [
-			('Set-Cookie', 'asdf=123'),
-			('Set-Cookie', 'qwer=456'),
-		])
-	
-	def test_headers_read_only(self):
-		'''It should raise error if read-only is set'''
-		
-		headers = dataobject.HTTPHeaders()
-		headers.add('set-cookie', 'asdf=123')
-		
-		headers.read_only = True
-		
-		self.assertRaises(AttributeError, 
-			lambda: headers.add('set-cookie', 'def=345'))
-		
-		def f():
-			headers['set-cookie'] = 'def=345'
-		
-		self.assertRaises(AttributeError, f)
-		
-		def f():
-			del headers['set-cookie']
-		
-		self.assertRaises(AttributeError, f)
-
 if __name__ == '__main__':
 	unittest.main()
 

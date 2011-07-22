@@ -1,6 +1,43 @@
 # encoding=utf8
 
 '''WSGI and HTTP application'''
+from lolram import configloader, dataobject, mylogger
+from lolram.components.accounts import AccountManager
+from lolram.components.cache import GlobalCacheManager
+from lolram.components.cms import CMS, GlobalCMSManager
+from lolram.components.database import Database
+from lolram.components.lion import Lion
+from lolram.components.lolramvanity import LolramVanity
+from lolram.components.respool import GlobalResPoolManager
+from lolram.components.session import Session
+from lolram.components.staticfile import StaticFile
+from lolram.components.wui import WUI
+from lolram.dataobject import BaseMVC
+from lolram2 import routes, urln11n, iterutils
+from lolram2.httpheaders import HTTPHeaders
+import cStringIO as StringIO
+import cgi
+import cgitb
+import contextlib
+import datetime
+import gzip
+import httplib
+import imp
+import inspect
+import itertools
+import logging
+import mimetypes
+import os
+import pathutil
+import runpy
+import sys
+import tempfile
+import threading
+import time
+import traceback
+import util
+import warnings
+import wsgiref.util
 
 #	Copyright © 2010–2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -22,31 +59,6 @@
 __docformat__ = 'restructuredtext en'
 __version__ = '0.3'
 
-import cStringIO as StringIO
-import cgi
-import cgitb
-import contextlib
-import datetime
-import gzip
-import httplib
-import imp
-import inspect
-import itertools
-import logging
-import mimetypes
-import os
-import pathutil
-import routes
-import runpy
-import sys
-import tempfile
-import threading
-import time
-import traceback
-import urln11n
-import util
-import warnings
-import wsgiref.util
 
 try:
 	runpy.run_path
@@ -54,18 +66,6 @@ except AttributeError, e:
 	warnings.warn(str(e))
 	from backports import runpy
 
-from lolram import configloader, dataobject, mylogger
-from lolram.components.accounts import AccountManager
-from lolram.components.cache import GlobalCacheManager
-from lolram.components.cms import CMS, GlobalCMSManager
-from lolram.components.database import Database
-from lolram.components.lion import Lion
-from lolram.components.lolramvanity import LolramVanity
-from lolram.components.respool import GlobalResPoolManager
-from lolram.components.session import Session
-from lolram.components.staticfile import StaticFile
-from lolram.components.wui import WUI
-from lolram.dataobject import BaseMVC
 
 logger = mylogger.get_logger()
 
@@ -141,7 +141,7 @@ class Responder(object):
 	def __init__(self, environ, start_response):
 		self.environ = environ
 		self.start_response = start_response
-		self._headers = dataobject.HTTPHeaders()
+		self._headers = HTTPHeaders()
 		self.status_code = httplib.INTERNAL_SERVER_ERROR
 		self.status_msg = httplib.responses[self.status_code]
 		self.output = []
@@ -317,27 +317,7 @@ class Responder(object):
 		
 		logger.debug(u'Pre-respond!')
 		
-		iterable = self.output
-		try:
-			iterable_1 = next(iterable)
-			iterable_temp = iterable
-			
-			def f():
-				yield iterable_1
-				
-				try:
-					while True:
-						yield next(iterable_temp)
-				except StopIteration:
-					pass
-			
-			iterable = f()
-			self.output = iterable
-			
-		except TypeError, e:
-			logger.debug(e)
-		except StopIteration, e:
-			logger.debug(e)
+		self.output = iterutils.trigger(self.output)
 	
 	def respond(self):
 		'''Start a WSGI response and return an iterable response body
@@ -501,7 +481,7 @@ class Launcher(object):
 		responder = Responder(environ, start_response)
 		recon_url = pathutil.request_uri(environ)
 		url = dataobject.URL(recon_url)
-		request_headers = dataobject.HTTPHeaders(environ=environ)
+		request_headers = HTTPHeaders(environ=environ)
 		
 		controller = None
 		args = []
@@ -649,7 +629,7 @@ class Launcher(object):
 			return
 		
 		request_info = dataobject.RequestInfo(
-			headers=dataobject.HTTPHeaders(),
+			headers=HTTPHeaders(),
 		)
 		
 		context = self.make_context(request=request_info)
