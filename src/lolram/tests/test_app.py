@@ -72,7 +72,7 @@ class TestApp(server_base.ServerBase, unittest.TestCase):
 		'''It should set data, send cookie, and send another cookie if session
 		is changed to permanent. It should retrieve saved session data'''
 		
-		response = self.request('/session_test;data?data=kittens')
+		response = self.request('/session_test;data', query=dict(data='kittens'))
 		self.assertEqual(response.status, 200)
 		
 		cookieobj = Cookie.SimpleCookie()

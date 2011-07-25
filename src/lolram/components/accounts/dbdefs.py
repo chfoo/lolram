@@ -212,25 +212,7 @@ class AccountCaptchaMeta(database.TableMeta):
 	defs = [D1,]
 
 
-class OpenIDInfo(object):
-	providers = {
-		'google' : ('google.com/accounts/o8/id', 'Google'),
-		'yahoo' : ('me.yahoo.com', 'Yahoo!'),
-		'microsoft' : ('accountservices.passport.net', 'Windows Live'),
-		'livejournal' : ('{{}}.livejournal.com', 'LiveJournal', ),
-		'myspace' : ('myspace.com/{{}}', 'MySpace'),
-		'wordpress' : ('{{}}.wordpress.com', 'WordPress'),
-		'blogger' : ('{{}}.blogger.com', 'Blogger',),
-		'verisign' : ('{{}}.pip.verisignlabs.com', 'Verisign'),
-		'launchpad' : ('launchpad.net/~{{}}', 'Launchpad'),
-		'facebook' : ('facebook.com/{{}}', 'Facebook'),
-	}
-	emails = [
-		('google', ('gmail', 'googlemail')),
-		('microsoft', ('hotmail', 'live', 'msn', 'sympatico', 'passport')),
-		('yahoo', ('yahoo', 'rogers')),
-	]
-	
+
 
 
 class OpenIDDBStore(openid.store.interface.OpenIDStore):

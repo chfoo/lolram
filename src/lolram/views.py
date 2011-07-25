@@ -146,10 +146,17 @@ class DocumentView(BaseView):
 			head.append(element_class(s.read().decode('utf8')))
 		else:
 			for p in filenames:
-				url = context.str(
-					path='%s/%' % (context.config.static_file.path_name, p))
+				base_path = context.config.static_file.resource_path or \
+					context.config.static_file.path_name
+				url = context.str_url(
+					path='%s/%s' % (base_path, p))
 				href = unicode(url)
-				head.append(element_class(href=href))
+				
+				if format == 'js':
+					element = lxmlbuilder.E.script(src=href)
+				else:
+					element = lxmlbuilder.E.link(rel='stylesheet', href=href)
+				head.append(element)
 
 
 class HorizontalBoxView(BaseView):

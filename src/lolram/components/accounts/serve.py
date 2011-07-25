@@ -1,6 +1,6 @@
 # encoding=utf8
 from lolram.components.accounts import CaptchaValidator, AccountManager
-from lolram.components.accounts.dbdefs import OpenIDInfo, AccountLogsMeta
+from lolram.components.accounts.dbdefs import AccountLogsMeta
 from lolram.components.database import Database
 from lolram.components.session import Session
 from lolram.components.wui import Document
@@ -11,6 +11,7 @@ from lxml.html import builder as lxmlbuilder
 import httplib
 import json
 import time
+from lolram2.openid import OpenIDProvidersInfo
 
 
 #	Copyright © 2011 Christopher Foo <chris.foo@gmail.com>
@@ -61,7 +62,7 @@ def serve_signin(context):
 			account_mgr.authenticate_openid_stage_1(openid_url, openid_dest_url), 303)
 		
 	elif provider:
-		provider_url = OpenIDInfo.providers[provider][0]
+		provider_url = OpenIDProvidersInfo.providers[provider][0]
 		openid_url = provider_url
 		
 		if provider_url.find('{{}}') != -1:
@@ -358,11 +359,6 @@ class SignInWidget(BaseWidget):
 			
 			return element
 
-def guess_provider_from_email(s):
-	for provider, substrings in OpenIDInfo.emails.iteritems():
-		for substring in substrings:
-			if s.find(substring) != -1:
-				return provider
 
 __all__ = ['serve', 'serve_signin', 'serve_account_list', 
 	'serve_account_profile', 'serve_account_edit', 'SignInWidget', 

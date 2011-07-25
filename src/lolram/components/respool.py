@@ -85,14 +85,14 @@ class ResPoolFileMeta(database.TableMeta):
 
 
 class ResPoolUnicodeType(unicode):
-	__slots__ = ('hash',)
+	__slots__ = ('hash', 'id')
 
 
 class ResPoolFileType(file):
-	__slots__ = ('hash', 'filename')
+	__slots__ = ('hash', 'filename', 'id')
 
 class ResPoolFilenameType(unicode):
-	__slots__ = ('hash')
+	__slots__ = ('hash', 'id')
 
 
 class GlobalResPoolManager(base.BaseGlobalComponent):

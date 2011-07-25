@@ -157,5 +157,14 @@ class TestURL(unittest.TestCase):
 		
 		self.assertEqual(str(URL('http://ex.com/a/a/?d')), 
 			'http://ex.com/a/a/?d')
-
+	
+	def test_params_mangling(self):
+		'''It should not mangle params'''
+		
+		u = URL('http://ex.com/dragon;s?d=r')
+		self.assertEqual(u.params, 's')
+		
+		u = URL('http://ex.com/dragon;s/?d=r')
+		self.assertFalse(u.params)
+		self.assertEqual(u.path, '/dragon;s/')
 

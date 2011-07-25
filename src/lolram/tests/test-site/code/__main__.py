@@ -59,7 +59,7 @@ class SiteApp(lolram.app.SiteApp):
 			os.mkdir(upload_dir)
 		
 	def session_test(self):
-		session = self.context.get_instance(lolram.components.session.Session)
+		session = lolram.components.session.Session(self.context)
 		self.context.response.ok()
 		if self.context.request.url.params == 'data':
 			session.data.mydata = self.context.request.url.query.getfirst('data')
