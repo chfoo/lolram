@@ -27,6 +27,7 @@ import cStringIO as StringIO
 import subprocess
 import cgi
 import os
+import hashlib
 
 import docutils.parsers.rst
 import docutils.utils
@@ -35,15 +36,9 @@ import docutils.core
 import docutils.io
 import docutils.parsers.rst.directives.images
 
-import util
-
 FIELD_RE = re.compile(r':(\w*):((?:[^\\][^:])*)')
 PLACEHOLDER_RE = re.compile(r'{{(\w+)}}')
 
-#template_callback = NotImplementedError
-#math_callback = NotImplementedError
-#image_callback = NotImplementedError
-#internal_callback = NotImplementedError
 
 class TemplateDirective(docutils.parsers.rst.Directive):
 	required_arguments = 1
@@ -92,23 +87,31 @@ class MathDirective(docutils.parsers.rst.Directive):
 
 	def run(self):
 		text = '\n'.join(self.content)
-		p = subprocess.Popen(['texvc', '/tmp/', '/tmp/', 
-			text, 'utf8'], stdout=subprocess.PIPE)
-		out, err = p.communicate()
 		
-		texvc_info = util.texvc_lexor(out)
+		hex_hash = hashlib.md5(text).hexdigest()
 		
-		l = []
+		src = self.state.document.settings.restpub_callbacks['pre-math'] \
+			(hex_hash)
 		
-		if texvc_info.has_error:
-			l.append(docutils.nodes.literal_block(text))
-		elif texvc_info.html:
-			l.append(docutils.nodes.raw('', texvc_info.html, format='html'))
-		else:
-			image_path = os.path.join('/tmp/', '%s.png' % texvc_info.hash)
-			src = self.state.document.settings \
-				.restpub_callbacks['math'](texvc_info.hash, image_path)
+		if not src:
+			p = subprocess.Popen(['texvc', '/tmp/', '/tmp/', 
+				text, 'utf8'], stdout=subprocess.PIPE)
+			out, err = p.communicate()
 			
+			texvc_info = texvc_lexor(out)
+			
+			l = []
+		
+			if texvc_info.has_error:
+				l.append(docutils.nodes.literal_block(text))
+			elif texvc_info.html:
+				l.append(docutils.nodes.raw('', texvc_info.html, format='html'))
+			else:
+				image_path = os.path.join('/tmp/', '%s.png' % texvc_info.hash)
+				src = self.state.document.settings \
+					.restpub_callbacks['math'](texvc_info.hash, image_path)
+		
+		if src:
 			l.append(docutils.nodes.image(src, alt=text, uri=src, classes=['math']))
 			
 		return l
@@ -119,6 +122,7 @@ class ImageDirective(docutils.parsers.rst.directives.images.Image):
 		self.arguments[0] = self.state.document.settings \
 			.restpub_callbacks['image'](self.arguments[0])
 		return docutils.parsers.rst.directives.images.Image.run(self)
+
 
 class FigureDirective(docutils.parsers.rst.directives.images.Figure):
 	def run(self):
@@ -166,40 +170,6 @@ docutils.parsers.rst.directives.register_directive('image', ImageDirective)
 docutils.parsers.rst.directives.register_directive('figure', FigureDirective)
 
 
-#@property
-#def template_callback():
-#	return _template_callback
-#
-#@template_callback.setter
-#def template_callback(f):
-#	_template_callback = f
-#
-#@property
-#def math_callback():
-#	return _math_callback
-#
-#@math_callback.setter
-#def math_callback(f):
-#	_math_callback = f
-#
-#@property
-#def image_callback():
-#	return _image_callback
-#
-#@image_callback.setter
-#def image_callback(f):
-#	_image_callback = f
-#
-#@property
-#def internal_callback():
-#	return _internal_callback
-#
-#@internal_callback.setter
-#def interal_callback(f):
-#	_internal_callback = f
-
-#collections.namedtuple('restpub_doc_info', 
-#	('errors', 'title', 'tree', 'subtitle', 'meta', 'refs', 'html_parts'))
 class DocInfo(object):
 	def __init__(self):
 		self.errors = None
@@ -211,7 +181,47 @@ class DocInfo(object):
 		self.html_parts = None
 
 def publish_text(text, template_callback=None, math_callback=None,
-image_callback=None, internal_callback=None, **additional_settings):
+image_callback=None, internal_callback=None, math_pre_callback=None,
+**additional_settings):
+	'''Publish text into a RestrucutredText HTML document
+	
+	:parameters:
+		text : `unicode`
+			The input text
+		template_callback
+			This function will be called when a template is requested::
+			
+				def template_callback(`unicode` name):
+					return `unicode`
+				
+		math_callback
+			This function will be called when mathematics is created::
+			
+				def math_callback(md5_hash, image_filename):
+					return src
+		
+		image_callback
+			This function will be called when an image is requested::
+			
+			def image_callback(`unicode` src):
+				return `unicode` new_src
+		
+		internal_callback
+			This function will be called for internal procedures::
+			
+			def internal_callback(*args):
+				return `unicode` html
+		
+		math_pre_callback
+			This function is called before generation of math images
+			
+			def math_pre_callback(md5_hex):
+				return src
+			
+	
+	:rtype: `DocInfo`
+	'''
+	
 	error_stream = StringIO.StringIO()
 	settings = {
 		'halt_level' : 5,
@@ -223,6 +233,7 @@ image_callback=None, internal_callback=None, **additional_settings):
 			'math': math_callback,
 			'image': image_callback,
 			'internal': internal_callback,
+			'pre-math': math_pre_callback,
 		},
 		'restpub_additional_settings': additional_settings,
 	}
@@ -266,3 +277,38 @@ image_callback=None, internal_callback=None, **additional_settings):
 	doc_info.html_parts = publisher.writer.parts
 	
 	return doc_info
+
+
+TexVCInfo = collections.namedtuple('TexVCInfo', 
+	['code', 'hash', 'html', 'mathml', 'has_error', 'error_arg'])
+
+def texvc_lexor(s):
+	'''Lexes the output from texvc
+	
+	:rtype: `TexVCInfo`
+	'''
+	
+	code = s[0]
+	has_error = code in ('S', 'E', 'F', '-')
+	mathml = None
+	html = None
+	hash = None
+	error_arg = None
+	
+	if code == 'F':
+		error_arg = s[1:]
+	
+	if not has_error:
+		hash = s[1:1+32]
+	
+		if code == 'X':
+			mathml = s[33:]
+		else:
+			html, nul, mathml = s[33:].partition('\x00')
+			html = html
+			mathml = mathml
+			del nul
+	
+	t = TexVCInfo(code=code, has_error=has_error, mathml=mathml,
+		html=html, hash=hash, error_arg=error_arg)
+	return t

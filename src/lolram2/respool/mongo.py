@@ -23,23 +23,24 @@
 __docformat__ = 'restructuredtext en'
 
 import hashlib
+import random
 
 from bitstring.constbitarray import ConstBitArray
 from lolram2.respool import TextResPool, TextResource
 from pymongo.binary import Binary
+import pymongo
 
-
-class TextResPoolOnMongo(object):
+class TextResPoolOnMongo(TextResPool):
 	def set_mongo_collection(self, collection):
 		self._collection = collection
+		self._collection.ensure_index([('nid', pymongo.ASCENDING)])
 	
 	def get_text(self, id):
-		hash = ConstBitArray(length=256, int=id).bytes
-		result = self._collection.find_one({'_id': Binary(hash)})
+		result = self._collection.find_one({'nid': id})
 		
 		if result is not None:
 			s = TextResource(result['text'])
-			s.hash = hash
+			s.hash = result['_id']
 			s.id = id
 			
 			return s
@@ -50,14 +51,21 @@ class TextResPoolOnMongo(object):
 		result = self._collection.find_one({'_id': Binary(hash)})
 		
 		if result:
-			return ConstBitArray(bytes=hash).int
+			return result['nid']
 		
 		elif create:
+			while True:
+				nid = random.randint(0, 2**31)
+				
+				if not self._collection.find_one({'nid':nid}):
+					break
+			
 			self._collection.insert({
-				'_id':Binary(hash),
-				'text': text
+				'_id': Binary(hash),
+				'text': text,
+				'nid': nid
 			})
 			
-			return ConstBitArray(bytes=hash).int
+			return nid
 
 TextResPool.register(TextResPoolOnMongo)

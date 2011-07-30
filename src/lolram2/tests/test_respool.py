@@ -32,15 +32,13 @@ import pymongo
 
 from lolram2.respool.mongo import TextResPoolOnMongo
 from lolram2.respool.filesystem import FileResPoolOnFilesystem
+from lolram2.tests import config
 
 class TestResPoolOnMongo(unittest.TestCase):
-	USERNAME = 'unittest'
-	PASSWORD = 'yo5ohSuu'
-	
 	def setUp(self):
 		self.connection = pymongo.Connection()
 		self.database = self.connection.unittest
-		self.database.authenticate(self.USERNAME, self.PASSWORD)
+		self.database.authenticate(config.MONGO_USERNAME, config.MONGO_PASSWORD)
 		self.collection = self.database['unittest_%s' % random.random()]
 	
 	def tearDown(self):
@@ -67,7 +65,8 @@ class TestResPoolOnFilesystem(unittest.TestCase):
 		self.dir = os.path.join(tempfile.gettempdir(), 'unittest_%s' % random.random())
 	
 	def tearDown(self):
-		shutil.rmtree(self.dir)
+		if os.path.exists(self.dir):
+			shutil.rmtree(self.dir)
 	
 	def test_file(self):
 		res = FileResPoolOnFilesystem()

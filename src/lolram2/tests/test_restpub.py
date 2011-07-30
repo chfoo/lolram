@@ -21,7 +21,7 @@
 
 import unittest
 
-from lolram import restpub
+from lolram2 import restpub
 
 TEMPLATE_1 = u'''
 aaa {{0}} bbb {{1}} {{0}} ccc {{val1}} ddd {{val2}} 
@@ -147,6 +147,9 @@ class TestRestPub(unittest.TestCase):
 		if name == 'template1':
 			return TEMPLATE_1
 	
+	def pre_math_callback_fn(self, hash):
+		return None
+	
 	def math_callback_fn(self, hash, filename):
 		return filename
 	
@@ -182,13 +185,15 @@ class TestRestPub(unittest.TestCase):
 		
 	def test_simple_math(self):
 		doc_info = restpub.publish_text(TEXT_3, 
-			math_callback=self.math_callback_fn)
+			math_callback=self.math_callback_fn, 
+			math_pre_callback=self.pre_math_callback_fn)
 		self.my_test_doc_info(doc_info)
 		self.assertNotEqual(unicode(doc_info.tree).find(u'&pi'), -1)
 	
 	def test_complex_math(self):
 		doc_info = restpub.publish_text(TEXT_4,
-			math_callback=self.math_callback_fn)
+			math_callback=self.math_callback_fn,
+			math_pre_callback=self.pre_math_callback_fn)
 		self.my_test_doc_info(doc_info)
 		self.assertNotEqual(unicode(doc_info.tree).find(u'image'), -1)
 	

@@ -29,36 +29,66 @@ import hashlib
 import os.path
 import tempfile
 import shutil
+import glob
+import random
 
 from bitstring.constbitarray import ConstBitArray
 from lolram2.respool import FileResPool, FileResource
 
 
-class FileResPoolOnFilesystem(object):
+class FileResPoolOnFilesystem(FileResPool):
 	def set_file_dir(self, path):
 		self._file_dir = path
+		
+	def _derive_id(self, hash):
+		return (ord(hash[0]), ord(hash[1]) << 8, ord(hash[2]) << 16)
+	
+	def _derive_hash_hint(self, id):
+		return (id & 0xff, (id >> 8) & 0xff, (id >> 16) & 0xff)
 
-	def _get_file_path(self, id):
+	def _get_file_path(self, hash, id):
 		# ensure not built-in id()
-		assert isinstance(id, int) or isinstance(id, long)
-		hash = hashlib.sha256(ConstBitArray(length=256, int=id).bytes).digest()
+		assert isinstance(id, (int, long))
 		hash_hex = hash.encode('hex').lower()
 		
 		path = os.path.join(self._file_dir, 
-			hash_hex[0:4], 
-			hash_hex[4:8], 
-			hash_hex[8:12],
-			hash_hex[12:]
+			hash_hex[0:2], 
+			hash_hex[2:4], 
+			hash_hex[4:6],
+			'%s-%s' % (hash_hex, id)
 		)
 		
 		return path
 	
-	def get_file(self, id):
-		path = self._get_file_path(id)
+	def _find_file_by_id(self, id):
+		# ensure not built-in id()
+		assert isinstance(id, (int, long))
+		hash_hint = self._derive_hash_hint(id)
+		pattern = '%s/%x/%x/%x/*-%s' % (self._file_dir, 
+			hash_hint[0], hash_hint[1], hash_hint[2], id)
 		
-		if os.path.exists(path):
+		for path in glob.glob(pattern):
+			return path
+	
+	def _find_file_by_hash(self, hash):
+		hash_hex = hash.encode('hex').lower()
+		
+		pattern = os.path.join(self._file_dir, 
+			hash_hex[0:2], 
+			hash_hex[2:4], 
+			hash_hex[4:6],
+			'%s-*' % hash_hex
+		)
+		
+		for path in glob.glob(pattern):
+			return path
+	
+	def get_file(self, id):
+		path = self._find_file_by_id(id)
+		
+		if path and os.path.exists(path):
 			f = FileResource(path, 'rb')
-			f.hash = hashlib.sha256(ConstBitArray(length=256, int=id).bytes).digest()
+			f.hash = os.path.basename(path).split('-')[0].decode('hex')
 			f.filename = path
 			return f
 	
@@ -77,13 +107,26 @@ class FileResPoolOnFilesystem(object):
 		file_obj.seek(0)
 		
 		hash = sha256_obj.digest()
-		id_num = ConstBitArray(bytes=hash).int
 		
-		path = self._get_file_path(id_num)
+		path = self._find_file_by_hash(hash)
 		
-		if os.path.exists(path):
-			return id_num
+		if path and os.path.exists(path):
+			return int(os.path.basename(path).split('-')[-1])
 		elif create:
+			while True:
+				n1, n2, n3 = self._derive_id(hash)
+				n4 = ord(os.urandom(1)) << 24
+				n5 = ord(os.urandom(1)) << 32
+				n6 = ord(os.urandom(1)) << 40
+				n7 = ord(os.urandom(1)) << 48
+				
+				id_num = n1 | n2 | n3 | n4 | n5 | n6 | n7
+				
+				if not self._find_file_by_id(id_num):
+					break
+			
+			path = self._get_file_path(hash, id_num)
+			
 			# Make dir if needed
 			dirname = os.path.dirname(path)
 			
@@ -98,7 +141,7 @@ class FileResPoolOnFilesystem(object):
 			# Ensures atomic
 			os.rename(temp_file.name, path)
 			
-			return ConstBitArray(bytes=hash).int
+			return id_num
 		
 	
 FileResPool.register(FileResPoolOnFilesystem)

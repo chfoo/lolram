@@ -63,35 +63,6 @@ def datetime_to_naive(d):
 	)
 	return naive_d
 
-texvc_info = collections.namedtuple('textvc_info', 
-	['code', 'hash', 'html', 'mathml', 'has_error', 'error_arg'])
-
-def texvc_lexor(s):
-	code = s[0]
-	has_error = code in ('S', 'E', 'F', '-')
-	mathml = None
-	html = None
-	hash = None
-	error_arg = None
-	
-	if code == 'F':
-		error_arg = s[1:]
-	
-	if not has_error:
-		hash = s[1:1+32]
-	
-		if code == 'X':
-			mathml = s[33:]
-		else:
-			html, nul, mathml = s[33:].partition('\x00')
-			html = html
-			mathml = mathml
-			del nul
-	
-	t = texvc_info(code=code, has_error=has_error, mathml=mathml,
-		html=html, hash=hash, error_arg=error_arg)
-	return t
-
 def make_math1():
 	a = random.randint(0, 10)
 	b = random.randint(0, 10)
