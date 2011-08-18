@@ -32,6 +32,7 @@ import flup.server.fcgi
 from lolram2.routes import Router
 from lolram2.httpheaders import HTTPHeaders
 from lolram2 import iterutils
+import lolram.pathutil
 
 class WSGIAppManager(object):
 	'''Manages WSGI applications and requests'''
@@ -73,7 +74,7 @@ class WSGIAppManager(object):
 				bindAddress=socket_name).run()
 		
 	def __call__(self, environ, start_response):
-		app = self.router.get(environ['PATH_INFO'])
+		app = self.router.get(lolram.pathutil.request_uri(environ))
 		
 		if self._compress:
 			return compress_app(app, environ, start_response)

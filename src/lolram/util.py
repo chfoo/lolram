@@ -1,8 +1,6 @@
 # encoding=utf8
 
 '''Utility functions'''
-import random
-import unicodedata
 
 #	Copyright © 2010–2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -28,6 +26,8 @@ __docformat__ = 'restructuredtext en'
 import base64
 import datetime
 import collections
+import random
+import unicodedata
 
 import magic
 

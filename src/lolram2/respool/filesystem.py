@@ -64,7 +64,7 @@ class FileResPoolOnFilesystem(FileResPool):
 		# ensure not built-in id()
 		assert isinstance(id, (int, long))
 		hash_hint = self._derive_hash_hint(id)
-		pattern = '%s/%x/%x/%x/*-%s' % (self._file_dir, 
+		pattern = '%s/%02x/%02x/%02x/*-%s' % (self._file_dir, 
 			hash_hint[0], hash_hint[1], hash_hint[2], id)
 		
 		for path in glob.glob(pattern):

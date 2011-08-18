@@ -34,7 +34,7 @@ class Router(object):
 		
 		if default is None:
 			default = self.default
-		
+			
 		if isinstance(route, str) or isinstance(route, unicode):
 			parts = route.split('/')
 			for i in reversed(range(1, len(parts) + 1)):

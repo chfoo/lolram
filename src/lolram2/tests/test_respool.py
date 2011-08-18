@@ -49,7 +49,7 @@ class TestResPoolOnMongo(unittest.TestCase):
 		res.set_mongo_collection(self.collection)
 		
 		t1 = u'hello'
-		t2 = u'stochastic ruby dragon·'
+		t2 = u'stochastic ruby dragon·⁓'
 		
 		n = res.set_text(t1)
 		n2 = res.set_text(t2)

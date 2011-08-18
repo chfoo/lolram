@@ -439,7 +439,7 @@ class Launcher(object):
 			logger.error(u'Ensure that __main__.py exists')
 			return
 		
-		if self._script_name:
+		if self._script_name and self._script_name != '/':
 			self._shift_count = len(script_name.split('/'))
 		else:
 			self._shift_count = 0

@@ -22,10 +22,17 @@
 __docformat__ = 'restructuredtext en'
 
 import uuid
+import csv
+import json
+import cStringIO
 
 import pymongo
+import iso8601
 
-from lolram2.cms import Manager, Article, ArticleVersion
+from lolram2.cms import Manager, Article, ArticleVersion,\
+	ArticleViewModes
+
+csv.field_size_limit(1000000000)
 
 class Keys(object):
 	AUTHOR_ACCOUNT_ID = 'auacid'
@@ -45,16 +52,25 @@ class Keys(object):
 	TITLE_TEXT_ID = 'titeid'
 	ANCESTOR_UUID_ARRAY = 'anuuar'
 	UUID = 'uu'
+	REASON_ID = 'reid'
+	FILENAME = 'fi'
+	VIEW_MODE = 'vimo'
+
+
+VIEW_TYPE_MAP = {
+	'category': ArticleViewModes.CATEGORY,
+	'gallery': ArticleViewModes.GALLERY,
+}
+			
 
 class ManagerOnMongo(Manager):
-	
 	def __init__(self, db, text_res_pool, file_res_pool, 
 	col_name_prefix='lr_cms_'):
 		self._col_names = dict(
 			articles='%sarticles' % col_name_prefix,
 			versions='%sarticle_versions' % col_name_prefix,
 #			tree='%stree' % col_name_prefix,
-			addresses='%sarticle_addresses' % col_name_prefix,
+#			addresses='%sarticle_addresses' % col_name_prefix,
 		)
 		
 		self._db = db
@@ -72,6 +88,8 @@ class ManagerOnMongo(Manager):
 		self._db[self._col_names['articles']].ensure_index([
 			(Keys.PARENT_UUID_ARRAY, pymongo.ASCENDING)])
 		
+		self._db[self._col_names['articles']].ensure_index([
+			(Keys.ADDRESSES, pymongo.ASCENDING)])
 	
 	@property
 	def collection_names(self):
@@ -87,27 +105,22 @@ class ManagerOnMongo(Manager):
 			{'_id':article_uuid})
 		
 		if result:
-			article = Article()
-			article.author_account_id = result[Keys.AUTHOR_ACCOUNT_ID]
-			article.current_version_number = result[Keys.CURRENT_VERSION_NUMBER]
-			article.publication_date = result[Keys.PUBLICATION_DATE]
-			article.title = result[Keys.TITLE]
-			article.uuid = result['_id']
+			article = self._populate_article(result)
 			
 			return article
 	
 	def look_up_address(self, address):
 		address = unicode(address)
 		
-		result = self._db[self._col_names['addresses']].find_one(
-			{'_id':address}
+		result = self._db[self._col_names['articles']].find_one(
+			{Keys.ADDRESSES: address}
 		)
 		
 		if result:
-			return result[Keys.TARGET_UUID]
+			return result['_id']
 	
 	def get_article_version(self, article_version_uuid=None,
-	article_version_number=None, article_uuid=None, ):
+	article_uuid=None, article_version_number=None ):
 		if article_version_uuid:
 			assert isinstance(article_version_uuid, uuid.UUID)
 		
@@ -133,7 +146,18 @@ class ManagerOnMongo(Manager):
 			
 			if result:
 				return self._populate_article_version(result) 
-			
+	
+	def _populate_article(self, db_document):
+		article = Article()
+		article.author_account_id = db_document[Keys.AUTHOR_ACCOUNT_ID]
+		article.current_version_number = db_document[Keys.CURRENT_VERSION_NUMBER]
+		article.publication_date = db_document[Keys.PUBLICATION_DATE]
+		article.title =  db_document[Keys.TITLE]
+		article.uuid = db_document['_id']
+		article.view_mode = db_document.get(Keys.VIEW_MODE)
+		
+		return article
+	
 	def _populate_article_version(self, db_document):
 		article_version = ArticleVersion()
 		article_version.addresses = db_document[Keys.ADDRESSES]
@@ -145,18 +169,26 @@ class ManagerOnMongo(Manager):
 		article_version.parent_article_uuids = db_document[Keys.PARENT_UUID_ARRAY]
 		article_version.publication_date = db_document[Keys.PUBLICATION_DATE]
 		article_version.version_number = db_document[Keys.VERSION_NUMBER]
+		article_version.uuid = db_document['_id']
+		article_version.filename = db_document[Keys.FILENAME]
+		article_version.view_mode = db_document.get(Keys.VIEW_MODE)
 		
-		if Keys.TITLE_TEXT_ID in db_document:
+		if Keys.TITLE_TEXT_ID in db_document \
+		and db_document[Keys.TITLE_TEXT_ID] is not None:
 			article_version.title = self._text_res_pool.get_text(
 				db_document[Keys.TITLE_TEXT_ID])
 		
-		if Keys.TEXT_ID in db_document:
+		if Keys.TEXT_ID in db_document and db_document[Keys.TEXT_ID] is not None:
 			article_version.text = self._text_res_pool.get_text(
 				db_document[Keys.TEXT_ID])
 		
-		if Keys.FILE_ID in db_document:
+		if Keys.FILE_ID in db_document and db_document[Keys.FILE_ID] is not None:
 			article_version.file = self._file_res_pool.get_file(
 				db_document[Keys.FILE_ID])
+		
+		if Keys.REASON_ID in db_document:
+			article_version.reason = self._text_res_pool.get_text(
+				db_document[Keys.REASON_ID])
 		
 		return article_version
 	
@@ -177,6 +209,8 @@ class ManagerOnMongo(Manager):
 			Keys.PARENT_UUID_ARRAY: article_version.parent_article_uuids,
 			Keys.PUBLICATION_DATE: article_version.publication_date,
 			Keys.TARGET_UUID: article_version.article_uuid,
+			Keys.FILENAME: article_version.filename,
+			Keys.VIEW_MODE: article_version.view_mode
 		}
 		
 		if article_version.text:
@@ -191,57 +225,18 @@ class ManagerOnMongo(Manager):
 			article_version_d[Keys.TITLE_TEXT_ID] = self._text_res_pool.set_text(
 				article_version.title)
 		
+		if article_version.reason:
+			article_version_d[Keys.REASON_ID] = self._text_res_pool.set_text(
+				article_version.reason)
+		
 		self._db[self._col_names['versions']].save(article_version_d)
 		
-		if article_version.version_number != 1:
-			prev_article_version = self.get_article_version(
-				article_uuid=article_version.article_uuid)
-			
-			addresses_to_remove = frozenset(prev_article_version.addresses) \
-				- frozenset(article_version.addresses)
-			
-			self._db[self._col_names['addresses']].remove(
-				{'_id': {'$in': list(addresses_to_remove)}})
-		
 		for address in article_version.addresses:
-			result = self._db[self._col_names['addresses']].find_one({'_id': address})
+			result = self.look_up_address(address)
 			
-			if result and result[Keys.TARGET_UUID] != article_version.article_uuid:
+			if result and result != article_version.article_uuid:
 				raise Exception('Address is already used by %s' % result[Keys.TARGET_UUID])
-			
-			self._db[self._col_names['addresses']].save(
-				{'_id': address, 
-				Keys.TARGET_UUID: article_version.article_uuid,
-				}
-			)
 		
-#		self._db[self._col_names['tree']].remove({
-#			Keys.UUID: article_version.uuid,
-#		})
-#		
-#		results = self._db[self._col_names['tree']].find({
-#				Keys.PARENT_UUID_ARRAY: article_version.article_uuid
-#			},
-#			fields=[Keys.PARENT_UUID_ARRAY],
-#		)
-#		
-#		for doc in results:
-#			l = doc[Keys.PARENT_UUID_ARRAY]
-#			
-#			while True:
-#				if l[0] == article_version.article_uuid:
-#					break
-#				
-#				del l[0]
-#		
-#		paths = self._get_parent_uuids(article_version)
-#		
-#		for path in paths:
-#			self._db[self._col_names['tree']].insert({
-#				Keys.UUID: article_version.uuid,
-#				Keys.TARGET_UUID: path[0],
-#				Keys.PARENT_UUID_ARRAY: path
-#			})
 		paths = self._get_parent_uuids(article_version)
 		ancestors = []
 		
@@ -250,11 +245,13 @@ class ManagerOnMongo(Manager):
 				ancestors.extend(path)
 		
 		article_d = {
-			Keys.TITLE: article_version.title,
+			Keys.TITLE: article_version.title or article_version.filename,
 			Keys.PUBLICATION_DATE: article_version.publication_date or
 				article_version.creation_date,
 			Keys.PARENT_UUID_ARRAY: article_version.parent_article_uuids,
 			Keys.ANCESTOR_UUID_ARRAY: ancestors,
+			Keys.ADDRESSES: article_version.addresses,
+			Keys.VIEW_MODE: article_version.view_mode,
 		}
 		
 		if not self._db[self._col_names['articles']].find_one(
@@ -338,8 +335,11 @@ class ManagerOnMongo(Manager):
 		elif parent_uuid:
 			query = {Keys.PARENT_UUID_ARRAY: parent_uuid}
 		
-		return self._db[self._col_names['articles']].find(query,
+		results = self._db[self._col_names['articles']].find(query,
 			skip=offset, limit=limit, sort=sort_)
+		
+		for result in results:
+			yield self._populate_article(result)
 	
 	def browse_article_versions(self, offset=0, limit=50, filter=None,
 	sort=Manager.SORT_DATE, descending=True):
@@ -350,8 +350,116 @@ class ManagerOnMongo(Manager):
 		else:
 			sort_ = [(Keys.PUBLICATION_DATE, ordering)]
 		
-		return self._db[self._col_names['versions']].find({},
+		results = self._db[self._col_names['versions']].find({},
 			skip=offset, limit=limit, sort=sort_)
 		
+		for result in results:
+			yield self._populate_article_version(result)
+	
+	def import_articles(self, file_obj, account_id_fn=None):
+		reader = csv.reader(file_obj)
+		
+		for row in reader:
+			primary_address = json.loads(row[4])
+			
+			if primary_address:
+				addrs1 = frozenset([primary_address])
+			else:
+				addrs1 = frozenset([])
+			
+			addrs2 = frozenset(json.loads(row[3]) or [])
+			addresses = list(addrs1) + list(addrs2 - addrs1)
+			
+			account_id = None
+			author_account_id = None
+			if account_id_fn:
+				account_id = account_id_fn(json.loads(row[6]))
+				author_account_id = account_id_fn(json.loads(row[16]))
+			
+			reason_id = None
+			
+			if json.loads(row[9]):
+				reason_id = self._text_res_pool.set_text(json.loads(row[9]))
+			
+			title_text = json.loads(row[10])
+			title_text_id = None
+			
+			if title_text:
+				title_text_id = self._text_res_pool.set_text(title_text)
+			
+			text_id = None
+			file_id = None
+			
+			text = json.loads(row[13])
+			
+			if text:
+				text_id = self._text_res_pool.set_text(text)
+			
+			file_data = row[14]
+			
+			if file_data:
+				f = cStringIO.StringIO(file_data.decode('base64'))
+				f.seek(0)
+				file_id = self._file_res_pool.set_file(f)
+			
+			view_mode = VIEW_TYPE_MAP.get(json.loads(row[16]))
+			
+			d = {
+				Keys.TARGET_UUID: uuid.UUID(hex=row[0]),
+				'_id': uuid.UUID(hex=row[1]),
+				Keys.VERSION_NUMBER: int(row[2]),
+				Keys.ADDRESSES: addresses,
+				Keys.CREATION_DATE: iso8601.parse_date(row[5]),
+				Keys.EDITOR_ACCOUNT_ID: account_id,
+				Keys.PARENT_UUID_ARRAY: [uuid.UUID(hex=s) for s in json.loads(row[7])],
+				Keys.PUBLICATION_DATE: iso8601.parse_date(row[8]),
+				Keys.REASON_ID: reason_id,
+				Keys.TITLE_TEXT_ID: title_text_id,
+				Keys.EDITABLE_BY_OTHERS: json.loads(row[11]),
+				Keys.ALLOW_CHILDREN: json.loads(row[12]),
+				Keys.TEXT_ID: text_id,
+				Keys.FILE_ID: file_id,
+				Keys.FILENAME: json.loads(row[15]),
+				Keys.VIEW_MODE: view_mode,
+			}
+			
+			self._db[self._col_names['versions']].insert(d, safe=True)
+			
+			result = self._db[self._col_names['articles']].find_one(
+				{'_id': d[Keys.TARGET_UUID]}
+			)
+			
+			if not result or result and result[Keys.CURRENT_VERSION_NUMBER] < d[Keys.VERSION_NUMBER]:
+				self._db[self._col_names['articles']].save(
+					{'_id': d[Keys.TARGET_UUID],
+					Keys.TITLE: title_text or json.loads(row[15]),
+					Keys.PUBLICATION_DATE: d[Keys.PUBLICATION_DATE],
+					Keys.CURRENT_VERSION_NUMBER: d[Keys.VERSION_NUMBER], 
+					Keys.AUTHOR_ACCOUNT_ID: author_account_id,
+					Keys.ADDRESSES: addresses,
+					Keys.VIEW_MODE: view_mode, 
+					},
+					safe=True,
+				)
+		
+		for result in self._db[self._col_names['versions']].find():
+			paths = self._get_parent_uuids(
+				self._populate_article_version(result))
+			ancestors = []
+			
+			if paths:
+				for path in paths:
+					ancestors.extend(path)
+			
+			self._db[self._col_names['articles']].update(
+				{'_id':result[Keys.TARGET_UUID]},
+				{'$set': {
+					Keys.PARENT_UUID_ARRAY: result[Keys.PARENT_UUID_ARRAY],
+					Keys.ANCESTOR_UUID_ARRAY: ancestors,
+				}})
+	
+	def export_articles(self, file_obj, articles=None):
+		# TODO:
+		pass
 
 Manager.register(ManagerOnMongo)

@@ -46,7 +46,10 @@ class TextResPoolOnMongo(TextResPool):
 			return s
 	
 	def set_text(self, text, create=True):
-		hash = hashlib.sha256(text).digest()
+		if isinstance(text, unicode):
+			hash = hashlib.sha256(text.encode('utf8')).digest()
+		else:
+			hash = hashlib.sha256(text).digest()
 		
 		result = self._collection.find_one({'_id': Binary(hash)})
 		

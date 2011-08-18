@@ -29,7 +29,7 @@ import iso8601
 
 
 
-class ArticleTypes(object):
+class ArticleViewModes(object):
 	NORMAL = 0
 	CATEGORY = 1
 	GALLERY = 2
@@ -42,6 +42,7 @@ class Article(object):
 		self.title = None
 		self.publication_date = None
 		self.author_account_id = None
+		self.view_mode = None
 
 
 class ArticleVersion(object):
@@ -59,7 +60,9 @@ class ArticleVersion(object):
 		self.parent_article_uuids = None
 		self.addresses = None
 		self.allow_children = None
-
+		self.reason = None
+		self.filename = None
+		self.view_mode = None
 
 class Manager(object):
 	__metaclass__ = abc.ABCMeta
@@ -182,6 +185,7 @@ class Manager(object):
 			article_version.parent_article_uuids = prev_version.parent_article_uuids
 			article_version.addresses = prev_version.addresses
 			article_version.allow_children = prev_version.allow_children
+			article_version.view_mode = prev_version.view_mode
 			
 		else:
 			article_version.version_number = 1
@@ -192,4 +196,11 @@ class Manager(object):
 			article_version.allow_children = True
 		
 		return article_version
-
+	
+	@abc.abstractmethod
+	def import_articles(self, file_obj):
+		raise NotImplementedError()
+	
+	@abc.abstractmethod
+	def export_articles(self, file_obj, articles=None):
+		raise NotImplementedError()

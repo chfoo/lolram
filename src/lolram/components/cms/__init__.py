@@ -28,6 +28,7 @@ import json
 import time
 import httplib
 import mimetypes
+import csv
 
 from sqlalchemy import *
 from sqlalchemy.orm import relationship
@@ -48,6 +49,7 @@ from lolram.components.accounts import AccountManager
 from lolram.widgets import Document
 from lolram.components.lion import Lion
 from lolram2 import restpub
+import lolram.util
 
 FILE_MAX = 32 ** 8 - 1
 FILE_DIR_HASH = 997
@@ -283,7 +285,7 @@ class CMS(BaseComponent):
 	
 	@classmethod
 	def model_uuid_str(cls, model):
-		return util.bytes_to_b32low(model.uuid_bytes)
+		return lolram.util.bytes_to_b32low(model.uuid_bytes)
 
 
 
@@ -739,6 +741,66 @@ class ArticleHistoryWriteWrapper(ArticleHistoryReadWrapper):
 			tree_model.article_id = self._model.article_id
 			self._db.session.add(tree_model)
 		
-
+class Exporter(object):
+	def __init__(self, context):
+		self._context = context
 	
-	
+	@property
+	def context(self):
+		return self._context
+		
+	def export(self, file_obj):
+		writer = csv.writer(file_obj)
+		db = Database(self.context)
+		respool = ResPool(self.context)
+		
+		query = db.session.query(db.models.CMSHistory)
+		
+		for model in query:
+			article_history = ArticleHistoryReadWrapper(self.context, model)
+			primary_address = article_history.primary_address
+			reason = article_history.reason
+			title = article_history.title
+			text = article_history.text
+			file = article_history.file
+			upload_filename = article_history.upload_filename
+			
+			primary_address = json.dumps(primary_address)
+			reason = json.dumps(reason)
+			title = json.dumps(title)
+			text = json.dumps(text)
+				
+			if file:
+				file = file.read().encode('base64')
+			
+			upload_filename = json.dumps(upload_filename)
+			
+			view_mode = None
+			
+			if article_history.view_mode & ArticleViewModes.CATEGORY:
+				view_mode = 'category'
+			
+			l = [
+				article_history.article.uuid.hex,
+				article_history.uuid.hex,
+				article_history.version,
+				json.dumps([s for s in article_history.addresses]),
+				primary_address, 
+				article_history.date,
+				json.dumps(model.account.username),
+				json.dumps([p.uuid.hex for p in article_history.parents]),
+				article_history.publish_date or article_history.date,
+				reason,
+				title,
+				json.dumps(bool(article_history.view_mode & ArticleViewModes.EDITABLE_BY_OTHERS)),
+				json.dumps(bool(article_history.view_mode & ArticleViewModes.ALLOW_COMMENTS)),
+				text,
+				file,
+				upload_filename,
+				json.dumps(article_history.article.owner_account.username),
+				view_mode,
+			]
+			
+			writer.writerow(l)
+		
+			
