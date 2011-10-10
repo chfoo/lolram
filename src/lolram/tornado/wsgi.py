@@ -1,6 +1,6 @@
 # encoding=utf8
 
-'''iterable utils testing'''
+'''WSGI Tornado adaptor to call WSGI applications'''
 
 #	Copyright © 2011 Christopher Foo <chris.foo@gmail.com>
 
@@ -21,27 +21,28 @@
 
 __docformat__ = 'restructuredtext en'
 
-import unittest
+import wsgiref.util
+import tornado.wsgi
 
-from lolram2 import iterutils
+def request_to_wsgi_call(handler, request, app, script_name=None):
+	environ = tornado.wsgi.WSGIContainer.environ(request)
+#	environ['REQUEST_URI'] = request.full_url()
 
-
-class TestIterUtils(unittest.TestCase):
-	def test_trigger(self):
-		'''It should trigger an error that does not get evaluated immediately'''
+	script_name = script_name.strip('/')
+	
+	for i in xrange(len(script_name.split('/'))):
+		wsgiref.util.shift_path_info(environ)
+	
+	def start_response(status, headers):
+		handler.set_status(int(status[:3]))
 		
-		def my_fn(fn):
-			fn()
-			yield 1
-			yield 2
-			yield 3
+		for name, value in headers:
+			handler.set_header(name, value)
 		
-		def my_bad_fn():
-			return 1 / 0
-		
-		r = my_fn(my_bad_fn) # doesn't raise error!
-		
-		# force it to raise
-		self.assertRaises(ZeroDivisionError, lambda:iterutils.trigger(r))
-		
-		
+		return handler.write
+	
+	response = app(environ, start_response)
+	
+	for i in response:
+		handler.write(i)
+	

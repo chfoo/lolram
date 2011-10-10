@@ -24,7 +24,6 @@
 
 __docformat__ = 'restructuredtext en'
 
-import wsgiref.util
 import urllib
 
 def common(path_a, path_b):
@@ -80,6 +79,7 @@ def application_uri(environ):
 	if 'REQUEST_URI' in environ:
 		c, a, b = common(script_name, environ['REQUEST_URI'])
 		script_name = c.partition(';')[0]
+		a, b #@UnusedVariable
 	
 	url += urllib.quote(script_name or '/', '/;')
 	return url

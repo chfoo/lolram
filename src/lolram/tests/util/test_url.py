@@ -21,8 +21,8 @@
 
 import unittest
 
-from lolram2 import urln11n
-from lolram2.urln11n import URL
+import lolram.util.url
+from lolram.util.url import URL
 
 __docformat__ = 'restructuredtext en'
 
@@ -82,19 +82,19 @@ class TestURL(unittest.TestCase):
 		'''
 		
 		s = '/a/b/c/../'
-		self.assertEqual(urln11n.collapse_path(s), '/a/b/')
+		self.assertEqual(lolram.util.url.collapse_path(s), '/a/b/')
 		
 		s = 'a/b/./c'
-		self.assertEqual(urln11n.collapse_path(s), 'a/b/c')
+		self.assertEqual(lolram.util.url.collapse_path(s), 'a/b/c')
 		
 		s = '/a/b/c/..'
-		self.assertEqual(urln11n.collapse_path(s), '/a/b/')
+		self.assertEqual(lolram.util.url.collapse_path(s), '/a/b/')
 		
 		s = 'a/../b/c'
-		self.assertEqual(urln11n.collapse_path(s), 'b/c')
+		self.assertEqual(lolram.util.url.collapse_path(s), 'b/c')
 		
 		s = '/a//b/'
-		self.assertEqual(urln11n.collapse_path(s), '/a/b/')
+		self.assertEqual(lolram.util.url.collapse_path(s), '/a/b/')
 	
 	def test_default_port_removal(self):
 		'''It should accept a URL with the default port for that protocol and
@@ -108,25 +108,25 @@ class TestURL(unittest.TestCase):
 		'''It should correctly encode the international domain'''
 		
 		s = u'aa.bb.cc.ačbǔcŏdīe¤f¤.com'
-		self.assertEqual(urln11n.to_punycode_hostname(s), 
+		self.assertEqual(lolram.util.url.to_punycode_hostname(s), 
 			'aa.bb.cc.x--abcdef-mhab25gxirn86c.com')
-		self.assertEqual(urln11n.to_punycode_hostname('example.com'), 
+		self.assertEqual(lolram.util.url.to_punycode_hostname('example.com'), 
 			'example.com')
 	
 	def test_from_punycode_hostname(self):
 		'''It should correctly decode the punycode domain'''
 		
 		s = 'aa.bb.cc.x--abcdef-mhab25gxirn86c.com'
-		self.assertEqual(urln11n.from_punycode_hostname(s), 
+		self.assertEqual(lolram.util.url.from_punycode_hostname(s), 
 			u'aa.bb.cc.ačbǔcŏdīe¤f¤.com')
-		self.assertEqual(urln11n.from_punycode_hostname('example.com'), 
+		self.assertEqual(lolram.util.url.from_punycode_hostname('example.com'), 
 			'example.com')
 	
 	def test_is_allowable_hostname(self):
 		'''It should return `True` if the domain has acceptable characters'''
 		
-		self.assertTrue(urln11n.is_allowable_hostname('www.example.com'))
-		self.assertFalse(urln11n.is_allowable_hostname(u'www.bbéë.com'))
+		self.assertTrue(lolram.util.url.is_allowable_hostname('www.example.com'))
+		self.assertFalse(lolram.util.url.is_allowable_hostname(u'www.bbéë.com'))
 	
 	def test_norm_unicode_http(self):
 		'''It should normalize the URL with a international domain'''

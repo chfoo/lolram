@@ -21,7 +21,7 @@
 
 import unittest
 
-from lolram import pathutil
+from lolram.util import pathutil
 
 class TestPathUtil(unittest.TestCase):
 	def test_common_empty(self):

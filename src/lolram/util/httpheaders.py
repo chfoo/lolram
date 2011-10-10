@@ -25,7 +25,7 @@ import UserDict
 import cStringIO
 import string
 
-from lolram2 import urln11n
+import lolram.util.url
 
 class HTTPHeaders(UserDict.DictMixin):
 	'''A dictionary-like mapping of HTTP Headers
@@ -171,7 +171,7 @@ class HTTPHeader(object):
 			s.write('; ')
 			s.write(normalize_header_name(k, capwords=False))
 			s.write('=')
-			s.write(urln11n.quote(v))
+			s.write(lolram.util.url.quote(v))
 		
 		s.seek(0)
 		return s.read()

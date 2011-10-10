@@ -20,7 +20,7 @@
 #	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from lolram2 import httpheaders
+from lolram.util import httpheaders
 
 class TestDataObject(unittest.TestCase):
 	def test_header_name(self):
