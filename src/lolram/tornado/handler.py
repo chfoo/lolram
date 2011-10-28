@@ -28,13 +28,16 @@ import lolram.tornado.session
 import lolram.tornado.message
 import lolram.tornado.navigation
 import lolram.tornado.form
+import lolram.tornado.static
+import lolram.tornado.wsgi
 
-class RichBaseHandler(tornado.web.RequestHandler,
+class RichBaseHandler(lolram.tornado.wsgi.RequestHandlerGenerator,
 lolram.tornado.mongodb.DatabaseMixIn,
 lolram.tornado.session.SessionMongoDBMixIn,
 lolram.tornado.message.MessageMixIn,
 lolram.tornado.navigation.NavigationMixIn,
 lolram.tornado.form.FormHandlerMixIn,
+lolram.tornado.static.StaticFileHandlerMixIn,
 ):
 	'''A rich featured base RequestHandler'''
 	
@@ -50,7 +53,8 @@ lolram.tornado.form.FormHandlerMixIn,
 	
 	def finish(self, *args, **kargs):
 		self.save_session()
-		return tornado.web.RequestHandler.finish(self, *args, **kargs)
+		return lolram.tornado.wsgi.RequestHandlerGenerator.finish(self, 
+			*args, **kargs)
 	
 	def is_local(self):
 		return self.request.host.split(':')[0] in ('127.0.0.1', 'localhost')

@@ -76,8 +76,8 @@ class WSGIAppManager(object):
 	def __call__(self, environ, start_response):
 		app = self.router.get(lolram.util.pathutil.request_uri(environ))
 		
-		if self._compress:
-			return compress_app(app, environ, start_response)
+#		if self._compress:
+#			return compress_app(app, environ, start_response)
 		
 		return app(environ, start_response)
 
@@ -108,6 +108,8 @@ def compress_app(app, environ, start_response):
 		
 		if 'Content-Length' in http_headers and nonlocals['compress_ok']:
 			nonlocals['prespool'] = True
+			
+		# FIXME: must return write callable
 	
 	r = iterutils.trigger(app(environ, new_start_response))
 	
