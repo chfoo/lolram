@@ -32,7 +32,6 @@ import wsgiref.util
 import tornado.wsgi
 import tornado.web
 import tornado.escape
-import sys
 
 def request_to_wsgi_call(handler, request, app, script_name=None):
 	environ = tornado.wsgi.WSGIContainer.environ(request)
@@ -87,12 +86,12 @@ class WSGIApplicationGenerator(tornado.wsgi.WSGIApplication):
 	
 	def __call__(self, environ, start_response):
 		request = HTTPRequestGenerator(environ)
-		try:
-			handler, transforms, args, kwargs = self.call2(request)
-		except Exception, e:
-			sys.stdout.write(str(e))
-			sys.stdout.write('\n')
-			raise e
+#		try:
+		handler, transforms, args, kwargs = self.call2(request)
+#		except Exception, e:
+#			sys.stderr.write(str(e))
+#			sys.stderr.write('\n')
+#			raise e
 		
 		if hasattr(handler.request, 'parse_request_body'):
 			handler.request.parse_request_body(environ, 
@@ -238,7 +237,8 @@ class HTTPRequestGenerator(tornado.wsgi.HTTPRequest):
 		elif content_type.startswith("multipart/form-data"):
 			if 'boundary=' in content_type:
 				if use_fieldstorage:
-					self.files = cgi.FieldStorage(environ=environ)
+					self.files = cgi.FieldStorage(environ=environ, 
+						fp=environ["wsgi.input"])
 				else:
 					boundary = content_type.split('boundary=',1)[1]
 					if boundary:

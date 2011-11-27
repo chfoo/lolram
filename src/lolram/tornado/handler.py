@@ -29,6 +29,7 @@ import lolram.tornado.message
 import lolram.tornado.navigation
 import lolram.tornado.form
 import lolram.tornado.static
+import lolram.tornado.cache 
 import lolram.tornado.wsgi
 
 class RichBaseHandler(lolram.tornado.wsgi.RequestHandlerGenerator,
@@ -38,11 +39,13 @@ lolram.tornado.message.MessageMixIn,
 lolram.tornado.navigation.NavigationMixIn,
 lolram.tornado.form.FormHandlerMixIn,
 lolram.tornado.static.StaticFileHandlerMixIn,
+lolram.tornado.cache.CacheMixIn,
 ):
 	'''A rich featured base RequestHandler'''
 	
-	def initialize(self, mongodb):
+	def initialize(self, mongodb, cache_hosts, cache_prefix, **kargs):
 		lolram.tornado.mongodb.DatabaseMixIn.initialize(self, mongodb)
+		lolram.tornado.cache.CacheMixIn.initialize(self, cache_hosts, cache_prefix)
 	
 	def prepare(self):
 		lolram.tornado.message.MessageMixIn.prepare(self)

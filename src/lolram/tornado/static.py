@@ -35,7 +35,7 @@ class StaticFileHandlerMixIn(object):
 		last_modified = datetime.datetime.utcfromtimestamp(
 			os.path.getmtime(path))
 		
-		mt = content_type or self.headers.get('content-type')
+		mt = content_type or self._headers.get('Content-Type')
 		
 		if not mt:
 			mtt = mimetypes.guess_type(download_filename or path)
@@ -113,7 +113,7 @@ class StaticFileHandlerMixIn(object):
 				if data == '':
 					break
 			
-				bytes_left -= self.READ_SIZE
+				bytes_left -= self.CHUNK_SIZE
 				
 				self.write(data)
 				self.flush()
