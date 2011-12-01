@@ -35,7 +35,7 @@ class StaticFileHandlerMixIn(object):
 		last_modified = datetime.datetime.utcfromtimestamp(
 			os.path.getmtime(path))
 		
-		mt = content_type or self._headers.get('Content-Type')
+		mt = content_type# or self._headers.get('Content-Type')
 		
 		if not mt:
 			mtt = mimetypes.guess_type(download_filename or path)
