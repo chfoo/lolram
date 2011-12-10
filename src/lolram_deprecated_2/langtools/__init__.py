@@ -41,14 +41,15 @@ class LangTool(object):
 				result = self.lookup_unihan(word)
 			
 				if result:
-					
+					pass
+				
 	
 	@abc.abstractmethod
 	def lookup_unihan(self, c):
 		pass
 	
 	def split_jyutping(self, c):
-		
+		pass
 
 
 
