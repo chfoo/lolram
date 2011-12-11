@@ -1,0 +1,68 @@
+0.5.2: released 2010-09-19
+--------------------------
+- SQLAlchemy of versions 0.6.x is now supported as well as 0.5.x.
+- :func:`tree_recursive_iterator` does not require python 2.6+
+  anymore, python 2.5 is now fully supported.
+
+0.5.1: released 2009-11-29
+--------------------------
+- ``mapper_extension`` property now removed from class manager,
+  descriptor :class:`MPManager` returns it instead of class manager
+  if the class is not mapped yet.
+- Joined table inheritance now supported both in imperative and declarative
+  ways: thanks to Laurent Rahuel for testing.
+
+0.5: released 2009-09-05
+------------------------
+This release contains some backward-incompatible changes in setup facilities.
+The main highligts are support of ``declarative`` SQLAlchemy extension and
+some cleaning up in :class:`MPManager`'s constructor options.
+
+- Index name now includes table name as prefix so there is an
+  ability to have two or more mp-driven tables in the same
+  database.
+- There is only one strictly required option for :class:`MPManager`
+  now: the table object. ``pk_field`` option removed at all (can be safely
+  determined from the table) and ``parent_id_field`` could be guessed
+  for almost every simple table (if yours are not so simple you can provide
+  this option as it was with 0.4.x).
+- changed names of ``path_field``, ``depth_field`` and ``tree_id_field``
+  parameters of :class:`MPManager`'s constructor: removed ``_name`` suffix:
+  now the values can be column objects and they are not redefined
+  if such a column exists already.
+
+0.4.1: released 2009-07-16
+--------------------------
+- Fixed another bug in :meth:`MPClassManager.rebuild_all_trees`:
+  tree_id and depth for root nodes were not updated. Method
+  also was slightly optimized to do less queries.
+- Small fixes in documentation.
+
+0.4: released 2009-06-11
+------------------------
+- Small fixes in documentation: actually Tropashko was not the
+  first who introduced MP, he only promoted it.
+- Implemented :meth:`MPClassManager.query_all_trees`
+- Fixed a bug of :meth:`MPClassManager.rebuild_all_trees` did not
+  reset path for root nodes.
+- Implemented :func:`tree_recursive_iterator`
+- Changed the value of path field for a root nodes. Previously
+  they used to had ``'0' * steplen`` path and so first-level
+  children gain ``'0' * steplen * 2``, but now new roots will
+  have an ampty string in their path field. This change should
+  be backward-compatible as it touches only new trees. But
+  if you want to have no difference between two identical old
+  and new trees in your table you can rebuild all your trees
+  by ``Node.mp.rebuild_all_trees()`` or use sql query like
+  this::
+
+     UPDATE <table> SET mp_path = substr(mp_path, <steplen> + 1);
+
+  This will remove ``steplen`` characters from the beginning
+  of each node's path. **Do not forget to backup your data!**
+
+
+0.3: released 2009-05-23
+------------------------
+The first public release.
+

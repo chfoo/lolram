@@ -4,3 +4,10 @@ src/lolram/tests/test-site/var
 src/lolram/iso8601/.svn
 .settings
 html/
+out/
+debian.upstream/*.log
+debian.upstream/*.substvars
+debian.upstream/*/*
+debian.upstream/tmp/
+debian.upstream/*.debhelper
+debian/

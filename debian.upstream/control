@@ -1,0 +1,22 @@
+Source: lolram
+Section: python
+Priority: optional
+Maintainer: Christopher Foo <chris.foo@gmail.com>
+Build-Depends: debhelper (>= 8.0.0), python, python-epydoc
+Standards-Version: 3.9.2
+
+Package: python-lolram
+Architecture: all
+Depends: python (>=2.6), python (<<3.0), python-sqlalchemy, python-urllib3, python-openid, python-babel, python-lxml, python-iso8601, python-flup, python-docutils, python-tornado, python-bitstring, python-mongo, python-sqlamp
+Description: lolram python framework and utilities
+
+Package: python-lolram-third-party
+Architecture: all
+Recommends: python-lolram
+Provides: python-urllib3, python-iso8601, python-tornado, python-bitstring, python-sqlamp
+Description: Includes third-party modules not in Debian required for lolram
+
+Package: python-lolram-doc
+Architecture: all
+Description: documentation for lolram
+
