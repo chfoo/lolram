@@ -3,7 +3,7 @@ PYTHON_DIR="${DESTDIR}/usr/share/pyshared/"
 
 clean: clean-bytecode clean-backup-files
 
-install: install-lolram install-third-party
+install: install-lolram install-third-party install-lolram3
 
 build: build-doc
 
@@ -24,7 +24,11 @@ clean-unneeded-files: clean-bytecode clean-backup-files
 
 install-lolram: clean-unneeded-files
 	mkdir -p ${PYTHON_DIR}
-	cp -r src/lolram* ${PYTHON_DIR}
+	cp -r src/lolram src/lolram_deprecated_* ${PYTHON_DIR}
+	
+install-lolram3: clean-unneeded-files
+	mkdir -p ${PYTHON_DIR}
+	cp -r src/lolram3 ${PYTHON_DIR}
 	
 install-third-party: clean-unneeded-files
 	mkdir -p ${PYTHON_DIR}
@@ -34,6 +38,7 @@ install-third-party: clean-unneeded-files
 		third-party/tornado*/tornado \
 		third-party/urllib3*/urllib3 \
 		${PYTHON_DIR}
+	rm ${PYTHON_DIR}/iso8601/.??*
 
 deb-package: clean-unneeded-files increment-version
 	ln -s -T debian.upstream debian || true
