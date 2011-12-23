@@ -12,7 +12,7 @@ def main():
 	release_name = sys.argv[1]
 	releases = pypi.package_releases(release_name)
 	version = releases[0]
-	dest_filename = os.path.join(third_party_dir, '%s-%s.zip' % (release_name, version))
+	dest_filename = os.path.join(third_party_dir, '%s-%s' % (release_name, version))
 	
 	if not os.path.exists(dest_filename):
 		downloads = pypi.release_urls(release_name, version)
@@ -21,6 +21,15 @@ def main():
 		for release_info in downloads:
 			if release_info['packagetype'] == 'sdist':
 				url = release_info['url']
+				original_filename = release_info['filename']
+				
+				if original_filename.endswith('.tar.gz'):
+					dest_filename += '.tar.gz'
+				elif original_filename.endswith('.zip'):
+					dest_filename += '.zip'
+				else:
+					raise Exception('unknown archive file')
+				
 				break
 		
 		if url:

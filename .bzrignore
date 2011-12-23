@@ -6,7 +6,7 @@ html/
 out/
 debian.upstream/*.log
 debian.upstream/*.substvars
-debian.upstream/*/*
+debian.upstream/*/
 debian.upstream/tmp/
 debian.upstream/*.debhelper
 debian/
@@ -15,3 +15,4 @@ debian/
 __pycache__
 debian.upstream/files
 third-party/*
+debian.upstream/source
