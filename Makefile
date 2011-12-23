@@ -65,6 +65,7 @@ install-bitstring:
 build-iso8601:
 	$(eval VER=`cat third-party/iso8601.version`)
 	./third_party_unpack.py iso8601
+	rm third-party/iso8601-*/iso8601/.??*
 	cp -r third-party/iso8601-${VER}/ third-party/iso8601-${VER}-python3/
 	2to3 -w third-party/iso8601-${VER}-python3/iso8601
 
