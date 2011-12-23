@@ -1,3 +1,9 @@
+lolram (0.0-upstream20111223163433) unstable; urgency=low
+
+  * Scripted build. Revision main 40
+
+ -- Christopher Foo <chris@chris-laptop3>  Fri, 23 Dec 2011 11:34:38 -0500
+
 lolram (0.0-upstream20111211224010) unstable; urgency=low
 
   * Scripted build. Revision main 38

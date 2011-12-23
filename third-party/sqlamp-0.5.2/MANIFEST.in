@@ -1,3 +1,0 @@
-include LICENSE CHANGES
-recursive-include tests *.py
-include doc/Makefile doc/conf.py doc/*.rst
