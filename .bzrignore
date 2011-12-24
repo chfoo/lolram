@@ -6,7 +6,7 @@ html/
 out/
 debian.upstream/*.log
 debian.upstream/*.substvars
-debian.upstream/*/
+RE:debian.upstream/[^\.]+/
 debian.upstream/tmp/
 debian.upstream/*.debhelper
 debian/

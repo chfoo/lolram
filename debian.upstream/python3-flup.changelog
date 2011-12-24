@@ -1,0 +1,11 @@
+lolram (1.0.2-dev-2011-10-31~lolram) unstable; urgency=low
+
+  * Scripted build (lolram). Revision main 43
+
+ -- Christopher Foo <chris@chris-laptop3>  Sat, 24 Dec 2011 12:39:06 -0500
+
+lolram (0.0) unstable; urgency=low
+
+  * Initial release
+
+ -- Christopher Foo <chris.foo@gmail.com>  Fri, 23 Dec 2011 12:00:00 -0500

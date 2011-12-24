@@ -10,7 +10,7 @@ build: build-doc build-iso8601 build-sqlamp build-urllib3
 
 install: install-lolram install-third-party install-lolram3
 
-download: download-bitstring download-iso8601 download-sqlamp download-urllib3 download-tornado
+download: download-bitstring download-iso8601 download-sqlamp download-urllib3 download-tornado download-flup3
 
 build-doc:
 	mkdir -p ${DESTDIR}
@@ -45,6 +45,9 @@ download-urllib3:
 download-tornado:
 	./third_party_download.py tornado || true
 	wget -c "http://github.com/downloads/facebook/tornado/tornado-`cat third-party/tornado.version`.tar.gz" -O "third-party/tornado-`cat third-party/tornado.version`.tar.gz"
+
+download-flup3:
+	hg clone "http://hg.saddi.com/flup-py3.0" third-party/flup-py3.0 || hg --cwd third-party/flup-py3.0/ update
 
 install-lolram: clean-unneeded-files
 	mkdir -p ${PYTHON_DIR}
@@ -110,7 +113,11 @@ install-tornado:
 	cp -r third-party/tornado-${VER}/tornado ${PYTHON_DIR}
 	cp -r third-party/tornado-${VER}/tornado ${PYTHON3_DIR}
 
-install-third-party: clean-unneeded-files install-bitstring install-iso8601 install-sqlamp install-urllib3 install-tornado
+install-flup3:
+	mkdir -p ${PYTHON3_DIR}
+	cp -r third-party/flup-py3.0/flup ${PYTHON3_DIR}
+
+install-third-party: clean-unneeded-files install-bitstring install-iso8601 install-sqlamp install-urllib3 install-tornado install-flup3
 
 deb-package: clean-unneeded-files
 	ln -s -T debian.upstream debian || true
@@ -120,7 +127,7 @@ MESSAGE="Scripted build (lolram). Revision `(bzr nick && bzr revno) || (git name
 increment-version:
 	debchange --preserve --newversion `cat VERSION`-upstream`date --utc "+%Y%m%d%H%M%S"` --distribution unstable --force-distribution ${MESSAGE}
 
-update-third-party-versions: update-version-bitstring update-version-iso8601 update-version-sqlamp update-version-urllib3  update-version-tornado
+update-third-party-versions: update-version-bitstring update-version-iso8601 update-version-sqlamp update-version-urllib3  update-version-tornado update-version-flup3
 
 update-version-bitstring: 
 	$(eval VER=`cat third-party/bitstring.version`)
@@ -152,4 +159,9 @@ update-version-tornado:
 		--force-distribution ${MESSAGE} \
 		--changelog debian/python-tornado.changelog
 
+update-version-flup3:
+	$(eval VER=`hg --cwd third-party/flup-py3.0/ log --limit 1 --template "{latesttag}-dev-{date|shortdate}"`)
+	debchange --preserve --newversion "${VER}~lolram" --distribution unstable \
+		--force-distribution ${MESSAGE} \
+		--changelog debian/python3-flup.changelog
 
