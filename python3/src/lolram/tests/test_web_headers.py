@@ -45,6 +45,13 @@ class TestHeaders(unittest.TestCase):
 		result = lolram.web.headers.header_dict_to_list(WSGI_HEADER_DICT)
 		self.assertEqual(sorted(WSGI_HEADER_LIST), sorted(result))
 
+	def test_header_dict_mapping_to_list(self):
+		'''it should convert a header dict to a list'''
+		
+		result = lolram.web.headers.HeaderListMap(WSGI_HEADER_LIST).to_list()
+		self.assertEqual(sorted(WSGI_HEADER_LIST), sorted(result))
+	
+
 if __name__ == "__main__":
 	#import sys;sys.argv = ['', 'Test.testName']
 	unittest.main()

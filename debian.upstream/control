@@ -38,10 +38,9 @@ Description: Simple construction, analysis and modification of binary data.
  .
  This version supports Python 2.6 and later (including Python 3). For Python 2.4 and 2.5 you should instead download version 1.0.
 
-Package: python-iso8601
+Package: python3-iso8601
 Architecture: all
-Depends: python (>= 2.6)
-Provides: python3-iso8601
+Depends: python3
 Description: Simple module to parse ISO 8601 dates
  This module parses the most common forms of ISO 8601 date strings (e.g. 2007-01-14T20:34:22+00:00) into datetime objects.
 

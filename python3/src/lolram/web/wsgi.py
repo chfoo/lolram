@@ -114,9 +114,9 @@ class Compressor(object):
 		self.spooling_fail_limit = spooling_fail_limit or Compressor.SIZE_1MB
 	
 	def is_compressable(self, environ, headers_dict):
-		content_length = int(headers_dict.get_first('Content-Length', -1))
+		content_length = int(headers_dict.get('Content-Length', -1))
 		
-		return headers_dict.get_first('Content-Type', '').startswith('text/') \
+		return headers_dict.get('Content-Type', '').startswith('text/') \
 			and environ.get('HTTP_ACCEPT_ENCODING', '').find('gzip') != -1 \
 			and 'Content-Encoding' not in headers_dict \
 			and content_length < self.spooling_fail_limit
@@ -134,12 +134,12 @@ class Compressor(object):
 			
 			response_status = status #@UnusedVariable
 			response_exc_info = exc_info #@UnusedVariable
-			headers_dict = lolram.web.headers.HeaderListMapper(response_headers)
+			headers_dict = lolram.web.headers.HeaderListMap(response_headers)
 			
 			if self.is_compressable(environ, headers_dict):
-				content_length = int(headers_dict.get_first('Content-Length', -1))
+				content_length = int(headers_dict.get('Content-Length', -1))
 				
-				headers_dict.set_single('Content-Encoding', 'gzip')
+				headers_dict['Content-Encoding'] = 'gzip'
 				
 				if content_length >= 0:
 					compression_method = Compressor.METHOD_SPOOLING
@@ -161,8 +161,7 @@ class Compressor(object):
 				
 				output_sink.switch(app_iterator)
 				output_sink.close()
-				headers_dict.set_single('Content-Length', 
-					str(spooled_file.tell()))
+				headers_dict['Content-Length'] = str(spooled_file.tell())
 				
 				spooled_file.seek(0)
 				

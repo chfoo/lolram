@@ -3,6 +3,8 @@
 def coroutine(func):
 	'''A decorator function that takes care of starting a coroutine 
 	automatically on call.
+	
+	:See: http://www.dabeaz.com/coroutines/
 	'''
 	
 	def start(*args, **kwargs):
@@ -13,3 +15,4 @@ def coroutine(func):
 		return cr
 	
 	return start
+

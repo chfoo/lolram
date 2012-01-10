@@ -6,7 +6,7 @@ all: clean download build install
 
 clean: clean-bytecode clean-backup-files
 
-build: build-doc build-iso8601 build-sqlamp build-urllib3
+build: build-doc build-iso8601 build-sqlamp build-urllib3 build-tornado
 
 install: install-lolram install-third-party install-lolram3
 
@@ -69,14 +69,13 @@ build-iso8601:
 	$(eval VER=`cat third-party/iso8601.version`)
 	./third_party_unpack.py iso8601
 	rm third-party/iso8601-*/iso8601/.??*
+	rm -f -r third-party/iso8601-${VER}-python3/
 	cp -r third-party/iso8601-${VER}/ third-party/iso8601-${VER}-python3/
 	2to3 -w third-party/iso8601-${VER}-python3/iso8601
 
 install-iso8601:
-	mkdir -p ${PYTHON_DIR}
 	mkdir -p ${PYTHON3_DIR}
 	$(eval VER=`cat third-party/iso8601.version`)
-	cp -r third-party/iso8601-${VER}/iso8601 ${PYTHON_DIR}
 	cp -r third-party/iso8601-${VER}-python3/iso8601 ${PYTHON3_DIR}
 
 build-sqlamp:
@@ -95,6 +94,7 @@ install-sqlamp:
 build-urllib3:
 	$(eval VER=`cat third-party/urllib3.version`)
 	./third_party_unpack.py urllib3
+	rm -f -r third-party/urllib3-${VER}-python3/
 	cp -r third-party/urllib3-${VER}/ third-party/urllib3-${VER}-python3/
 	2to3 -w third-party/urllib3-${VER}-python3/urllib3
 
@@ -105,13 +105,20 @@ install-urllib3:
 	cp -r third-party/urllib3-${VER}/urllib3 ${PYTHON_DIR}
 	cp -r third-party/urllib3-${VER}-python3/urllib3 ${PYTHON3_DIR}
 
-install-tornado:
-	mkdir -p ${PYTHON_DIR}
-	mkdir -p ${PYTHON3_DIR}
+build-tornado:
 	$(eval VER=`cat third-party/tornado.version`)
 	./third_party_unpack.py tornado
+	rm -r third-party/tornado-${VER}/tornado/test
+	rm -f -r third-party/tornado-${VER}-python3/
+	cp -r third-party/tornado-${VER}/ third-party/tornado-${VER}-python3/
+	2to3 -w third-party/tornado-${VER}-python3/tornado
+
+install-tornado:
+	$(eval VER=`cat third-party/tornado.version`)
+	mkdir -p ${PYTHON_DIR}
+	mkdir -p ${PYTHON3_DIR}
 	cp -r third-party/tornado-${VER}/tornado ${PYTHON_DIR}
-	cp -r third-party/tornado-${VER}/tornado ${PYTHON3_DIR}
+	cp -r third-party/tornado-${VER}-python3/tornado ${PYTHON3_DIR}
 
 install-flup3:
 	mkdir -p ${PYTHON3_DIR}
