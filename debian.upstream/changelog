@@ -1,17 +1,5 @@
-lolram (0.0-upstream20111223163433) unstable; urgency=low
+lolram (0.0-upstream20120113222334) UNRELEASED; urgency=low
 
-  * Scripted build. Revision main 40
+  * Scripted build. Revision main 46
 
- -- Christopher Foo <chris@chris-laptop3>  Fri, 23 Dec 2011 11:34:38 -0500
-
-lolram (0.0-upstream20111211224010) unstable; urgency=low
-
-  * Scripted build. Revision main 38
-
- -- Christopher Foo <chris@chris-laptop3>  Sun, 11 Dec 2011 17:40:11 -0500
-
-lolram (0.0-upstream) unstable; urgency=low
-
-  * Initial release
-
- -- Christopher Foo <chris.foo@gmail.com>  Sat, 10 Dec 2011 14:54:39 -0500
+ -- Christopher Foo <chris@chris-laptop3>  Fri, 13 Jan 2012 17:23:35 -0500

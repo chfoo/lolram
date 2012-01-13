@@ -17,29 +17,30 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
 #
-__docformat__ = 'restructuredtext en'
-
 from wsgiref.simple_server import make_server
 import http.client
 import lolram.utils.url
 import random
 import threading
-#import urllib3
+import time
 import warnings
+__docformat__ = 'restructuredtext en'
+
+#import urllib3
 
 
 class AppServerThread(threading.Thread):
-	def __init__(self, app, port=181000):
+	def __init__(self, app, port):
 		threading.Thread.__init__(self)
-		self.app = app
 		self.daemon = True
+		self.app = app
 		self.port = port
 	
 	def run(self):
 		# XXX The wsgi validator cannot be used due to cgi.FieldStorage relying on
 		# wsgi.input.readline() to take size as an argument
 		app = self.app
-		self.httpd = make_server('', self.port, app)
+		self.httpd = make_server('127.0.0.1', self.port, app)
 		self.httpd.serve_forever()
 
 
@@ -50,6 +51,7 @@ class ServerBaseMixIn(object):
 		self.running = True
 		self.thread = AppServerThread(self.app, random.randint(49152, 65535))
 		self.thread.start()
+		time.sleep(.5)
 	
 	def request(self, path, method='GET', headers={}, query={}, data={}, host=None, port=None):
 		'''Make a HTTP request to the server

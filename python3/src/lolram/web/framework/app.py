@@ -92,6 +92,9 @@ class ApplicationController(object):
 		return self._database
 	
 	def init_url_specs(self, controller_classes):
+		if not controller_classes:
+			raise Exception('You must define at least one controller class')
+		
 		self._url_specs = []
 		
 		for controller_class in controller_classes:
@@ -99,7 +102,8 @@ class ApplicationController(object):
 			self._url_specs.extend(controller.url_specs)
 		
 	def init_wsgi_application(self):
-		self._wsgi_application = lolram.web.tornado.WSGIApplication()
+		self._wsgi_application = lolram.web.tornado.WSGIApplication(
+			self._url_specs)
 	
 	def init_database(self):
 		raise NotImplementedError()
@@ -124,7 +128,7 @@ class BaseController(object):
 	
 	def add_url_spec(self, url_pattern, handler_class):
 		url_spec = tornado.web.URLSpec(url_pattern, handler_class, 
-			controller=self, name=handler_class.name)
+			dict(controller=self), name=handler_class.name)
 		self._url_specs.append(url_spec)
 
 
@@ -136,14 +140,48 @@ class BaseHandler(tornado.web.RequestHandler):
 		self._controller
 		
 	@property
-	def application(self):
+	def app_controller(self):
 		self._controller.application
 	
 	def initialize(self, controller):
-		self._controller
+		self._controller = controller
 		self.init()
 	
 	def init(self):
 		pass
-
-
+	
+	def write(self, chunk):
+		self._write_buffer.append(chunk)
+	
+	def flush(self, include_footers=False, callback=None):
+		self.request.write(b''.join(self._write_buffer))
+		self._write_buffer = []
+		
+	def finish(self, chunk=None):
+		if chunk:
+			self._write_buffer.append(chunk)
+		
+		self._compute_nonstreaming_headers()
+		self._headers_written = True
+		
+		self.request.finish(b''.join(self._write_buffer))
+		self._finished = True
+	
+	def _compute_nonstreaming_headers(self):
+		# Automatically support ETags and add the Content-Length header if
+		# we have not flushed any content yet.
+		if not self._headers_written:
+			if (self._status_code == 200 and
+				self.request.method in ("GET", "HEAD") and
+				"Etag" not in self._headers):
+				etag = self.compute_etag()
+				if etag is not None:
+					inm = self.request.headers.get("If-None-Match")
+					if inm and inm.find(etag) != -1:
+						self._write_buffer = []
+						self.set_status(304)
+					else:
+						self.set_header("Etag", etag)
+			if "Content-Length" not in self._headers:
+				content_length = sum(len(part) for part in self._write_buffer)
+				self.set_header("Content-Length", content_length)

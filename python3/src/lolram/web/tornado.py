@@ -222,20 +222,25 @@ class HTTPRequest(tornado.wsgi.HTTPRequest):
 			self._start_response()
 		
 		# TODO: Use greenlets so that generators are used instead
-		self._write_callable.write(chunk)
-		callback()
-
-	def finish(self):
+		self._write_callable(chunk)
+		
+		if callback:
+			callback()
+	
+	def finish(self, chunk=None):
 		"""Finishes this HTTP request on the open connection."""
 		
 		if not self._started:
 			self._start_response()
+			
+		if chunk:
+			self._write_callable(chunk)
 		
 		self._finish_time = time.time()
 	
 	def set_handler_and_response_fn(self, handler, start_response):
 		self._handler = handler
-		self._start_response = start_response
+		self._start_response_fn = start_response
 		self._write_callable = None
 	
 	def _start_response(self):
@@ -247,6 +252,8 @@ class HTTPRequest(tornado.wsgi.HTTPRequest):
 			for cookie in list(cookie_dict.values()):
 				headers.append(("Set-Cookie", cookie.OutputString(None)))
 		
-		self._write_callable = self._start_response(status,
+		self._write_callable = self._start_response_fn(status,
 			[(native_str(k), native_str(v)) for (k,v) in headers])
+		
+		self._started = True
 		

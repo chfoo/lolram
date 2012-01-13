@@ -2,78 +2,22 @@ Source: lolram
 Section: python
 Priority: optional
 Maintainer: Christopher Foo <chris.foo@gmail.com>
-Build-Depends: debhelper (>= 8.0.0), python, python-epydoc, tar, unzip, wget
+Build-Depends: debhelper (>= 8.0.0), python, python-epydoc
 Standards-Version: 3.9.2
 
 Package: python-lolram
 Architecture: all
-Depends: python (>=2.6), python (<<3.0), python-sqlalchemy, python-urllib3, python-openid, python-babel, python-lxml, python-iso8601, python-flup, python-docutils, python-tornado, python-bitstring, python-pymongo, python-sqlamp
+Depends: python (>=2.6)
 Description: lolram python framework and utilities
 
 Package: python3-lolram
 Architecture: all
-Depends: python3 (>=3.0), python3-flup, python3-tornado
+Depends: python3 (>=3.0)
 Description: lolram python 3 framework and utilities
 
-Package: python-lolram-third-party
-Architecture: all
-Recommends: python-lolram
-Depends: python-urllib3, python-iso8601, python-tornado, python-bitstring, python-sqlamp
-Description: Includes third-party modules not in Debian required for lolram
 
 Package: python-lolram-doc
 Architecture: all
 Description: documentation for lolram
 
-Package: python-bitstring
-Architecture: all
-Depends: python (>= 2.6)
-Provides: python3-bitstring
-Description: Simple construction, analysis and modification of binary data.
- bitstring is a pure Python module designed to help make the creation and analysis of binary data as simple and natural as possible.
- .
- Bitstrings can be constructed from integers (big and little endian), hex, octal, binary, strings or files. They can be sliced, joined, reversed, inserted into, overwritten, etc. with simple functions or slice notation. They can also be read from, searched and replaced, and navigated in, similar to a file or stream.
- .
- bitstring is open source software, and has been released under the MIT licence.
- .
- This version supports Python 2.6 and later (including Python 3). For Python 2.4 and 2.5 you should instead download version 1.0.
-
-Package: python3-iso8601
-Architecture: all
-Depends: python3
-Description: Simple module to parse ISO 8601 dates
- This module parses the most common forms of ISO 8601 date strings (e.g. 2007-01-14T20:34:22+00:00) into datetime objects.
-
-Package: python-sqlamp
-Architecture: all
-Depends: python (>= 2.6)
-Provides: python3-sqlamp
-Suggests: python-sqlamp
-Description: sqlamp is an implementation of Materialized Path for SQLAlchemy.
- sqlamp is an implementation of an efficient algorithm for working with hierarchical data structures -- Materialized Path. sqlamp uses (and depends of) SQLAlchemy.
- .
- Materialized Path is a way to store (and fetch) a trees in a relational databases. It is the compromise between Nested Sets and Adjacency Relations in respect to simplicity and efficiency. Method was promoted by Vadim Tropashko in his book SQL Design Patterns. Vadim's description of the method can be read in his article Trees in SQL: Nested Sets and Materialized Path (by Vadim Tropashko).
-
-Package: python-urllib3
-Architecture: all
-Depends: python (>= 2.6)
-Provides: python3-urllib3
-Description: HTTP library with thread-safe connection pooling, file post, and more.
- * Re-use the same socket connection for multiple requests (HTTPConnectionPool and HTTPSConnectionPool) (with optional client-side certificate verification).
- * File posting (encode_multipart_formdata).
- * Built-in redirection and retries (optional).
- * Supports gzip and deflate decoding.
- * Thread-safe and sanity-safe.
- * Small and easy to understand codebase perfect for extending and building upon. For a more comprehensive solution, have a look at Requests.
-
-Package: python-tornado
-Architecture: all
-Depends: python (>= 2.6)
-Provides: python3-tornado
-Description: Tornado is an open source version of the scalable, non-blocking web server and and tools that power FriendFeed
-
-Package: python3-flup
-Architecture: all
-Depends: python3 (>= 3.0)
-Description: Random assortment of WSGI servers
 
