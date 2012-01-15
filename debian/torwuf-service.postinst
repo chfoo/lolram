@@ -1,0 +1,9 @@
+#!/bin/sh
+
+adduser --system --group www-torwuf
+mkdir -p /home/www-torwuf/torwuf-service/
+mkdir -p /home/www-torwuf/torwuf-service/www/
+touch /home/www-torwuf/torwuf-service/www/dummy.fcgi
+chown www-torwuf:www-torwuf -R /home/www-torwuf/torwuf-service/
+
+invoke-rc.d torwuf-service restart

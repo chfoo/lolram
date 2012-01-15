@@ -1,0 +1,11 @@
+debian/*.log
+debian/*.substvars
+RE:debian/[^\.]+/
+debian/tmp/
+debian/*.debhelper
+.project
+.pydev*
+__pycache__
+debian/files
+debian/source
+etc/torwuf/*.pem
