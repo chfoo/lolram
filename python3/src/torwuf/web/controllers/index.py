@@ -7,4 +7,5 @@ class IndexController(lolram.web.framework.app.BaseController):
 
 class IndexRequestHandler(lolram.web.framework.app.BaseHandler):
 	def get(self):
-		self.write(b'sandwiches')
+		self.set_status(500)
+		self.write('Sorry. Service not unavailable. Please try again later.'.encode())

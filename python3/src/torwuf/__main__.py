@@ -1,24 +1,30 @@
 import argparse
 import configparser
 import flup.server.fcgi
+import glob
 import logging
 import logging.handlers
+import lolram.web.framework.app
 import lolram.web.wsgi
 import os
 import os.path
 import torwuf.web.controllers.app
-import wsgiref.simple_server
 import torwuf.web.utils
+import wsgiref.simple_server
 
 def main():
 	arg_parser = argparse.ArgumentParser()
 	arg_parser.add_argument('--config', metavar='FILE',
 		default='/etc/torwuf/torwuf.conf',
 		dest='config')
+	arg_parser.add_argument('--config-blog', metavar='PATTERN',
+		default='/etc/torwuf/torwuf.*.conf',
+		dest='config_glob')
 	args = arg_parser.parse_args()
 	
 	config_parser = configparser.ConfigParser()
-	sucessful_files = config_parser.read([args.config])
+	sucessful_files = config_parser.read([args.config] + \
+		glob.glob(args.config_glob))
 	
 	if not sucessful_files:
 		raise Exception('Configuration file %s not found' % args.config)
@@ -33,8 +39,9 @@ def main():
 
 def configure_application(config_parser):
 	server_method = config_parser['server']['method']
-	root_path = config_parser['application']['root-path']
-	application = torwuf.web.controllers.app.Application(root_path)
+	
+	configuration = lolram.web.framework.app.Configuration(config_parser)
+	application = torwuf.web.controllers.app.Application(configuration)
 	
 	if server_method == 'fastcgi':
 		path = config_parser['server']['path']
@@ -71,6 +78,8 @@ def configure_logging(config_parser):
 		handler = logging.handlers.RotatingFileHandler('%s/torwuf' % log_dir,
 			maxBytes=4194304, backupCount=10)
 		logger.addHandler(handler)
+		handler.setFormatter(logging.Formatter('%(asctime)s '+
+			'%(name)s:%(module)s:%(lineno)d:%(levelname)s %(message)s'))
 
 if __name__ == '__main__':
 	main()
