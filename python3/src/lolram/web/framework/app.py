@@ -4,13 +4,16 @@ import lolram.web.tornado
 import os.path
 import tempfile
 import tornado.web
+import warnings
 
 _logger = logging.getLogger(__name__)
 
 class Configuration(object):
-	def __init__(self, root_path, debug_mode=False):
-		self._root_path = root_path
+	def __init__(self, config_parser, debug_mode=False):
+		self._config_parser = config_parser
+		self._root_path = config_parser['application']['root-path']
 		self._debug_mode = debug_mode
+		self._torando_settings = {}
 		
 		self.read_config_file()
 		self.create_db_dirs()
@@ -30,6 +33,14 @@ class Configuration(object):
 	@property
 	def upload_path(self):
 		return self._upload_path
+	
+	@property
+	def config_parser(self):
+		return self._config_parser
+	
+	@property
+	def tornado_settings(self):
+		return self._torando_settings
 	
 	def read_config_file(self):
 		if self._debug_mode:
@@ -71,16 +82,15 @@ class Configuration(object):
 
 	
 class ApplicationController(object):
-	def __init__(self, root_path, controller_classes, debug_mode=False):
-		self._root_path = root_path
-		self._configuration = Configuration(root_path, debug_mode)
+	def __init__(self, configuration, controller_classes):
+		self._configuration = configuration
 		
 		self.init_database()
 		self.init_url_specs(controller_classes)
 		self.init_wsgi_application()
 		
 	@property
-	def configuration(self):
+	def config(self):
 		return self._configuration
 	
 	@property
@@ -103,7 +113,9 @@ class ApplicationController(object):
 		
 	def init_wsgi_application(self):
 		self._wsgi_application = lolram.web.tornado.WSGIApplication(
-			self._url_specs)
+			self._url_specs,
+			**self.config.tornado_settings
+		)
 	
 	def init_database(self):
 		raise NotImplementedError()
@@ -120,7 +132,11 @@ class BaseController(object):
 	
 	@property
 	def application(self):
-		self._application
+		return self._application
+	
+	@property
+	def config(self):
+		return self._application.config
 	
 	@property
 	def url_specs(self):
@@ -137,11 +153,11 @@ class BaseHandler(tornado.web.RequestHandler):
 	
 	@property
 	def controller(self):
-		self._controller
+		return self._controller
 		
 	@property
 	def app_controller(self):
-		self._controller.application
+		return self._controller.application
 	
 	def initialize(self, controller):
 		self._controller = controller
@@ -151,6 +167,10 @@ class BaseHandler(tornado.web.RequestHandler):
 		pass
 	
 	def write(self, chunk):
+		if not isinstance(chunk, bytes):
+			warnings.warn('Automatically encoding str to bytes')
+			chunk = chunk.encode()
+			
 		self._write_buffer.append(chunk)
 	
 	def flush(self, include_footers=False, callback=None):
@@ -159,6 +179,10 @@ class BaseHandler(tornado.web.RequestHandler):
 		
 	def finish(self, chunk=None):
 		if chunk:
+			if not isinstance(chunk, bytes):
+				warnings.warn('Automatically encoding str to bytes')
+				chunk = chunk.encode()
+			
 			self._write_buffer.append(chunk)
 		
 		self._compute_nonstreaming_headers()
