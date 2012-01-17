@@ -1,22 +1,43 @@
 {% extends '../theme/layout.html' %}
+{% block title %}
+	{% set title = 'bzr' %}
+{% end %}
+
 {% block layout_content %}
 
-<menu>
-	Repository:
-	<a href="create_repo">Create</a>
-	<a href="delete_repo">Delete</a>
-	<a href="edit_repo">Edit</a>
-</menu>
+<h1>{{ title }}</h1>
 
-<menu>
-	User accounts:
-	<a href="create_user">Create</a>
-	<a href="delete_user">Delete</a>
-	<a href="edit_user">Edit</a>
-	
-	<a href="sign_out">Sign out</a>
-</menu>
-
+<section>
 {% block content %}
 {% end %}
+</section>
+
+<nav>
+<h1>Navigation</h1>
+	<nav>
+		<a href="/bzr/">Home</a>
+	</nav>
+
+	<nav>
+		Repository:
+		<a href="create_repo">Create</a>
+		<a href="delete_repo">Delete</a>
+		<a href="repo/">List</a>
+		<a href="edit_repo">Edit</a>
+	</nav>
+	
+	<nav>
+		User accounts:
+		<a href="create_user">Create</a>
+		<a href="delete_user">Delete</a>
+		<a href="list_users">List</a>
+		<a href="edit_user">Edit</a>
+<!--		<a href="sign_out">Sign out</a>-->
+	</nav>
+</nav>
+
+{% if hasattr(request, 'raw_username') %}
+	<p>Currently signed in as {{request.raw_username}}</p>
+{% end %}
+
 {% end %}

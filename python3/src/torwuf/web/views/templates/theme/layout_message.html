@@ -1,0 +1,8 @@
+{% if 'layout_message_title' in globals() %}
+	<div>
+		<strong>{{ layout_message_title }}</strong>
+		{% if 'layout_message_body' in globals() %}
+			<p>{{ layout_message_body }}</p>
+		{% end %}
+	</div>
+{% end %}

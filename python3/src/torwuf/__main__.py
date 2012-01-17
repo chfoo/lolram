@@ -74,7 +74,12 @@ def configure_logging(config_parser):
 		
 		logging.captureWarnings(True)
 		logger = logging.getLogger()
-		logger.setLevel(logging.INFO)
+		
+		if config_parser['logging'].getboolean('debug'):
+			logger.setLevel(logging.DEBUG)
+		else:
+			logger.setLevel(logging.INFO)
+		
 		handler = logging.handlers.RotatingFileHandler('%s/torwuf' % log_dir,
 			maxBytes=4194304, backupCount=10)
 		logger.addHandler(handler)

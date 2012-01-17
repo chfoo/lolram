@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}
+	{% set title = 'Change password' %}
+{% end %}
+{% block content %}
+
+	<form action="" method="POST" enctype="application/x-www-form-urlencoded">
+		{% raw xsrf_form_html() %}
+	
+	
+		<label>
+			Password:
+			
+			<input type="password" name="password"/>
+		</label>
+			
+		<label>
+			Confirm password:
+			
+			<input type="password" name="password2"/>
+		</label>
+		
+		<input type="submit"/>
+	</form>
+{% end %}

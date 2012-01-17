@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}
+	{% set title = 'List users' %}
+{% end %}
+
+{% block content %}
+	<table>
+	<tr>
+		<th>Username</th>
+	</tr>
+	{% for username, raw_username in users %}
+		<tr>
+			<td>{{ username }}</td>
+			<td>{{ raw_username }}</td>
+		</tr>
+	{% end %}
+	</table>
+{% end %}
