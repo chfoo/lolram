@@ -164,7 +164,7 @@ class HTTPRequest(tornado.wsgi.HTTPRequest):
 		if self.query:
 			self.uri += "?" + self.query
 			arguments = cgi.parse_qs(self.query)
-			for name, values in arguments.iteritems():
+			for name, values in arguments.items():
 				values = [v for v in values if v]
 				if values: self.arguments[name] = values
 		self.version = "HTTP/1.1"
@@ -213,6 +213,10 @@ class HTTPRequest(tornado.wsgi.HTTPRequest):
 	def _parse_request_field_storage(self):
 		self._field_storage = cgi.FieldStorage(environ=self._environ, 
 			fp=self._environ["wsgi.input"])
+		
+		for name in self._field_storage:
+			values = self._field_storage.getlist(name)
+			self.arguments.setdefault(name, []).extend(values)
 
 	def write(self, chunk, callback=None):
 		"""Writes the given chunk to the response stream."""
