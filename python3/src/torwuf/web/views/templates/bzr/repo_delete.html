@@ -1,8 +1,14 @@
-{% extends '../layout.html' %}
+{% extends 'base.html' %}
 
-{% block include %}
+{% block title %}
+	{% set title = 'Delete repository' %}
+{% end %}
+
+{% block content %}
 
 	<form action="" method="POST">
+		{% raw xsrf_form_html() %}
+		
 	
 		<label>
 			Repository name:
@@ -22,7 +28,8 @@
 		
 		<br/>
 		
-		<input type="submit"/>
+		<p><em>Deletions are permanent!</em> Please be careful!</p>
+		<input type="submit" value="Apply"/>
 	</form>
 
 {% end %}

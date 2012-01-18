@@ -9,3 +9,4 @@ __pycache__
 debian/files
 debian/source
 etc/torwuf/*.pem
+etc/torwuf/*.private.conf

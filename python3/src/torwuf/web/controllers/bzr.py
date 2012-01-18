@@ -6,9 +6,11 @@ import lolram.utils.sqlitejsondbm
 import lolram.web.framework.app
 import os
 import os.path
+import shutil
 import string
 import subprocess
 import threading
+import time
 import wsgiref.util
 
 _logger = logging.getLogger(__name__)
@@ -55,7 +57,8 @@ class DBKeys(object):
 	USERNAME = 'username'
 	HASHED_PASSWORD_1 = 'password1'
 	HASHED_PASSWORD_2 = 'password2'
-
+	PASSWORD_1_TIMESTAMP = 'pwTimestamp1'
+	REPO_READWRITE_LIST ='repoRWList'
 
 class BzrController(lolram.web.framework.app.BaseController):
 	VALID_USERNAME_SET = frozenset(string.ascii_lowercase) \
@@ -65,10 +68,14 @@ class BzrController(lolram.web.framework.app.BaseController):
 	def init(self):
 		self.add_url_spec(r'/bzr/', IndexRequestHandler)
 		self.add_url_spec(r'/bzr/sign_out', SignOutRequestHandler)
+		self.add_url_spec(r'/bzr/repo/create', CreateRepoRequestHandler)
+		self.add_url_spec(r'/bzr/repo/delete', DeleteRepoRequestHandler)
 		self.add_url_spec(r'/bzr/repo/(.*)', RepoRequestHandler)
-		self.add_url_spec(r'/bzr/list_users', ListUsersRequestHandler)
-		self.add_url_spec(r'/bzr/create_user', CreateUserRequestHandler)
-		self.add_url_spec(r'/bzr/edit_user', EditUserRequestHandler)
+		self.add_url_spec(r'/bzr/user/list', ListUsersRequestHandler)
+		self.add_url_spec(r'/bzr/user/create', CreateUserRequestHandler)
+		self.add_url_spec(r'/bzr/user/password', EditUserPasswordRequestHandler)
+		self.add_url_spec(r'/bzr/user/delete', DeleteUserRequestHandler)
+		self.add_url_spec(r'/bzr/user/permission', EditUserPermissionRequestHandler)
 		
 		self.load_config()
 		self.init_repos()
@@ -114,25 +121,32 @@ class BzrController(lolram.web.framework.app.BaseController):
 	def is_valid_password(self, password):
 		return frozenset(password) <= BzrController.VALID_PASSWORD_SET
 	
-	def hash_password(self, username, password):
+	def hash_password(self, username, password, timestamp):
 		password_hash = hashlib.sha256(self.users_salt.encode())
 		password_hash.update(username.encode())
 		password_hash.update(password.encode())
+		password_hash.update(str(timestamp).encode())
 		return base64.b64encode(password_hash.digest()).decode()
 	
 	def is_valid_account(self, username, password):
-		hashed_password = self.hash_password(username, password)
+		if len(self.bzr_users_db) == 0:
+			return True
+		
+		if not username in self.bzr_users_db:
+			return False
+		
+		record_dict = self.bzr_users_db[username]
+		timestamp = record_dict[DBKeys.PASSWORD_1_TIMESTAMP]
+		hashed_password = self.hash_password(username, password, timestamp)
 		
 		# TODO: test for second password
 		
-		if username in self.bzr_users_db:
-			data = self.bzr_users_db[username]
-			
-			if data[DBKeys.HASHED_PASSWORD_1] == hashed_password:
-				return True
-		
-		if len(self.bzr_users_db) == 0:
+		if record_dict[DBKeys.HASHED_PASSWORD_1] == hashed_password:
 			return True
+	
+	def can_user_access_repo(self, username, repo_name):
+		id_ = self.norm_username(username)
+		# TODO: implementation
 
 
 class BaseRequestHandler(lolram.web.framework.app.BaseHandler):
@@ -181,7 +195,7 @@ class BaseRequestHandler(lolram.web.framework.app.BaseHandler):
 		self.set_header('Content-Type', 'text/plain')
 		self.write('401 Unauthorised. \
 			Please enable basic HTTP authentication.'.encode())
-
+	
 class IndexRequestHandler(BaseRequestHandler):
 	name = 'bzr_index'
 
@@ -190,6 +204,8 @@ class IndexRequestHandler(BaseRequestHandler):
 
 
 class ListUsersRequestHandler(BaseRequestHandler):
+	name ='bzr_user_list'
+	
 	@BaseRequestHandler.require_auth
 	def get(self):
 		users = []
@@ -197,95 +213,112 @@ class ListUsersRequestHandler(BaseRequestHandler):
 			raw_username = self.controller.bzr_users_db[user][DBKeys.USERNAME]
 			users.append((user, raw_username))
 			
-		self.render('bzr/list_users.html', users=users)
+		self.render('bzr/user_list.html', users=users)
+
+class PasswordMixIn(object):
+	def create_user(self, username):
+		id_ = self.controller.norm_username(username)
+		self.controller.bzr_users_db[id_] = {
+			DBKeys.USERNAME: username,
+		}
+	
+	def update_password(self, username, password):
+		id_ = self.controller.norm_username(username)
+		timestamp = int(time.time())
+		hashed_password = self.controller.hash_password(username, password, 
+			timestamp)
+		
+		self.controller.bzr_users_db.update(id_, {
+			DBKeys.PASSWORD_1_TIMESTAMP: timestamp,
+			DBKeys.HASHED_PASSWORD_1: hashed_password,
+		})
 
 
-class CreateUserRequestHandler(BaseRequestHandler):
+class CreateUserRequestHandler(BaseRequestHandler, PasswordMixIn):
+	name = 'bzr_user_create'
+	
 	@BaseRequestHandler.require_auth
 	def get(self):
-		self.render('bzr/create_user.html')
+		self.render('bzr/user_create.html')
 
 	@BaseRequestHandler.require_auth
 	def post(self):
 		render_dict = {}
+		raw_username = self.get_argument('username')
+		password = self.get_argument('password')
+		confirm_password = self.get_argument('password2')
 		
-		try:
-			username = self.controller.norm_username(self.get_argument('username'))
-		except InvalidUsernameError:
-			render_dict.update(
-				layout_message_title='Username contains unacceptable characters',
-				layout_message_body='Please use a different username',
-			)
-		else:
-			password = self.get_argument('password')
-			password2 = self.get_argument('password2')
+		def f():
+			if not self.controller.is_valid_username(raw_username):
+				render_dict.update(
+					layout_message_title=
+						'Username contains unacceptable characters',
+					layout_message_body=
+						'Please use a different username.',
+				)
+				return
 			
-			if username in self.controller.bzr_users_db:
+			username = self.controller.norm_username(raw_username)
+			
+			if password != confirm_password:
+				render_dict.update(
+					layout_message_title=
+						'Passwords do not match',
+					layout_message_body=
+						'Confirm that you’ve entered a password correctly.',
+				)
+			elif username in self.controller.bzr_users_db:
 				render_dict.update(
 					layout_message_title='User already exists',
 					layout_message_body='Please use a different username',
 				)
-			elif password != password2:
-				render_dict.update(
-					layout_message_title='Passwords do not match',
-					layout_message_body='Confirm that you’ve entered a password correctly.',
-				)
-			elif not self.controller.is_valid_password(password):
-				render_dict.update(
-					layout_message_title='Passwords contains unacceptable characters',
-					layout_message_body='Please use a different password.',
-				)
 			else:
-				hashed_password = self.controller.hash_password(username,
-					password)
-				self.controller.bzr_users_db[username] = {
-					DBKeys.HASHED_PASSWORD_1: hashed_password,
-					DBKeys.USERNAME: self.get_argument('username'),
-				}
+				self.create_user(username)
+				self.update_password(username, password)
 				
 				render_dict.update(
 					layout_message_title='Account created'
 				)
-			
-		self.render('bzr/create_user.html', **render_dict)
+		
+		f()
+		self.render('bzr/user_create.html', **render_dict)
 
 
-class EditUserRequestHandler(BaseRequestHandler):
+class EditUserPasswordRequestHandler(BaseRequestHandler, PasswordMixIn):
+	name = 'bzr_user_password'
+	
 	@BaseRequestHandler.require_auth
 	def get(self):
-		self.render('bzr/edit_user.html')
+		self.render('bzr/user_password.html')
 
 	@BaseRequestHandler.require_auth
 	def post(self):
 		render_dict = {}
-		
-		username = self.request.username
 		password = self.get_argument('password')
-		password2 = self.get_argument('password2')
+		confirm_password = self.get_argument('password2')
 		
-		if password != password2:
+		username = self.controller.norm_username(self.request.username)
+		
+		if password != confirm_password:
 			render_dict.update(
-				layout_message_title='Passwords do not match',
-				layout_message_body='Confirm that you’ve entered a password correctly.',
+				layout_message_title=
+					'Passwords do not match',
+				layout_message_body=
+					'Confirm that you’ve entered a password correctly.',
 			)
-		elif not self.controller.is_valid_password(password):
+		elif username not in self.controller.bzr_users_db:
 			render_dict.update(
-				layout_message_title='Passwords contains unacceptable characters',
-				layout_message_body='Please use a different password.',
+				layout_message_title='The username is invalid',
+				layout_message_body='Please check the username’s spelling',
 			)
 		else:
-			hashed_password = self.controller.hash_password(username,
-				password)
-			
-			self.controller.bzr_users_db.update(username, {
-					DBKeys.HASHED_PASSWORD_1: hashed_password,
-				})
+			self.update_password(username, password)
 			
 			render_dict.update(
 				layout_message_title='Password changed'
 			)
 		
-		self.render('bzr/edit_user.html', **render_dict)
+		self.render('bzr/user_password.html', **render_dict)
 	
 
 class SignOutRequestHandler(BaseRequestHandler):
@@ -295,7 +328,46 @@ class SignOutRequestHandler(BaseRequestHandler):
 		self.redirect(self.reverse_url(IndexRequestHandler.name))
 
 
+class DeleteUserRequestHandler(BaseRequestHandler):
+	name = 'bzr_user_delete'
+	
+	@BaseRequestHandler.require_auth
+	def get(self):
+		self.render('bzr/user_delete.html')
+		
+	@BaseRequestHandler.require_auth
+	def post(self):
+		render_dict = {}
+		raw_username = self.get_argument('username')
+		
+		def f():
+			if not self.controller.is_valid_username(raw_username):
+				render_dict.update(
+					layout_message_title='Username is invalid',
+				)
+				return
+			
+			username = self.controller.norm_username(raw_username)
+			
+			if self.request.username == username:
+				_logger.info('Deleting bzr account %s', username)
+				del self.controller.bzr_users_db[username]
+				
+				render_dict.update(
+					layout_message_title='%s deleted' % username,
+				)
+			else:
+				render_dict.update(
+					layout_message_title='Username is invalid',
+				)
+		
+		f()
+		self.render('bzr/user_delete.html', **render_dict)
+
+
 class RepoRequestHandler(BaseRequestHandler):
+	name = 'bzr_repo'
+	
 	def init(self):
 		self.connection = http.client.HTTPConnection('localhost',
 			self.controller.port)
@@ -359,3 +431,102 @@ class RepoRequestHandler(BaseRequestHandler):
 		
 		self._set_response_headers(response)
 		self.write(response.read())
+
+
+class RepoActionMixIn(object):
+	def is_valid_repo_name(self, name):
+		return name not in ('.', '..') and '/' not in name
+
+class CreateRepoRequestHandler(BaseRequestHandler, RepoActionMixIn):
+	name = 'bzr_repo_create'
+	
+	@BaseRequestHandler.require_auth
+	def get(self):
+		self.render('bzr/repo_create.html')
+	
+	@BaseRequestHandler.require_auth
+	def post(self):
+		render_dict = {}
+		
+		def f():
+			name = self.get_argument('name')
+			
+			if not self.is_valid_repo_name(name):
+				render_dict.update(
+					layout_message_title='Invalid repository name'
+				)
+				return
+			
+			new_repo_path = os.path.join(self.controller.repo_path, name)
+		
+			if os.path.exists(new_repo_path):
+				render_dict.update(
+					layout_message_title='Repository already exists',
+					layout_message_body='No action taken.',
+				)
+				
+			else:
+				_logger.info('Creating repository %s', new_repo_path)
+			
+				os.mkdir(new_repo_path)
+				
+				p = subprocess.Popen(['bzr', 'init-repo', new_repo_path],
+					stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				
+				outdata, errdata = p.communicate()
+				
+				render_dict.update(
+					stdout=outdata,
+					stderr=errdata,
+					return_code=p.returncode,
+					layout_message_title='Repository created',
+				)
+				
+				_logger.debug('Repo creation stdout: %s', outdata)
+				_logger.debug('Repo creation stderr: %s', errdata)
+		
+		f()
+		self.render('bzr/repo_create.html', **render_dict)
+
+
+class DeleteRepoRequestHandler(BaseRequestHandler):
+	name = 'bzr_repo_delete'
+	
+	@BaseRequestHandler.require_auth
+	def get(self):
+		self.render('bzr/repo_delete.html')
+	
+	@BaseRequestHandler.require_auth
+	def post(self):
+		render_dict = {}
+		
+		if self.is_valid_repo_name(self.get_argument('name')):
+			render_dict.update(
+				layout_message_title='Invalid repository name'
+			)
+		elif self.get_argument('mollyguard') == 'deletion':
+			repo_path = os.path.join(self.controller.repo_path, self.get_argument('name'))
+			
+			if not os.path.exists(repo_path):
+				render_dict.update(
+					layout_message_title='Repository does not exist',
+					layout_message_body='No action taken.'
+				)
+			else:
+				_logger.info('Repo %s deleted', repo_path)
+				shutil.rmtree(repo_path)
+				render_dict.update(
+					layout_message_title='Repository deleted',
+				)
+		else:
+			render_dict.update(
+				layout_message_title='Incorrect guard password',
+				layout_message_body='No action taken.'
+			)
+		
+		self.render('bzr/repo_delete.html', **render_dict)
+
+class EditUserPermissionRequestHandler(BaseRequestHandler):
+	name = 'bzr_user_permission'
+	
+	# TODO: implementation
