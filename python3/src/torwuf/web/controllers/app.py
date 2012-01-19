@@ -6,8 +6,8 @@ import torwuf.web.views
 
 class Application(lolram.web.framework.app.ApplicationController):
 	controller_classes = [
-		torwuf.web.controllers.index.IndexController,
 		torwuf.web.controllers.bzr.BzrController,
+		torwuf.web.controllers.index.IndexController,
 	]
 	
 	def __init__(self, configuration):

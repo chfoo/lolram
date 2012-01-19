@@ -105,7 +105,8 @@ class BzrController(lolram.web.framework.app.BaseController):
 		
 		_logger.info('Initializing bzr user db at %s', db_path)
 		
-		self.bzr_users_db = lolram.utils.sqlitejsondbm.Database(db_path)
+		self.bzr_users_db = lolram.utils.sqlitejsondbm.Database(db_path,
+			check_same_thread=False)
 	
 	def norm_username(self, username):
 		username = username.lower().strip('._-')
@@ -117,6 +118,14 @@ class BzrController(lolram.web.framework.app.BaseController):
 	
 	def is_valid_username(self, username):
 		return frozenset(username) <= BzrController.VALID_USERNAME_SET
+	
+	def is_valid_raw_username(self, raw_username):
+		try:
+			self.norm_username(raw_username)
+		except InvalidUsernameError:
+			return False
+		else:
+			return True
 	
 	def is_valid_password(self, password):
 		return frozenset(password) <= BzrController.VALID_PASSWORD_SET
@@ -216,10 +225,10 @@ class ListUsersRequestHandler(BaseRequestHandler):
 		self.render('bzr/user_list.html', users=users)
 
 class PasswordMixIn(object):
-	def create_user(self, username):
+	def create_user(self, username, raw_username):
 		id_ = self.controller.norm_username(username)
 		self.controller.bzr_users_db[id_] = {
-			DBKeys.USERNAME: username,
+			DBKeys.USERNAME: raw_username,
 		}
 	
 	def update_password(self, username, password):
@@ -249,7 +258,7 @@ class CreateUserRequestHandler(BaseRequestHandler, PasswordMixIn):
 		confirm_password = self.get_argument('password2')
 		
 		def f():
-			if not self.controller.is_valid_username(raw_username):
+			if not self.controller.is_valid_raw_username(raw_username):
 				render_dict.update(
 					layout_message_title=
 						'Username contains unacceptable characters',
@@ -273,7 +282,7 @@ class CreateUserRequestHandler(BaseRequestHandler, PasswordMixIn):
 					layout_message_body='Please use a different username',
 				)
 			else:
-				self.create_user(username)
+				self.create_user(username, raw_username)
 				self.update_password(username, password)
 				
 				render_dict.update(
@@ -468,7 +477,7 @@ class CreateRepoRequestHandler(BaseRequestHandler, RepoActionMixIn):
 			else:
 				_logger.info('Creating repository %s', new_repo_path)
 			
-				os.mkdir(new_repo_path)
+				os.makedirs(new_repo_path)
 				
 				p = subprocess.Popen(['bzr', 'init-repo', new_repo_path],
 					stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -489,7 +498,7 @@ class CreateRepoRequestHandler(BaseRequestHandler, RepoActionMixIn):
 		self.render('bzr/repo_create.html', **render_dict)
 
 
-class DeleteRepoRequestHandler(BaseRequestHandler):
+class DeleteRepoRequestHandler(BaseRequestHandler, RepoActionMixIn):
 	name = 'bzr_repo_delete'
 	
 	@BaseRequestHandler.require_auth
@@ -500,7 +509,7 @@ class DeleteRepoRequestHandler(BaseRequestHandler):
 	def post(self):
 		render_dict = {}
 		
-		if self.is_valid_repo_name(self.get_argument('name')):
+		if not self.is_valid_repo_name(self.get_argument('name')):
 			render_dict.update(
 				layout_message_title='Invalid repository name'
 			)
