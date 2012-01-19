@@ -25,8 +25,8 @@ __docformat__ = 'restructuredtext en'
 
 
 class Database(collections.MutableMapping):
-	def __init__(self, path):
-		self.db = sqlite3.connect(path)
+	def __init__(self, path, *sqlite_args, **sqlite_kargs):
+		self.db = sqlite3.connect(path, *sqlite_args, **sqlite_kargs)
 
 		with self.db as connection:
 			connection.execute('CREATE TABLE IF NOT EXISTS '
