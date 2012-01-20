@@ -377,6 +377,10 @@ class DeleteUserRequestHandler(BaseRequestHandler):
 class RepoRequestHandler(BaseRequestHandler):
 	name = 'bzr_repo'
 	
+	def check_xsrf_cookie(self):
+		# Override function: intended for bzr smart server interaction
+		pass
+	
 	def init(self):
 		self.connection = http.client.HTTPConnection('localhost',
 			self.controller.port)
@@ -387,7 +391,7 @@ class RepoRequestHandler(BaseRequestHandler):
 		
 		for attempt_number in range(2):
 			try:
-				_logger.debug('Making request to %s', path)
+				_logger.debug('Making request to request_method=%s, path=%s, headers=%s', request_method, path, request_headers)
 				self.connection.request(request_method, path, body, headers=request_headers)
 				
 				break
@@ -415,6 +419,8 @@ class RepoRequestHandler(BaseRequestHandler):
 				self.set_header(name, value)
 		
 		self.set_status(response.getcode())
+		
+		_logger.debug('Bzr response code %s', response.getcode())
 	
 	@BaseRequestHandler.require_auth
 	def get(self, *args):
