@@ -211,12 +211,16 @@ class HTTPRequest(tornado.wsgi.HTTPRequest):
 				logging.warning("Invalid multipart/form-data")
 	
 	def _parse_request_field_storage(self):
-		self._field_storage = cgi.FieldStorage(environ=self._environ, 
-			fp=self._environ["wsgi.input"])
+		content_type = self.headers.get("Content-Type", "")
 		
-		for name in self._field_storage:
-			values = self._field_storage.getlist(name)
-			self.arguments.setdefault(name, []).extend(values)
+		if content_type.startswith("application/x-www-form-urlencoded") \
+		or content_type.startswith("multipart/form-data"):
+			self._field_storage = cgi.FieldStorage(environ=self._environ, 
+				fp=self._environ["wsgi.input"])
+		
+			for name in self._field_storage:
+				values = self._field_storage.getlist(name)
+				self.arguments.setdefault(name, []).extend(values)
 
 	def write(self, chunk, callback=None):
 		"""Writes the given chunk to the response stream."""
