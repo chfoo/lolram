@@ -1,11 +1,17 @@
+import logging
 import lolram.web.framework.app
 import os.path
-import torwuf.web.controllers.index
+import pymongo.connection
 import torwuf.web.controllers.bzr
+import torwuf.web.controllers.index
+import torwuf.web.controllers.security
 import torwuf.web.views
+
+_logger = logging.getLogger(__name__)
 
 class Application(lolram.web.framework.app.ApplicationController):
 	controller_classes = [
+		torwuf.web.controllers.security.LoginRateLimitController,
 		torwuf.web.controllers.bzr.BzrController,
 		torwuf.web.controllers.index.IndexController,
 	]
@@ -27,4 +33,16 @@ class Application(lolram.web.framework.app.ApplicationController):
 			'templates')
 	
 	def init_database(self):
-		pass #TODO
+		db_name = self.config.config_parser['mongodb']['database']
+		username = self.config.config_parser['mongodb']['username']
+		password = self.config.config_parser['mongodb']['password']
+		self._db_connection = pymongo.connection.Connection('127.0.0.1')
+		self._database = self._db_connection[db_name]
+		auth_result = self._database.authenticate(username, password)
+		
+		# To propagate our authentication to the sockets immediately,
+		# we must terminate and it will reconnect 
+		# FIXME: this solution does not work, workaround is to disable auth
+		self._db_connection.disconnect()
+		
+		_logger.info('MongoDB Login result=%s', auth_result)

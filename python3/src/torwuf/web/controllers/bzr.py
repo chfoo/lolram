@@ -137,6 +137,19 @@ class BzrController(lolram.web.framework.app.BaseController):
 		password_hash.update(str(timestamp).encode())
 		return base64.b64encode(password_hash.digest()).decode()
 	
+	def check_rate_limited(self, username):
+		if username not in self.bzr_users_db:
+			return False
+		
+		successful = self.application.controllers['LoginRateLimitController'] \
+			.record_login(username, 'bzr')
+			
+		is_rate_limited = False if successful else True
+		
+		_logger.debug('Is rate limited username=%s %s', username, is_rate_limited)
+		
+		return is_rate_limited
+	
 	def is_valid_account(self, username, password):
 		if len(self.bzr_users_db) == 0:
 			return True
@@ -186,7 +199,13 @@ class BaseRequestHandler(lolram.web.framework.app.BaseHandler):
 					username = None
 				
 				if username \
-				and self.controller.is_valid_account(username, password):
+				and self.controller.check_rate_limited(username):
+					self.set_status(403)
+					self.set_header('Content-Type', 'text/plain')
+					self.write('Too many failed login attempts in the past hour'.encode())
+					return
+				elif username and self.controller.is_valid_account(username, 
+				password):
 					self.request.username = username
 					self.request.raw_username = raw_username
 					self.request.password = password
