@@ -1,6 +1,7 @@
 debian/*.log
 debian/*.substvars
-RE:debian/[^\.]+/
+debian/torwuf
+debian/torwuf-service
 debian/tmp/
 debian/*.debhelper
 .project
