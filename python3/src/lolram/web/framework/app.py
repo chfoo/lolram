@@ -101,15 +101,21 @@ class ApplicationController(object):
 	def database(self):
 		return self._database
 	
+	@property
+	def controllers(self):
+		return self._controllers
+
 	def init_url_specs(self, controller_classes):
 		if not controller_classes:
 			raise Exception('You must define at least one controller class')
 		
 		self._url_specs = []
+		self._controllers = {}
 		
 		for controller_class in controller_classes:
 			controller = controller_class(self)
 			self._url_specs.extend(controller.url_specs)
+			self._controllers[controller.__class__.__name__] = controller
 		
 	def init_wsgi_application(self):
 		self._wsgi_application = lolram.web.tornado.WSGIApplication(

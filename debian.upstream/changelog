@@ -1,5 +1,5 @@
-lolram (0.0-upstream20120120045007) UNRELEASED; urgency=low
+lolram (0.0-upstream20120124021723) UNRELEASED; urgency=low
 
-  * Scripted build. Revision main 50
+  * Scripted build. Revision main 51
 
- -- Christopher Foo <chris.foo@gmail.com>  Thu, 19 Jan 2012 23:50:08 -0500
+ -- Christopher Foo <chris.foo@gmail.com>  Mon, 23 Jan 2012 21:17:24 -0500
