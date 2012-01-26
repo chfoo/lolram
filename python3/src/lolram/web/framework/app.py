@@ -1,3 +1,37 @@
+'''WSGI framework'''
+#
+#	Copyright © 2011-2012 Christopher Foo <chris.foo@gmail.com>
+#
+#	This file is part of Lolram.
+#
+#	Lolram is free software: you can redistribute it and/or modify
+#	it under the terms of the GNU General Public License as published by
+#	the Free Software Foundation, either version 3 of the License, or
+#	(at your option) any later version.
+#
+#	Lolram is distributed in the hope that it will be useful,
+#	but WITHOUT ANY WARRANTY; without even the implied warranty of
+#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#	GNU General Public License for more details.
+#
+#	You should have received a copy of the GNU General Public License
+#	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Copyright 2009 Facebook
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#	 http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
 import configparser
 import logging
 import lolram.web.tornado
@@ -13,7 +47,7 @@ class Configuration(object):
 		self._config_parser = config_parser
 		self._root_path = config_parser['application']['root-path']
 		self._debug_mode = debug_mode
-		self._torando_settings = {}
+		self._torando_settings = {'debug': debug_mode}
 		
 		self.read_config_file()
 		self.create_db_dirs()
@@ -148,9 +182,11 @@ class BaseController(object):
 	def url_specs(self):
 		return self._url_specs
 	
-	def add_url_spec(self, url_pattern, handler_class):
+	def add_url_spec(self, url_pattern, handler_class, **handler_kargs):
+		handler_kargs['controller'] = self 
+		
 		url_spec = tornado.web.URLSpec(url_pattern, handler_class, 
-			dict(controller=self), name=handler_class.name)
+			handler_kargs, name=handler_class.name)
 		self._url_specs.append(url_spec)
 
 
@@ -165,11 +201,11 @@ class BaseHandler(tornado.web.RequestHandler):
 	def app_controller(self):
 		return self._controller.application
 	
-	def initialize(self, controller):
+	def initialize(self, controller, **kargs):
 		self._controller = controller
-		self.init()
+		self.init(**kargs)
 	
-	def init(self):
+	def init(self, **kargs):
 		pass
 	
 	def write(self, chunk):
