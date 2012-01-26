@@ -1,0 +1,15 @@
+@media screen {
+	html, body{
+		font-family: sans-serif;
+		background-color: #182f4c;
+		color: #eeeeec;
+	}
+	
+	a:link {
+		color: #f57900;
+	}
+	
+	a:visited {
+		color: #c17d11;
+	}
+}

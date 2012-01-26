@@ -6,6 +6,7 @@ import torwuf.web.controllers.bzr
 import torwuf.web.controllers.index
 import torwuf.web.controllers.security
 import torwuf.web.views
+import torwuf.web.controllers.resource
 
 _logger = logging.getLogger(__name__)
 
@@ -13,10 +14,13 @@ class Application(lolram.web.framework.app.ApplicationController):
 	controller_classes = [
 		torwuf.web.controllers.security.LoginRateLimitController,
 		torwuf.web.controllers.bzr.BzrController,
+		torwuf.web.controllers.resource.ResourceController,
 		torwuf.web.controllers.index.IndexController,
 	]
 	
 	def __init__(self, configuration):
+		_logger.info('APP INIT')
+		
 		template_path = self._get_template_path()
 		configuration.tornado_settings.update({
 			'xsrf_cookies': True,
@@ -27,6 +31,8 @@ class Application(lolram.web.framework.app.ApplicationController):
 		
 		lolram.web.framework.app.ApplicationController.__init__(self,
 			configuration, Application.controller_classes)
+		
+		_logger.debug('Debug=%s', self.config.debug_mode)
 	
 	def _get_template_path(self):
 		return os.path.join(os.path.dirname(torwuf.web.views.__file__),
@@ -46,3 +52,12 @@ class Application(lolram.web.framework.app.ApplicationController):
 		self._db_connection.disconnect()
 		
 		_logger.info('MongoDB Login result=%s', auth_result)
+	
+	def init_cache(self):
+		# TODO: use memcached
+		pass
+	
+	@property
+	def resource_path(self):
+		return os.path.join(os.path.dirname(torwuf.web.views.__file__),
+			'resources')

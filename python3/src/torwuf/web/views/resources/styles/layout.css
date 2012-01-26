@@ -1,0 +1,16 @@
+html, body {
+	font-size: 1em;
+}
+
+nav {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+#site-footer > * {
+	padding: 0.5em;
+}
+
+#site-message {
+	margin: 1em;
+}

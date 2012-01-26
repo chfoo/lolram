@@ -151,6 +151,9 @@ class BzrController(lolram.web.framework.app.BaseController):
 		return is_rate_limited
 	
 	def rate_limit_whitelist(self, username, remote_address):
+		if len(self.bzr_users_db) == 0:
+			return
+		
 		self.application.controllers['LoginRateLimitController'] \
 			.whitelist_login('bzr', username, remote_address)
 	
@@ -201,10 +204,9 @@ class BaseRequestHandler(lolram.web.framework.app.BaseHandler):
 					username = self.controller.norm_username(username)
 				except InvalidUsernameError:
 					username = None
-					password = None
 				
 				# FIXME: this occurs on every http request so not a good idea
-				if username and password \
+				if username \
 				and self.controller.check_rate_limited(username, self.request.remote_ip):
 					self.set_status(403)
 					self.set_header('Content-Type', 'text/plain')

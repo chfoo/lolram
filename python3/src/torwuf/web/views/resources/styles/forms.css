@@ -1,0 +1,14 @@
+form label {
+	display: block;
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+form label > * {
+	display: block;
+}
+
+form label > input, textarea {
+	width: 100%;
+	
+}

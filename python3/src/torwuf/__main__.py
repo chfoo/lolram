@@ -20,6 +20,8 @@ def main():
 	arg_parser.add_argument('--config-blog', metavar='PATTERN',
 		default='/etc/torwuf/torwuf.*.conf',
 		dest='config_glob')
+	arg_parser.add_argument('--debug-mode', default=False, action='store_true',
+		dest='debug_mode')
 	args = arg_parser.parse_args()
 	
 	config_parser = configparser.ConfigParser()
@@ -30,17 +32,18 @@ def main():
 		raise Exception('Configuration file %s not found' % args.config)
 	
 	configure_logging(config_parser)
-	application, server = configure_application(config_parser)
+	application, server = configure_application(config_parser, args.debug_mode)
 	
 	if hasattr(server, 'run'):
 		server.run()
 	else:
 		server.serve_forever()
 
-def configure_application(config_parser):
+def configure_application(config_parser, debug_mode=False):
 	server_method = config_parser['server']['method']
 	
-	configuration = lolram.web.framework.app.Configuration(config_parser)
+	configuration = lolram.web.framework.app.Configuration(config_parser,
+		debug_mode=debug_mode)
 	application = torwuf.web.controllers.app.Application(configuration)
 	
 	if server_method == 'fastcgi':
