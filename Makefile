@@ -22,7 +22,7 @@ clean-unneeded-files: clean-bytecode clean-backup-files
 
 build:
 
-install: install-python-torwuf install-service
+install: install-python-torwuf install-service install-data
 
 install-python-torwuf:
 	mkdir -p ${DESTDIR}/usr/share/torwuf
@@ -33,7 +33,11 @@ install-service:
 	cp scripts/torwuf-service ${DESTDIR}/usr/sbin/
 	mkdir -p ${DESTDIR}/etc/
 	cp -r etc/* ${DESTDIR}/etc/
-	
+
+install-data:
+	mkdir -p ${DESTDIR}/usr/share/torwuf-data
+	cp -r share/* ${DESTDIR}/usr/share/torwuf-data
+
 deb-package: clean-unneeded-files make-auto-changelog
 	dpkg-buildpackage -b -uc
 

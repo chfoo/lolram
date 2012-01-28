@@ -4,6 +4,8 @@ adduser --system --group www-torwuf
 mkdir -p /home/www-torwuf/torwuf-service/
 mkdir -p /home/www-torwuf/torwuf-service/www/
 touch /home/www-torwuf/torwuf-service/www/dummy.fcgi
+ln -f -s -T /usr/share/torwuf-data/static/ /home/www-torwuf/torwuf-service/www/z
+ln -f -s /usr/share/torwuf-data/favicon.ico /home/www-torwuf/torwuf-service/www/favicon.ico
 chown www-torwuf:www-torwuf -R /home/www-torwuf/torwuf-service/
 
 invoke-rc.d torwuf-service restart

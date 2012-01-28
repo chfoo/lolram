@@ -2,6 +2,7 @@ debian/*.log
 debian/*.substvars
 debian/torwuf
 debian/torwuf-service
+debian/torwuf-data
 debian/tmp/
 debian/*.debhelper
 .project

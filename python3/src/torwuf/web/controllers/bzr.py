@@ -11,6 +11,7 @@ import string
 import subprocess
 import threading
 import time
+import torwuf.web.controllers.base
 import wsgiref.util
 
 _logger = logging.getLogger(__name__)
@@ -178,7 +179,7 @@ class BzrController(lolram.web.framework.app.BaseController):
 		# TODO: implementation
 
 
-class BaseRequestHandler(lolram.web.framework.app.BaseHandler):
+class BaseRequestHandler(torwuf.web.controllers.base.BaseHandler):
 	REALM = 'Torwuf Bzr'
 	
 	@staticmethod

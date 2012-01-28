@@ -9,7 +9,7 @@ Standards-Version: 3.9.2
 Package: torwuf
 Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, python, python3, python3-lolram
-Recommends: torwuf-service
+Recommends: torwuf-service, torwuf-data
 Description: python files that power torwuf
 
 Package: torwuf-service
@@ -17,3 +17,7 @@ Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, torwuf, lighttpd, loggerhead, python-pastedeploy, mongodb | mongodb-10gen
 Description: torwuf fastcgi server
 
+Package: torwuf-data
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: static files for torwuf
