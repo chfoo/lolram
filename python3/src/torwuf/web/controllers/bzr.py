@@ -3,7 +3,6 @@ import hashlib
 import http.client
 import logging
 import lolram.utils.sqlitejsondbm
-import lolram.web.framework.app
 import os
 import os.path
 import shutil
@@ -61,7 +60,7 @@ class DBKeys(object):
 	PASSWORD_1_TIMESTAMP = 'pwTimestamp1'
 	REPO_READWRITE_LIST ='repoRWList'
 
-class BzrController(lolram.web.framework.app.BaseController):
+class BzrController(torwuf.web.controllers.base.BaseController):
 	VALID_USERNAME_SET = frozenset(string.ascii_lowercase) \
 		| frozenset(string.digits)
 	VALID_PASSWORD_SET = frozenset(string.printable)

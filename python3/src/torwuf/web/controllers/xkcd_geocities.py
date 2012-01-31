@@ -1,6 +1,5 @@
 import json
 import logging
-import lolram.web.framework.app
 import os
 import os.path
 import random
@@ -11,11 +10,12 @@ import urllib.request
 
 _logger = logging.getLogger(__name__)
 
-class XKCDGeocitiesController(lolram.web.framework.app.BaseController):
+class XKCDGeocitiesController(torwuf.web.controllers.base.BaseController):
 	def init(self):
 		self.add_url_spec(r'/xkcd-geocities/([0-9]*)', ComicHandler)
 		self.add_url_spec(r'/xkcd-geocities/random', RandomHandler)
 		self.add_url_spec(r'/xkcd[_]?geocities/([0-9a-zA-Z]*)', ComicRedirectHandler)
+		self.add_url_spec(r'/xkcd-geocities/([0-9a-zA-Z]*)/', ComicRedirectHandler)
 		
 		self.init_data_dir()
 	

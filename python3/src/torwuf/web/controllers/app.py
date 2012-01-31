@@ -3,9 +3,11 @@ import lolram.web.framework.app
 import os.path
 import pymongo.connection
 import torwuf.web.controllers.bzr
+import torwuf.web.controllers.cms
 import torwuf.web.controllers.index
 import torwuf.web.controllers.resource
 import torwuf.web.controllers.security
+import torwuf.web.controllers.session
 import torwuf.web.controllers.xkcd_geocities
 import torwuf.web.views
 
@@ -17,6 +19,8 @@ class Application(lolram.web.framework.app.ApplicationController):
 		torwuf.web.controllers.bzr.BzrController,
 		torwuf.web.controllers.resource.ResourceController,
 		torwuf.web.controllers.xkcd_geocities.XKCDGeocitiesController,
+		torwuf.web.controllers.cms.CMSController,
+		torwuf.web.controllers.session.SessionController,
 		
 		torwuf.web.controllers.index.IndexController,
 	]

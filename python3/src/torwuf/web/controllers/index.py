@@ -1,8 +1,7 @@
-import lolram.web.framework.app
 import tornado.web
 import torwuf.web.controllers.base
 
-class IndexController(lolram.web.framework.app.BaseController):
+class IndexController(torwuf.web.controllers.base.BaseController):
 	def init(self):
 		self.add_url_spec(r'/', IndexRequestHandler)
 		self.add_url_spec(r'/(.*)', CatchAllRequestHandler)

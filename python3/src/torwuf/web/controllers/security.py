@@ -1,8 +1,8 @@
-import lolram.web.framework.app
 import time
+import torwuf.web.controllers.base
 
 # It is a bit naive and vulernable to DoS attacks
-class LoginRateLimitController(lolram.web.framework.app.BaseController):
+class LoginRateLimitController(torwuf.web.controllers.base.BaseController):
 	KEY_TIMESTAMPS = 'timestamps'
 	KEY_WHITELIST = 'whitelist'
 	

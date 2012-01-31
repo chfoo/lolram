@@ -1,0 +1,12 @@
+{% extends '../theme/layout.html' %}
+
+{% block layout_content %}
+
+
+<form method="POST">
+	{% raw xsrf_form_html() %}
+	<input type="text" name="text" value="{{ text }}" />
+	<input type="submit"/>
+</form>
+
+{% end %}

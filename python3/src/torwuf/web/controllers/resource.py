@@ -1,12 +1,12 @@
 from lolram.web.framework.handlers import SimpleStaticFileHandler
 import glob
 import logging
-import lolram.web.framework.app
 import os.path
 import pyinotify
 import shutil
 import tempfile
 import threading
+import torwuf.web.controllers.base
 
 _logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class IOEventHandler(pyinotify.ProcessEvent):
 		self.build_resources()
 
 
-class ResourceController(lolram.web.framework.app.BaseController):
+class ResourceController(torwuf.web.controllers.base.BaseController):
 	def init(self):
 		image_path = os.path.join(self.application.resource_path, 'images')
 		
