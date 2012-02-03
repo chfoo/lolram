@@ -1,3 +1,9 @@
 <nav id="site-nav">
 <a href="/">TORWUF</a>
+{% if current_user %}
+	<a href="/account/">Account</a>
+	<a href="/authentication/logout">{{ _('Sign out') }}</a>
+{% else %}
+	<a href="/authentication/login">{{ _('Sign in') }}</a>
+{% end %}
 </nav>

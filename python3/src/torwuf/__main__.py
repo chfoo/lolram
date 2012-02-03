@@ -8,6 +8,8 @@ import lolram.web.framework.app
 import lolram.web.wsgi
 import os
 import os.path
+import subprocess
+import threading
 import torwuf.web.controllers.app
 import torwuf.web.utils
 import wsgiref.simple_server
@@ -17,11 +19,14 @@ def main():
 	arg_parser.add_argument('--config', metavar='FILE',
 		default='/etc/torwuf/torwuf.conf',
 		dest='config')
-	arg_parser.add_argument('--config-blog', metavar='PATTERN',
+	arg_parser.add_argument('--config-glob', metavar='PATTERN',
 		default='/etc/torwuf/torwuf.*.conf',
 		dest='config_glob')
 	arg_parser.add_argument('--debug-mode', default=False, action='store_true',
 		dest='debug_mode')
+	arg_parser.add_argument('--rpc-server', default=False, action='store_true', 
+		dest='rpc_server')
+	arg_parser.add_argument('--python-2-path', dest='python_2_path')
 	args = arg_parser.parse_args()
 	
 	config_parser = configparser.ConfigParser()
@@ -33,6 +38,9 @@ def main():
 	
 	configure_logging(config_parser)
 	application, server = configure_application(config_parser, args.debug_mode)
+	
+	if args.rpc_server:
+		run_rpc_server(args.python_2_path, args.config, args.config_glob)
 	
 	if hasattr(server, 'run'):
 		server.run()
@@ -88,6 +96,22 @@ def configure_logging(config_parser):
 		logger.addHandler(handler)
 		handler.setFormatter(logging.Formatter('%(asctime)s '+
 			'%(name)s:%(module)s:%(lineno)d:%(levelname)s %(message)s'))
+
+def run_rpc_server(path, config_path, config_glob_path):
+	env = os.environ.copy()
+	# We don't want to mix python 3 paths, so we clear it 
+	env['PYTHONPATH'] = path
+	
+	def runner():
+		p = subprocess.Popen(['python', '-m', 'torwuf.rpc2to3', '--config', 
+			config_path, '--config-glob', config_glob_path],
+			env=env
+		)
+		p.wait()
+	
+	thread = threading.Thread(target=runner)
+	thread.daemon = True
+	thread.start()
 
 if __name__ == '__main__':
 	main()

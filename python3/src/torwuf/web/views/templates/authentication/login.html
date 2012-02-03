@@ -1,0 +1,30 @@
+{% extends '../theme/layout.html' %}
+{% block title %}
+	{% set title = _('Sign in') %}
+{% end %}
+
+{% block layout_content %}
+<p>{{ _('Please sign in with your OpenID URL') }}</p>
+
+
+<form method="POST" action="{{ reverse_url('authen_openid_stage_1') }}" 
+enctype="application/x-www-form-urlencoded">
+	{% raw xsrf_form_html() %}
+	
+	<label>
+		OpenID:
+		<input type="text" name="openid_url" />
+	</label>
+	
+	<label>
+		Remember me:
+		<input type="checkbox" name="persistent" value="yes" />
+		<span>Yes</span>
+	</label>
+
+	<input type="submit" name="submit" value="{{ _('Continue') }}"/>
+</form>
+
+<p>Realm: {{ realm }} </p>
+
+{% end %}

@@ -22,11 +22,15 @@ clean-unneeded-files: clean-bytecode clean-backup-files
 
 build:
 
-install: install-python-torwuf install-service install-data
+install: install-python2-torwuf install-python3-torwuf install-service install-data
 
-install-python-torwuf:
-	mkdir -p ${DESTDIR}/usr/share/torwuf
-	cp -r python3/src/* ${DESTDIR}/usr/share/torwuf
+install-python3-torwuf:
+	mkdir -p ${DESTDIR}/usr/share/torwuf/python3
+	cp -r python3/src/* ${DESTDIR}/usr/share/torwuf/python3
+	
+install-python2-torwuf:
+	mkdir -p ${DESTDIR}/usr/share/torwuf/python2
+	cp -r python3/src/* ${DESTDIR}/usr/share/torwuf/python2
 
 install-service:
 	mkdir -p ${DESTDIR}/usr/sbin/

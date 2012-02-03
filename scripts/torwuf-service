@@ -4,4 +4,4 @@
 
 mkdir -p /var/run/torwuf-service/
 chown www-torwuf:www-torwuf /var/run/torwuf-service/
-sudo -u www-torwuf -g www-torwuf PYTHONPATH=${PYTHONPATH}:/usr/share/torwuf python3 /usr/share/torwuf/torwuf/
+sudo -u www-torwuf -g www-torwuf PYTHONPATH=${PYTHONPATH}:/usr/share/torwuf python3 /usr/share/torwuf/torwuf/python3

@@ -6,6 +6,7 @@
 <form method="POST">
 	{% raw xsrf_form_html() %}
 	<input type="text" name="text" value="{{ text }}" />
+	<input type="text" name="persistent_text" value="{{ persistent_text }}" />
 	<input type="submit"/>
 </form>
 
