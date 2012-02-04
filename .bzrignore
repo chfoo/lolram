@@ -13,3 +13,4 @@ debian/source
 etc/torwuf/*.pem
 etc/torwuf/*.private.conf
 *.bak
+tests/*.private.conf

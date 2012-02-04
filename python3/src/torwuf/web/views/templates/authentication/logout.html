@@ -1,9 +1,10 @@
-{% extends '../theme/layout.html' %}
+{% extends 'base.html' %}
+
+{% block content %}
 {% block title %}
 	{% set title = _('Signed out') %}
 {% end %}
 
-{% block layout_content %}
 <p>{{ _('You are now signed out') }}</p>
 
 

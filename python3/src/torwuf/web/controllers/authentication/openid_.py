@@ -1,15 +1,15 @@
-from .authenticationbase import AuthenticationHandlerMixIn
+from .mixins import ProcessingMixIn
+from torwuf.web.models.authentication import SuccessSessionKeys
 import torwuf.web.controllers.base
 import urllib.parse
 import xmlrpc.client
 
-class AuthenticationController(torwuf.web.controllers.base.BaseController):
+class OpenIDController(torwuf.web.controllers.base.BaseController):
 	def init(self):
-		self.add_url_spec('/authentication/show_openid', ShowOpenIDHandler)
-		self.add_url_spec('/authentication/openid_stage_1', OpenIDStage1Handler)
-		self.add_url_spec('/authentication/openid_stage_2', OpenIDStage2Handler)
-		self.add_url_spec('/authentication/login', LoginHandler)
-		self.add_url_spec('/authentication/logout', LogoutHandler)
+		self.add_url_spec('/openid/show_openid', ShowOpenIDHandler)
+		self.add_url_spec('/openid/openid_stage_1', OpenIDStage1Handler)
+		self.add_url_spec('/openid/openid_stage_2', OpenIDStage2Handler)
+		self.add_url_spec('/openid/login', LoginHandler)
 		
 		self.init_server_proxy()
 	
@@ -26,21 +26,14 @@ class ShowOpenIDHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'authen_show_openid'
 	
 	def get(self):
-		self.render('authentication/show_openid.html',
+		self.render('authentication/openid/show_openid.html',
 			display_id=self.get_openid_display_id(),
 			identity_url=self.get_openid_identity_url(),
 		)
 
-class OpenIDBaseHandler(torwuf.web.controllers.base.BaseHandler):
+class OpenIDBaseHandler(torwuf.web.controllers.base.BaseHandler, ProcessingMixIn):
 	SESSION_KEY = 'openid_session'
 	SESSION_RECENT_FAILURE_KEY = 'openid_failure'
-	HTTPS_WILDCARD_REALM = 'https://*.torwuf.com'
-	
-	def get_realm(self):
-		if self.request.host.split(':', 1)[0] in ('localhost', '127.0.0.1'):
-			return self.request.protocol + '://' + self.request.host
-		else:
-			return OpenIDBaseHandler.HTTPS_WILDCARD_REALM
 	
 	def set_openid_failure_flag(self):
 		self.session[OpenIDBaseHandler.SESSION_RECENT_FAILURE_KEY] = True
@@ -70,7 +63,7 @@ class LoginHandler(OpenIDBaseHandler):
 			self.clear_openid_failure_flag()
 			self.session_commit()
 		
-		self.render('authentication/login.html',
+		self.render('authentication/openid/login.html',
 			**render_dict
 		)
 
@@ -79,13 +72,9 @@ class OpenIDStage1Handler(OpenIDBaseHandler):
 	
 	def post(self):
 		realm = self.get_realm()
-		openid_url = self.get_argument('openid_url')
-		destination = self.get_argument('destination', '')
-		persistent = self.get_argument('persistent', '')
+		openid_url = self.get_argument('openid')
 		return_to_url = self.request.protocol + "://" + self.request.host + \
 			self.reverse_url(OpenIDStage2Handler.name)
-		return_to_url += '?destination=%s&persistent=%s' % (destination,
-			persistent)
 		result = self.controller.rpc_server.openid_stage_1(openid_url, 
 			return_to_url, realm)
 		
@@ -109,39 +98,21 @@ class OpenIDStage2Handler(OpenIDBaseHandler):
 	def get(self):
 		query_kvp_dict = dict(urllib.parse.parse_qsl(self.request.query))
 		session_data = self.session.get(OpenIDBaseHandler.SESSION_KEY, '')
-		be_persistent = self.get_argument('persistent', False)
 		
 		result = self.controller.rpc_server.openid_stage_2(session_data, 
 			query_kvp_dict, self.request.full_url())
 		
 		if result:
 			identity_url, display_id = result
-			session = self._persistent_session if be_persistent else self.session
-			session[AuthenticationHandlerMixIn.\
-				SESSION_OPENID_IDENTIY_URL] = identity_url
-			session[AuthenticationHandlerMixIn.\
-				SESSION_OPENID_DISPLAY_IDENTIFIER] = display_id
-				
+			self.session[SuccessSessionKeys.KEY] = {
+				SuccessSessionKeys.ID : identity_url,
+				SuccessSessionKeys.DISPLAY_NAME : display_id,
+			}
+			
 			self.session.pop(OpenIDBaseHandler.SESSION_KEY, None)
+			self.session_commit()
+			self.redirect(self.reverse_url('account_openid_success'))
 		else:
 			self.set_openid_failure_flag()
-		
-		self.session_commit()
-		self.forward_user_to_destination()
-	
-	def forward_user_to_destination(self):
-		name = OpenIDStage2Handler.destination_table.get(
-			self.get_argument('destination', None))
-		
-		if name:
-			self.redirect(self.reverse_url(name), permanent=False)
-		else:
-			self.redirect(self.reverse_url(LoginHandler.name), permanent=False)
-
-class LogoutHandler(OpenIDBaseHandler):
-	name = 'authen_logout'
-	
-	def get(self):
-		self.clear_current_user()
-		self.session_commit()
-		self.render('authentication/logout.html')
+			self.session_commit()
+			self.redirect(self.reverse_url(LoginHandler.name))

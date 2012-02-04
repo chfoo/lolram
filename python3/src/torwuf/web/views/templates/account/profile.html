@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% block title %}
+	{% set title = 'Profile' %}
+{% end %}
+
+<table>
+	<tr>
+		<th>{{ _('UUID:') }}</th>
+		<td>{{ model_data['id_'] }}</td>
+	</tr>
+	<tr>
+		<th>{{ _('Display name:') }}</th>
+		<td>{{ model_data.get(model_keys.DISPLAY_NAME) }}</td>
+	</tr>
+	
+		<tr>
+		<th>{{ _('Email addresses:') }}</th>
+		<td>{{ model_data.get(model_keys.EMAILS) }}</td>
+	</tr>
+
+</table>
+
+{% end %}

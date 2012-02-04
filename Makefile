@@ -30,7 +30,7 @@ install-python3-torwuf:
 	
 install-python2-torwuf:
 	mkdir -p ${DESTDIR}/usr/share/torwuf/python2
-	cp -r python3/src/* ${DESTDIR}/usr/share/torwuf/python2
+	cp -r python2/src/* ${DESTDIR}/usr/share/torwuf/python2
 
 install-service:
 	mkdir -p ${DESTDIR}/usr/sbin/
