@@ -1,7 +1,5 @@
 PYTHON_DIR="${DESTDIR}/usr/share/pyshared/"
 PYTHON3_DIR="${DESTDIR}/usr/lib/python3/dist-packages"
-CHANGELOG_FILENAME="debian/changelog"
-CHANGELOG := ${CHANGELOG_FILENAME}
 
 all: build
 
@@ -45,11 +43,9 @@ install-data:
 deb-package: clean-unneeded-files make-auto-changelog
 	dpkg-buildpackage -b -uc
 
-MESSAGE="Scripted build. Revision `(bzr nick && bzr revno) || (git name-rev --name-only HEAD && git rev-parse HEAD)`"
 make-auto-changelog:
-	rm -f ${CHANGELOG_FILENAME}
-	debchange --changelog ${CHANGELOG_FILENAME} --preserve \
-		--newversion `cat VERSION`-upstream`date --utc "+%Y%m%d%H%M%S"` \
-		--distribution UNRELEASED --force-distribution \
-		--create ${MESSAGE} --package torwuf
+	./make_auto_changelog.py --source-package=torwuf torwuf torwuf-service torwuf-data
 
+deb-clean-packages:
+	rm ../torwuf*.deb
+	rm ../torwuf*.changes

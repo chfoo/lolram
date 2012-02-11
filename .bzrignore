@@ -14,3 +14,6 @@ etc/torwuf/*.pem
 etc/torwuf/*.private.conf
 *.bak
 tests/*.private.conf
+share/static/misc_third_party
+debian/*.changelog
+.change_hash.*
