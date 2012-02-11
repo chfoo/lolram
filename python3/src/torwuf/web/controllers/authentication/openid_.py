@@ -6,12 +6,14 @@ import xmlrpc.client
 
 class OpenIDController(torwuf.web.controllers.base.BaseController):
 	def init(self):
-		self.add_url_spec('/openid/show_openid', ShowOpenIDHandler)
-		self.add_url_spec('/openid/openid_stage_1', OpenIDStage1Handler)
-		self.add_url_spec('/openid/openid_stage_2', OpenIDStage2Handler)
-		self.add_url_spec('/openid/login', LoginHandler)
-		
-		self.init_server_proxy()
+		# TODO: figure out how to get email
+#		self.add_url_spec('/openid/show_openid', ShowOpenIDHandler)
+#		self.add_url_spec('/openid/openid_stage_1', OpenIDStage1Handler)
+#		self.add_url_spec('/openid/openid_stage_2', OpenIDStage2Handler)
+#		self.add_url_spec('/openid/login', LoginHandler)
+#		
+#		self.init_server_proxy()
+		pass
 	
 	def init_server_proxy(self):
 		address = 'http://%s:%s/' % (
@@ -105,7 +107,7 @@ class OpenIDStage2Handler(OpenIDBaseHandler):
 		if result:
 			identity_url, display_id = result
 			self.session[SuccessSessionKeys.KEY] = {
-				SuccessSessionKeys.ID : identity_url,
+				SuccessSessionKeys.OPENID : identity_url,
 				SuccessSessionKeys.DISPLAY_NAME : display_id,
 			}
 			

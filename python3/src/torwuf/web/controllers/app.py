@@ -12,6 +12,7 @@ import torwuf.web.controllers.xkcd_geocities
 import torwuf.web.controllers.authentication.openid_
 import torwuf.web.views
 import torwuf.web.controllers.authentication.googident
+import torwuf.web.controllers.account
 
 _logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class Application(lolram.web.framework.app.ApplicationController):
 		torwuf.web.controllers.session.SessionController,
 		torwuf.web.controllers.authentication.openid_.OpenIDController,
 		torwuf.web.controllers.authentication.googident.GoogleIdentityController,
+		torwuf.web.controllers.account.AccountController,
 		
 		torwuf.web.controllers.index.IndexController,
 	]

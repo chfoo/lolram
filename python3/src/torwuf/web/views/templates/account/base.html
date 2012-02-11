@@ -14,7 +14,8 @@
 
 <nav>
 <h1>Navigation</h1>
-	
+<a href="{{ reverse_url('account_profile') }}">{{ _('View Profile') }}</a>
+<a href="{{ reverse_url('account_profile_edit') }}">{{ _('Edit Profile') }}</a>
 </nav>
 
 {% end %}

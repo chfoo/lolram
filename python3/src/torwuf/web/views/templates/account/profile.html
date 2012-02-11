@@ -9,16 +9,16 @@
 <table>
 	<tr>
 		<th>{{ _('UUID:') }}</th>
-		<td>{{ model_data['id_'] }}</td>
+		<td>{{ db_model['_id'] }}</td>
 	</tr>
 	<tr>
 		<th>{{ _('Display name:') }}</th>
-		<td>{{ model_data.get(model_keys.DISPLAY_NAME) }}</td>
+		<td>{{ db_model.get(AccountCollection.DISPLAY_NAME) }}</td>
 	</tr>
 	
 		<tr>
 		<th>{{ _('Email addresses:') }}</th>
-		<td>{{ model_data.get(model_keys.EMAILS) }}</td>
+		<td>{{ ', '.join(db_model.get(AccountCollection.EMAILS)) }}</td>
 	</tr>
 
 </table>

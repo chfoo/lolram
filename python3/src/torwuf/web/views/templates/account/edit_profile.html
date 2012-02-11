@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% block title %}
+	{% set title = 'Edit Profile' %}
+{% end %}
+
+<form action="{{ reverse_url('account_profile_edit') }}" 
+enctype="application/x-www-form-urlencoded" method="POST">
+	{% raw xsrf_form_html() %}
+
+
+	<label>
+		Display name:
+		
+		<input type="text" name="display_name" value="{{ display_name }}" />
+		
+		
+	</label>
+	
+	<input type="submit" name="submit" value="{{ _('Save') }}"/>
+</form>
+
+{% end %}

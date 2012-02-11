@@ -1,6 +1,6 @@
 from .mixins import ProcessingMixIn
 from tornado.web import HTTPError
-from torwuf.web.models.authentication import SuccessSessionKeys
+from torwuf.web.models.authentication import SuccessSessionKeys, SessionKeys
 import http.client
 import json
 import logging
@@ -94,7 +94,7 @@ class LoginHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixIn):
 	name = 'googident_login'
 	
 	def get(self):
-		self.render('googident/login.html')
+		self.render('authentication/googident/login.html')
 	
 	def post(self):
 		url = self.controller.create_auth_url(self.get_return_to_url(), 
@@ -142,13 +142,17 @@ class ReturnHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixIn):
 			self.request.body, self.request.remote_ip)
 		
 		if data:
+			display_name = data.get('displayName') or data.get('firstName') \
+				or data['verifiedEmail'].split('@', 1)[0]
+			
 			self.session[SuccessSessionKeys.KEY] = {
-				SuccessSessionKeys.DISPLAY_NAME : data.get('SuccessSessionKeys'),
+				SuccessSessionKeys.DISPLAY_NAME : display_name,
 				SuccessSessionKeys.EMAIL : data.get('verifiedEmail'),
-				SuccessSessionKeys.ID : data.get('identifier'),
+				SuccessSessionKeys.OPENID : data.get('identifier'),
 				SuccessSessionKeys.FIRST_NAME : data.get('firstName'),
 				SuccessSessionKeys.LAST_NAME : data.get('lastName'),
 			}
+			self.session[SessionKeys.CURRENT_OPENID] = data['identifier']
 			self.session_commit()
 			self.redirect(self.reverse_url('account_openid_success'))
 		else:
@@ -158,4 +162,4 @@ class NotSupportedHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'googident_not_supported'
 	
 	def get(self):
-		self.render('googident/not_supported.html')
+		self.render('authentication/googident/not_supported.html')

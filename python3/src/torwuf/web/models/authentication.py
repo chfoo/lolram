@@ -1,9 +1,10 @@
 class SessionKeys(object):
-	CURRENT_HEX_ID = 'current_hex_id'
+	CURRENT_ACCOUNT_ID = 'current_account_id'
+	CURRENT_OPENID = 'current_openid'
 
 class SuccessSessionKeys(object):
 	KEY = 'openid_authen_success'
-	ID = 'id'
+	OPENID = 'id'
 	EMAIL = 'email'
 	DISPLAY_NAME = 'display_name'
 	FIRST_NAME = 'first_name'

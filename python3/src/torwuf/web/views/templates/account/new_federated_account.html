@@ -1,0 +1,41 @@
+{% extends '../theme/layout.html' %}
+{% block title %}
+	{% set title = _('Create a New Account') %}
+{% end %}
+
+{% block layout_content %}
+
+<h1>{{ title }}</h1>
+
+<form action="{{ reverse_url('account_new_federated_account') }}"
+method="POST" enctype="application/x-www-form-urlencoded">
+	{% raw xsrf_form_html() %}
+	
+	<label>
+		Display name: 
+		<input type="text" name="display_name" value="{{ display_name }}"/>
+	</label>
+	
+	<label>
+		First name: 
+		<input type="text" name="first_name" value="{{ first_name }}"/>
+	</label>
+	
+	
+	<label>
+		Last name: 
+		<input type="text" name="last_name" value="{{ last_name }}"/>
+	</label>
+	
+	
+	
+	<label>
+		E-mail: 
+		<input type="email" name="email" value="{{ email }}" disabled="disabled"/>
+	</label>
+	
+	<input type="submit" name="submit" value="{{ _('Create Account') }}"/>
+
+</form>
+
+{% end %}

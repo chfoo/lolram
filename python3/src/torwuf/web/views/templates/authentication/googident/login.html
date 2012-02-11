@@ -5,15 +5,15 @@
 	{% set title = _('Sign in') %}
 {% end %}
 
-<h2>{{ _('Sign in using your email address') }}</h2>
+<!-- <h2>{{ _('Sign in using your email address') }}</h2>
 
 <ul>
 	<li>
 		<a href="{{ reverse_url('googident_login_domain', 'gmail') }}">Google Mail / Gmail</a>
 	</li>
-<!-- 	<li>
+ 	<li>
 		<a href="{{ reverse_url('googident_login_domain', 'aol') }}">AOL Mail</a>
-	</li> -->
+	</li>
 	<li>
 		<a href="{{ reverse_url('googident_login_domain', 'yahoo') }}">Yahoo! Mail</a>
 	</li>
@@ -21,13 +21,15 @@
 </ul>
 
 <h2>{{ _('Or, type your email address') }}</h2>
-
+ -->
+ 
+ 
 <form method="POST" action="{{ reverse_url('googident_login') }}" 
 enctype="application/x-www-form-urlencoded">
 	{% raw xsrf_form_html() %}
 	
 	<label>
-		Email
+		E-mail:
 		<input type="email" name="email" />
 	</label>
 	
