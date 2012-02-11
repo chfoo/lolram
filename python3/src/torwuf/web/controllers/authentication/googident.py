@@ -37,6 +37,10 @@ class GoogleIdentityController(torwuf.web.controllers.base.BaseController):
 			except http.client.NotConnected:
 				_logger.debug('Not Connected')
 				self.connection.connect()
+			except http.client.ImproperConnectionState:
+				_logger.debug('Bad connection state')
+				self.connection.close()
+				self.connection.connect()
 		else:
 			raise Exception('unable to make a new connection')
 		
