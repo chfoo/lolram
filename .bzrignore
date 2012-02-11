@@ -15,3 +15,5 @@ debian/
 __pycache__
 debian.upstream/files
 debian.upstream/source
+debian.upstream/*.changelog
+.change_hash.*
