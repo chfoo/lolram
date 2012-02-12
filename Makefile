@@ -40,11 +40,17 @@ deb-package: clean-unneeded-files make-auto-changelog
 	ln -s -T debian.upstream debian || true
 	dpkg-buildpackage -b -uc
 
+MESSAGE="Scripted build. Revision `(bzr nick && bzr revno) || (git name-rev --name-only HEAD && git rev-parse HEAD)`"
 make-auto-changelog:
-	./make_auto_changelog.py --source-package=lolram python-lolram python3-lolram python-lolram-source
+	rm -f ${CHANGELOG_FILENAME}
+	debchange --changelog ${CHANGELOG_FILENAME} --preserve \
+		--newversion `cat VERSION`-upstream`date --utc "+%Y%m%d%H%M%S"` \
+		--distribution UNRELEASED --force-distribution \
+		--create ${MESSAGE} --package lolram
 
 deb-clean-packages:
 	rm ../python-lolram_*.deb
 	rm ../python3-lolram_*.deb
 	rm ../python-lolram-doc_*.deb
 	rm ../lolram_*.changes
+
