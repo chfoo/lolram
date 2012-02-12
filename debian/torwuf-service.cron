@@ -1,4 +1,4 @@
 #
-# Regular cron jobs for the python-torwuf package
+# Regular cron jobs for the torwuf-service package
 #
-#0 4	* * *	root	[ -x /usr/bin/python-torwuf_maintenance ] && /usr/bin/python-torwuf_maintenance
+0 4	* * *	www-torwuf	[ -x /usr/sbin/torwuf-service-backup ] && /usr/sbin/torwuf-service-backup

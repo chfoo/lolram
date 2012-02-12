@@ -88,7 +88,7 @@ class ComicHandler(torwuf.web.controllers.base.BaseHandler):
 		
 		render_dict = dict(
 			title=data['title'],
-			image_path='/z/xkcd_geocities/',
+			image_path='/z/r/xkcd_geocities/',
 			next=min(num + 1, latest_num),
 			previous=max(num - 1, 1),
 			first='/xkcd-geocities/1',

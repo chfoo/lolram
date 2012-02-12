@@ -14,7 +14,7 @@ Description: python files that power torwuf
 
 Package: torwuf-service
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, torwuf, lighttpd, loggerhead, python-pastedeploy, mongodb | mongodb-10gen, python-openid, python-pymongo
+Depends: ${shlibs:Depends}, ${misc:Depends}, torwuf, lighttpd, loggerhead, python-pastedeploy, mongodb | mongodb-10gen, python-openid, python-pymongo, sqlite3
 Description: torwuf fastcgi server
 
 Package: torwuf-data
