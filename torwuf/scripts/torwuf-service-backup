@@ -1,0 +1,21 @@
+#!/bin/sh
+
+DIR=/home/www-torwuf/torwuf-service/databases
+mkdir -p $DIR/backup/
+
+sqlite3 $DIR/bzr_users.db .dump | gzip > $DIR/backup/bzr_users.db.sql.gz
+
+PY="
+import configparser
+config_parser = configparser.ConfigParser()
+config_parser.read(['/etc/torwuf/torwuf.private.conf'])
+print(config_parser['mongodb']['password'], end='')
+"
+
+PASSWORD=`python3 -c "$PY"`
+
+mkdir -p $DIR/backup/mongodb/
+
+mongodump -db torwuf_2 -u torwuf -p$PASSWORD -o $DIR/backup/mongodb > \
+	$DIR/backup/mongodb/torwuf_2_dump.log 2>&1
+gzip -f $DIR/backup/mongodb/torwuf_2/*.bson

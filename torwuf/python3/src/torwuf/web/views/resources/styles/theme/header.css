@@ -1,0 +1,18 @@
+@media screen {
+	#site-header {
+		background-color: black;
+		box-shadow: 0px .1em .1em 0px black;
+		background-color: black;
+	}
+	
+	#site-banner {
+		height: 25px;
+		background-image: url("/resource/images/theme/banner_text.png");
+		background-repeat: no-repeat;
+		background-position: 0px 5px;
+		width: 92px;
+		display: inline-block;
+		margin-left: 0.5em;
+		margin-right: 0.5em;
+	}
+}

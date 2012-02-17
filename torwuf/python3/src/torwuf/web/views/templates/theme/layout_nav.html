@@ -1,0 +1,15 @@
+<nav id="site-nav">
+<a href="/">TORWUF</a>
+{% if current_user %}
+	
+	{% if not current_user.startswith('account') %}
+		<a href="/account/login">{{ _('Create account') }}</a>
+	{% else %}
+		<a href="/account/">My Account</a>
+	{% end %}
+	
+	<a href="/account/logout">{{ _('Sign out') }}</a>
+{% else %}
+	<a href="/account/login">{{ _('Sign in') }}</a>
+{% end %}
+</nav>

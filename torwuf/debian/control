@@ -1,0 +1,23 @@
+Source: torwuf
+Section: python
+Priority: extra
+Maintainer: Christopher Foo <chris.foo@gmail.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.2
+
+
+Package: torwuf
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, python, python3, python3-lolram
+Recommends: torwuf-service, torwuf-data
+Description: python files that power torwuf
+
+Package: torwuf-service
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, torwuf, lighttpd, loggerhead, python-pastedeploy, mongodb | mongodb-10gen, python-openid, python-pymongo, sqlite3
+Description: torwuf fastcgi server
+
+Package: torwuf-data
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: static files for torwuf

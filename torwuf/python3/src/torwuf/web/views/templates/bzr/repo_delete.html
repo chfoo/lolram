@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}
+	{% set title = 'Delete repository' %}
+{% end %}
+
+{% block content %}
+
+	<form action="" method="POST">
+		{% raw xsrf_form_html() %}
+		
+	
+		<label>
+			Repository name:
+			
+			<input type="text" name="name"/>
+		
+		</label>
+		
+		<br/>
+		
+		<label>
+			Enter the keyword “deletion”:
+			
+			<input type="text" name="mollyguard"/>
+		
+		</label>
+		
+		<br/>
+		
+		<p><em>Deletions are permanent!</em> Please be careful!</p>
+		<input type="submit" value="Apply"/>
+	</form>
+
+{% end %}

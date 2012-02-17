@@ -1,0 +1,165 @@
+<HTML WEB="2.0">
+<HEAD>
+<TITLE>
+xkcd - A Webcomic - {{ title }} - HOSTED BY GEOCITIES
+</TITLE>
+<link rel="alternate" type="application/atom+xml" title="Atom 1.0" href="http://xkcd.com/atom.xml" />
+<link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="http://xkcd.com/rss.xml" />
+{% comment <link rel="icon" href="/static/favicon.ico" type="image/x-icon" /> %}
+{% comment <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" /> %}
+</HEAD>
+INT MAIN(VOID)
+{
+	COUT << "\
+<BODY BACKGROUND="{{ image_path }}STARS.GIF">
+<FONT COLOR="#88FF88" STYLE="FORTHRIGHT">
+<CENTER>
+<IMG WIDTH="280px" SRC="{{ image_path }}geocities.jpg"><BR>
+<IMG SRC="{{ image_path }}CONST1.GIF">&nbsp;
+<IMG WIDTH="400px" SRC="{{ image_path }}CONST2.GIF">&nbsp;
+<IMG SRC="{{ image_path }}CONST1.GIF">&NBSP;
+<TABLE BORDER="5" CONS=() WIDTH="800px">
+<TR>
+<TD width="170px">
+<FONT COLOR="#88FF88" FACE="COMIC SANS MS">
+<A HREF="http://xkcd.com/archive/">Archive</A> 
+<A HREF="http://echochamber.me">Guestbook</A><BR>
+<A HREF="http://mail.lycos.com/"><IMG SRC="{{ image_path }}EMAIL1.GIF"></a><A HREF="http://blag.xkcd.com/">News/Blag</A><BR>
+<IMG SRC="A HREF"><A HREF="http://store.xkcd.com/">E-Commerce</A><BR>
+<A HREF="http://xkcd.com/about/">About the Webmaster</A><BR>
+<IMG SRC="{{ image_path }}ANTISP~1.GIF">
+</TD>
+<SCRIPT LANGUAGE="QBASIC">IF $BROWSER = "IE" THEN GOTO 50</SCRIPT>
+<TD>
+<A HREF="http://xkcd.com/"><IMG SRC="{{ image_path }}XKCDLO~1.JPG" alt="THE INTERNET COMIC WEBRING&NBSP;&NBSP;" />&QUOT; &GT;</A>&nbsp;
+<BR>
+<FONT COLOR="#2468AC" FACE="COMIC SANS MS">&lt;A HREF="A <FONT COLOR="#FF4466">web</FONT>comic of romance, sarcasm, math, and language.
+<BR>
+<MARQUEE><FONT COLOR="FF0000" FACE="COMIC SANS MS" SIZE="+2">GeoCities is shutting down today. To commemorate this, xkcd.com has been redesigned."&gt;<IMG SRC="{{ image_path }}BROKEN~1.png"></MARQUEE>
+</TD>
+</TR>
+</TABLE FONT="800px">
+<HR><JAVA>
+<FONT SIZE="+3" FACE="COMIC SANS MS">
+COMIC TITLE: {{ title }}
+</FONT>
+<TABLE BORDER="5" CELLPADDING="5" SHELL="REGEDIT.EXE">
+<FONT COLOR="#88FF88" FACE="COMIC SANS MS">
+<TR>
+<TD>
+<TD><A HREF="{{ first }}"><IMG SRC="{{ image_path }}left5.gif"></A>
+</TD>
+<TD>
+<A HREF="{{ previous }}" accesskey="p"><IMG SRC="{{ image_path }}left4.gif"></A>
+</TD>
+<TD><FONT COLOR="#bababa" FACE="COMIC SANS MS"><span style="text-decoration:blink;">&lt;BLINK&gt;<A HREF="{{ random }}" id="rnd_btn_t">rAnDoM</A></span>&lt;/BLINK&gt;
+</FONT></TD>
+<TD>
+<A HREF="{{ next }}" accesskey="n"><IMG SRC="{{ image_path }}right5.gif"></A>
+</TD>
+<TD><A HREF="{{ last }}">&gt;<IMG SRC="{{ image_path }}right4.gif">/A>
+</TD>
+<TD></TD><TD><IMG SRC="{{ image_path }}BROKEN~1.png"></TD>
+</TR>
+</TABLE>
+<BR>
+<LANG="AMERICAN/ESPA☃ISH">
+<IMG SRC="{{ comic_image }}" title="{{ comic_hovertext }}" alt="{{ title }}" /><BR>
+<BR>
+</TD></TR></TABLE>
+<TABLE BORDER="5" CELLPADDING="20">
+<TR>
+<TD>
+<A HREF="{{ first }}">|&lt;</A>
+</TD>
+<TD>
+<A HREF="{{ previous }}" accesskey="p">&lt; Prev</a></A>
+</TD>
+<TD><FONT COLOR="#bababa"><span style="text-decoration:blink;">&lt;BLINK&gt;<A HREF="{{ random }}" id="rnd_btn_t">rAnDoM</A></span>&lt;/BLINK&gt;
+<TD><A HREF="{{ random }}" id="rnd_btn_t">Random</A>
+</TD>
+<TD>
+<A HREF="{{ next }}" accesskey="n">Next &gt;</A>
+</TD>
+<TD><A HREF="{{ last }}">&gt;|</A>
+</TD>
+<TD></TD><TD><IMG SRC="{{ image_path }}BROKEN~1.png"></TD>
+</TR>
+</TABLE>
+<BR>
+<TABLE BORDER="8" CELLPADDING="5">
+<TR>
+<TD>
+<A HREF="http://xkcd.com/150/"><img src="{{ image_path }}static/grownups_icon.png" alt="Grownups" />
+</TD>
+<TD>
+<A HREF="http://xkcd.com/123/"><img src="{{ image_path }}static/centrifugal_force_icon.png" alt="Centrifugal Force" />
+</TD>
+<TD>
+<A HREF="http://xkcd.com/162/"><img src="{{ image_path }}static/angular_momentum_icon.jpg" alt="Angular Momentum" />
+</TD>
+<TD>
+<A HREF="http://xkcd.com/55/"><img src="http://localhost/static/USELES~1.PNG">
+</TD>
+<TD>
+<A HREF="http://xkcd.com/77/"><img src="{{ image_path }}static/bored_with_the_internet_icon.jpg" alt="Bored with the Internet" /></A>
+</TD>
+
+<SCRIPT LANGUAGE='SCHEME'>(define (eval exp env)  (cond ((self-evaluating? exp) exp)  ((variable? exp) (lookup-variable-value exp env))  ((quoted? exp) (text-of-quotation exp))  ((assignment? exp) (eval-assignment exp env))  ((definition? exp) (eval-definition exp env))  ((if? exp) (eval-if exp env))  ((lambda? exp)  (make-procedure (lambda-parameters exp)  (lambda-body exp)  env))  ((begin? exp)   (eval-sequence (begin-actions exp) env))  ((cond? exp) (eval (cond->if exp) env))  ((application? exp)  (apply (eval (operator exp) env)  (list-of-values (operands exp) env)))  (else  (error "Common Lisp or Netscape Navigator 4.0+ Required" exp))))</SCRIPT>
+<TABLE BORDER="4" CELLPADDING="20"">
+<TR>
+<TD>
+<A HREF="http://xkcd.com/rss.xml">SUBSCRIBE</A></TD>
+<TD><A HREF="http://xkcd.com/atom.xml">SUBSCR~1</A></TD>
+</TR>
+<TR>
+<TD>
+Livejournal Comic Feed SUBSCRIBE: <A HREF='http://syndicated.livejournal.com/xkcd_rss/profile'><img src='http://imgs.xkcd.com/static/syndicated.gif' alt='[info]' width='16' height='16' class='lj' /></A><A HREF='http://syndicated.livejournal.com/xkcd_rss/profile'>xkcd_rss</A><BR><BR><BR>
+</TD>
+</TR>
+<TR>
+<TD>LiveJournal Website Feed SUBSCRIBE </TD>
+<TD><A HREF='http://syndicated.livejournal.com/xkcd_blag/profile'><img src='{{ image_path }}static/syndicated.gif' alt='[info]' width='16' height='16' class='lj' /></A><A HREF='http://syndicated.livejournal.com/xkcd_blag/profile'>xkcd_blag</A><BR>
+</TD></TR>
+</TABLE>
+<BR>
+<IMG SRC="{{ image_path }}counter.gif"><BR>
+Pageview hit counter<BR><BR><BRB>
+<img src="{{ image_path }}webaward2.gif">
+<img src="{{ image_path }}coolsite16.gif">
+<img src="{{ image_path }}coolsite11.gif">
+<img src="{{ image_path }}webtrips.gif">
+<HR>
+The internet comic webring!
+<TABLE BORDER="3">
+<TR>
+<TD><A HREF="#"><IMG SRC="http://localhost/static/back.png"></A></TD>
+<TD><A HREF="http://www.qwantz.com">Dinosaur Comics</A></TD>
+<TD><A HREF="http://www.asofterworld.com">A Softer World</A></TD>
+<TD><A HREF="http://pbfcomics.com/">Perry Bible Fellowship</A></TD>
+<TD><A HREF="http://www.boltcity.com/copper/">Copper</A></TD>
+<TD><A HREF="http://questionablecontent.net/">Questionable Content</A></TD>
+<TD><A HREF="http://achewood.com/">Achewood</A></TD>
+<TD><A HREF="http://wondermark.com/">Wondermark</A></TD>
+<TD><A HREF="http://thisisindexed.com/">Indexed</A></TD>
+<TD><A HREF="http://www.buttercupfestival.com/buttercupfestival.htm">Buttercup Festival</A></TD>
+<TD><A HREF="#"><IMG SRC="http://localhost/static/NEXT.png"></A></TD>
+</TR>
+</TABLE COLOR="8">
+<BR>
+<A HREF="http://xkcd.com/store/"><IMG SRC="{{ image_path }}ad.jpg" TITLE="TESTED ON KITES"></A>
+<BR><BR>&LT;BR
+<TABLE BORDER="5">
+<TR>
+<TD>
+<A REL="license" HREF="http://creativecommons.org/licenses/by-nc/2.5/"><img alt="Creative Commons License" style="border:none" src="{{ image_path }}/static/somerights20.png" /></A><br/></TD>
+<TD>This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/2.5/">Creative Commons Attribution-NonCommercial 2.5 License</A>.
+<!-- <rdf:RDF xmlns="http://web.resource.org/cc/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><Work rdf:about=""><dc:creator>Randall Munroe</dc:creator><dcterms:rightsHolder>Randall Munroe</dcterms:rightsHolder><dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage" /><dc:source rdf:resource="http://www.xkcd.com/"/><license rdf:resource="http://creativecommons.org/licenses/by-nc/2.5/" /></Work><License rdf:about="http://creativecommons.org/licenses/by-nc/2.5/"><permits rdf:resource="http://web.resource.org/cc/Reproduction" /><permits rdf:resource="http://web.resource.org/cc/Distribution" /><requires rdf:resource="http://web.resource.org/cc/Notice" /><requires rdf:resource="http://web.resource.org/cc/Attribution" /><prohibits rdf:resource="http://web.resource.org/cc/CommercialUse" /><permits rdf:resource="http://web.resource.org/cc/DerivativeWorks" /></License></rdf:RDF> --></TD>
+</TR></TABLE>
+         This means you're free to copy and share these comics (but not to sell them). <A HREF="http://xkcd.com/license.html">More details.<BR><BR><BR><BR>
+<IMG SRC="{{ image_path }}netscape.gif">Best viewed in Netscape Navigator 4.7 or better at 800x480<BR><BR></FONT>
+</BODY>
+</HTML>
+GOTO 10
+ 
+

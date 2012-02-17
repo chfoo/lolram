@@ -1,0 +1,12 @@
+<!--
+{% block title %}
+{% end %}
+ -->
+
+{% try %}
+	{% set _layout_head_title = '%s – %s' % (title, 'Torwuf') %}
+{% except NameError %}
+	{% set _layout_head_title = 'Torwuf' %}
+{% end %}
+
+<title>{{ _layout_head_title }}</title>

@@ -1,0 +1,13 @@
+@media screen {
+	html, body {
+		margin: 0px;
+	}
+	
+	#site-content {
+		margin: .5em;
+	}
+	
+	#site-content, #site-message {
+		max-width: 40em;
+	}
+}

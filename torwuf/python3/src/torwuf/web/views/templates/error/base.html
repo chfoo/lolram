@@ -1,0 +1,21 @@
+{% extends '../theme/layout.html' %}
+
+{% block layout_content %}
+<section>
+{% block content %}
+<p>Undefined content</p>
+{% end %}
+</section>
+
+<section>
+<code>{{ status_code }} {{ status_msg }}</code>
+</section>
+
+<section>
+<pre>
+{{ traceback_str }}
+</pre>
+</section>
+
+<!-- {{ 'x' * 500 }} -->
+{% end %}

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% block title %}
+{% if 'id' in form_data %}
+	{% set title = 'New Article' %}
+{% else %}
+	{% set title = 'Edit Article' %}
+{% end %}
+{% end %}
+
+{% if 'doc_info' in globals() %}
+<section>
+<h1>Preview</h1>
+
+{% module Template('cms/rest.html', doc_info=doc_info) %}
+</section>
+{% end %}
+
+<form action="" method="POST" enctype="multipart/form-data">
+	{% raw xsrf_form_html() %}
+
+	{% if 'id' in form_data %}
+	<label>
+		ID:
+		<input type="text" name="id" value="{{ form_data['id'] }}"/>
+	</label>
+	{% end %}
+	
+	<label>
+		Title:
+		<input type="text" name="title" value="{{ form_data.get('title', '') }}"/>
+	</label>
+	
+	<label>
+		Date:
+		<input type="text" name="date" value="{{ form_data.get('date', '') }}"/>
+	</label>
+	
+	<label>
+		Content:
+		
+		<textarea name='text'>{{ form_data.get('text', '') }}</textarea>
+	
+	</label>
+	
+	<label>
+		Tags:
+		<input type="text" name="tags" value="{{ form_data.get('tags', '') }}"/>
+	</label>
+	
+	<label>
+		Related Tags:
+		<input type="text" name="related_tags" value="{{ form_data.get('related_tags', '') }}"/>
+	</label>
+	
+	<input type="submit" name='save' value="Save"/>
+	<input type="submit" name='preview' value="Preview"/>
+</form>
+
+{% end %}
