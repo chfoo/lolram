@@ -21,17 +21,19 @@ import logging
 import lolram.web.framework.app
 import os.path
 import pymongo.connection
+import torwuf.web.controllers.account.account
+import torwuf.web.controllers.account.authentication.googident
+import torwuf.web.controllers.account.authentication.openid_
+import torwuf.web.controllers.account.authorization.authorization
 import torwuf.web.controllers.bzr
 import torwuf.web.controllers.cms
 import torwuf.web.controllers.index
+import torwuf.web.controllers.pacs
 import torwuf.web.controllers.resource
 import torwuf.web.controllers.security
 import torwuf.web.controllers.session
 import torwuf.web.controllers.xkcd_geocities
-import torwuf.web.controllers.authentication.openid_
 import torwuf.web.views
-import torwuf.web.controllers.authentication.googident
-import torwuf.web.controllers.account
 
 _logger = logging.getLogger(__name__)
 
@@ -43,9 +45,11 @@ class Application(lolram.web.framework.app.ApplicationController):
 		torwuf.web.controllers.xkcd_geocities.XKCDGeocitiesController,
 		torwuf.web.controllers.cms.CMSController,
 		torwuf.web.controllers.session.SessionController,
-		torwuf.web.controllers.authentication.openid_.OpenIDController,
-		torwuf.web.controllers.authentication.googident.GoogleIdentityController,
-		torwuf.web.controllers.account.AccountController,
+		torwuf.web.controllers.account.authentication.openid_.OpenIDController,
+		torwuf.web.controllers.account.authentication.googident.GoogleIdentityController,
+		torwuf.web.controllers.account.account.AccountController,
+		torwuf.web.controllers.account.authorization.authorization.AuthorizationController,
+		torwuf.web.controllers.pacs.PacsController,
 		
 		torwuf.web.controllers.index.IndexController,
 	]

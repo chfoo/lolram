@@ -25,6 +25,7 @@ import json
 import logging
 import torwuf.web.controllers.base
 import urllib.parse
+import threading
 
 _logger = logging.getLogger(__name__)
 
@@ -44,24 +45,32 @@ class GoogleIdentityController(torwuf.web.controllers.base.BaseController):
 	
 	def init_connection_pool(self):
 		self.connection = http.client.HTTPSConnection('www.googleapis.com')
+		self.lock = threading.Lock()
 	
 	def make_connection(self, path, body=None):
-		for attempt_number in range(2):
-			try:
-				_logger.debug('Making request to googleapis=%s', path)
-				self.connection.request('POST', path, body,
-					headers={'Content-Type': 'application/json'})
-				
-				break
-			except http.client.NotConnected:
-				_logger.debug('Not Connected')
-				self.connection.connect()
-			except http.client.ImproperConnectionState:
-				_logger.debug('Bad connection state')
-				self.connection.close()
-				self.connection.connect()
-		else:
-			raise Exception('unable to make a new connection')
+		# TODO: is http.client thread safe? should be using a lock?
+		
+		with self.lock:
+			for attempt_number in range(2):
+				try:
+					_logger.debug('Making request to googleapis=%s', path)
+					self.connection.request('POST', path, body,
+						headers={'Content-Type': 'application/json'})
+					
+					break
+				except http.client.NotConnected:
+					_logger.debug('Not Connected')
+					self.connection.connect()
+				except http.client.ImproperConnectionState:
+					_logger.debug('Bad connection state')
+					self.connection.close()
+					self.connection.connect()
+				except http.client.BadStatusLine:
+					_logger.debug('Bad status line')
+					self.connection.close()
+					self.connection.connect()
+			else:
+				raise Exception('unable to make a new connection')
 		
 		return self.connection
 	

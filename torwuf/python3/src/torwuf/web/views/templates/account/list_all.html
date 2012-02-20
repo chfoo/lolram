@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% block title %}
+	{% set title = 'All Accounts' %}
+{% end %}
+
+<table>
+	<tr>
+		<th>UUID</th>
+		<th>Display name</th>
+		<th>Email</th>
+		<th>Openid</th>
+		<th>Groups</th>
+	</tr>
+
+	{% for result in results %}
+	<tr>
+		<td>{{ result['_id'] }}</td>
+		<td>{{ result[AccountCollection.DISPLAY_NAME] }}</td>
+		<td>{{ result[AccountCollection.EMAILS] }}</td>
+		<td>{{ result[AccountCollection.OPENID_ID_URLS] }}</td>
+		<td>{{ result.get(AccountCollection.AUTHORIZED_GROUPS) }}</td>
+	</tr>
+	{% end %}
+
+</table>
+
+{% end %}

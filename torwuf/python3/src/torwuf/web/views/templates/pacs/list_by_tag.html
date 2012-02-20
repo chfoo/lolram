@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% block title %}
+	{% set title = tag %}
+{% end %}
+
+{% for result in results %}
+<section>
+<aside class="pacs-edit-link">
+<a href="{{ reverse_url('pacs_edit', result['_id']) }}" title="Edit">_</a>
+</aside>
+<pre>{{ result[PacsCollection.TEXT] }}</pre>
+</section>
+
+{% end %}
+
+{% end %}

@@ -18,8 +18,10 @@
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
 from tornado.httpclient import HTTPError
-from torwuf.web.controllers.authentication.mixins import \
-	AuthenticationHandlerMixIn
+from torwuf.web.controllers.account.authentication.decorators import \
+	require_authentication
+from torwuf.web.controllers.account.authorization.decorators import \
+	require_admin
 from torwuf.web.models.account import AccountCollection
 from torwuf.web.models.authentication import SuccessSessionKeys, SessionKeys
 import datetime
@@ -51,10 +53,16 @@ class AccountController(torwuf.web.controllers.base.BaseController):
 		self.add_url_spec('/account/profile', ProfileHandler)
 		self.add_url_spec('/account/post_login', PostLoginHandler)
 		self.add_url_spec('/account/profile/edit', EditProfileHandler)
+		self.add_url_spec('/account/list_all', ListAllHandler)
 #		self.add_url_spec('/account/passwords', PasswordsHandler)
 #		self.add_url_spec('/account/passwords/add', AddPasswordHandler)
 #		self.add_url_spec('/account/passwords/delete', DeletePasswordHandler)
-
+	
+	def init_collection(self):
+		self.database[AccountCollection.COLLECTION].ensure_index(
+			AccountCollection.EMAILS)
+		self.database[AccountCollection.COLLECTION].ensure_index(
+			AccountCollection.OPENID_ID_URLS)
 
 class HandlerMixIn(object):
 	@property
@@ -88,7 +96,7 @@ class LogoutHandler(torwuf.web.controllers.base.BaseHandler):
 class ProfileHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixIn):
 	name = 'account_profile'
 	
-	@AuthenticationHandlerMixIn.require_account
+	@require_authentication
 	def get(self):
 		result = self.account_collection.find_one({'_id': self.current_account_uuid})
 		
@@ -99,13 +107,13 @@ class ProfileHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixIn):
 class EditProfileHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixIn):
 	name = 'account_profile_edit'
 	
-	@AuthenticationHandlerMixIn.require_account
+	@require_authentication
 	def get(self):
 		result = self.account_collection.find_one({'_id': self.current_account_uuid})
 		
 		self.render('account/edit_profile.html', display_name=result[AccountCollection.DISPLAY_NAME])
 	
-	@AuthenticationHandlerMixIn.require_account
+	@require_authentication
 	def post(self):
 		display_name = self.get_argument('display_name')
 		
@@ -213,3 +221,14 @@ class PostLoginHandler(torwuf.web.controllers.base.BaseHandler):
 		# TODO: determine whether login is persistent
 		# TODO: redirect user to where they wanted to go originally
 		self.redirect('/')
+
+class ListAllHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixIn):
+	name = 'account_list_all'
+	
+	@require_admin
+	def get(self):
+		results = self.account_collection.find()
+		
+		self.render('account/list_all.html', 
+			AccountCollection=AccountCollection,
+			results=results)

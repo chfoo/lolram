@@ -64,15 +64,6 @@ class AuthenticationHandlerMixIn(object):
 		self.persistent_session.pop(SessionKeys.CURRENT_ACCOUNT_ID, None)
 		self.persistent_session.pop(SessionKeys.CURRENT_OPENID, None)
 	
-	@staticmethod
-	def require_account(fn):
-		def wrapper(self, *args, **kargs):
-			if not self.current_account_id:
-				self.redirect('/account/login')
-			else:
-				return fn(self, *args, **kargs)
-			
-		return wrapper
 
 class ProcessingMixIn(object):
 	# XXX: It is important that realm must stay static as much as possible

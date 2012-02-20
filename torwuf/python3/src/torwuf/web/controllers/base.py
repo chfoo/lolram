@@ -20,7 +20,7 @@
 import lolram.web.framework.app
 import torwuf.web.controllers.error
 import torwuf.web.controllers.sessionbase
-from torwuf.web.controllers.authentication.mixins import AuthenticationHandlerMixIn
+from torwuf.web.controllers.account.authentication.mixins import AuthenticationHandlerMixIn
 
 class BaseController(lolram.web.framework.app.BaseController):
 	pass

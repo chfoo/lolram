@@ -32,4 +32,4 @@ torwuf/etc/torwuf/*.private.conf
 torwuf/tests/*.private.conf
 torwuf/debian/*.changelog
 .change_hash.*
-
+.bzr.retired.*

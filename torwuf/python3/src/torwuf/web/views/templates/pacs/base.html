@@ -1,0 +1,21 @@
+{% extends '../theme/layout.html' %}
+{% block title %}
+	{% set title = 'Pac-Man Text Art (“ascii-pacs”)' %}
+{% end %}
+
+{% block layout_content %}
+
+<h1>{{ title }}</h1>
+
+<section>
+{% block content %}
+{% end %}
+</section>
+
+<nav>
+<a href="{{ reverse_url('pacs_list_all') }}">Pacs</a>
+<a href="{{ reverse_url('pacs_new') }}">New</a>
+</nav>
+
+
+{% end %}

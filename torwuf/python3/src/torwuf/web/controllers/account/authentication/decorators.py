@@ -1,4 +1,4 @@
-'''Authorization database keys'''
+'''Authentication decorators'''
 #
 #	Copyright (c) 2012 Christopher Foo <chris.foo@gmail.com>
 #
@@ -17,7 +17,14 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-class TokenCollection(object):
-	COLLECTION = 'authorization_tokens'
-	ACTIVATION_KEY = 'key'
-	TARGET_GROUP = 'group'
+import functools
+
+def require_authentication(fn):
+	@functools.wraps(fn)
+	def wrapper(self, *args, **kargs):
+		if not self.current_account_id:
+			self.redirect('/account/login')
+		else:
+			return fn(self, *args, **kargs)
+		
+	return wrapper

@@ -16,9 +16,14 @@
 		<td>{{ db_model.get(AccountCollection.DISPLAY_NAME) }}</td>
 	</tr>
 	
-		<tr>
+	<tr>
 		<th>{{ _('Email addresses:') }}</th>
 		<td>{{ ', '.join(db_model.get(AccountCollection.EMAILS)) }}</td>
+	</tr>
+	
+	<tr>
+		<th>{{ _('Groups:') }}</th>
+		<td>{{ ', '.join(db_model.get(AccountCollection.AUTHORIZED_GROUPS, [])) }}</td>
 	</tr>
 
 </table>
