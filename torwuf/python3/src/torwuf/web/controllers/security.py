@@ -37,7 +37,7 @@ class LoginRateLimitController(torwuf.web.controllers.base.BaseController):
 			if remote_address in result.get(LoginRateLimitController.KEY_WHITELIST, []):
 				return True
 			
-			timestamps = result[LoginRateLimitController.KEY_TIMESTAMPS]
+			timestamps = result.get(LoginRateLimitController.KEY_TIMESTAMPS, [])
 			timestamps = list(filter(lambda t: t >= past_hour, timestamps))
 			
 			if len(timestamps) >= limit:

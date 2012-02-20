@@ -33,3 +33,5 @@ torwuf/tests/*.private.conf
 torwuf/debian/*.changelog
 .change_hash.*
 .bzr.retired.*
+torwuf*.changes
+torwuf*.deb
