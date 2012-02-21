@@ -19,10 +19,14 @@
 #
 import gzip
 import io
+import logging
 import lolram.web.headers
 import tempfile
+import urllib.parse
 
 __docformat__ = 'restructuredtext en'
+
+_logger = logging.getLogger(__name__)
 
 class PathRouter(object):
 	'''Routes applications based on URL path'''
@@ -185,3 +189,63 @@ class Compressor(object):
 			for v in app_iterator:
 				yield v
 		
+class StripDummyAppPath(object):
+	'''Strips the dummy app path provided in SCRIPT_NAME even though
+	the user does not see the dummy app path
+	'''
+	
+	def __init__(self, app, prefix='/dummy.fcgi'):
+		self.app = app
+		self.prefix = prefix
+	
+	def __call__(self, environ, start_response):
+		new_script_name = environ['SCRIPT_NAME'].replace(
+			self.prefix, '', 1)
+		
+		# TODO: remove following logic (not sure why i put it there)
+#		new_path_info = environ['REQUEST_URI'].split('?', 1)[0]
+		
+		_logger.debug('SCRIPT_NAME %s to %s', environ['SCRIPT_NAME'], new_script_name)
+#		_logger.debug('PATH_INFO %s to %s', environ['PATH_INFO'], new_path_info)
+		_logger.debug('REQUEST_URI %s', environ.get('REQUEST_URI'))
+		
+		environ['SCRIPT_NAME'] = new_script_name
+#		environ['PATH_INFO'] = new_path_info
+		return self.app(environ, start_response)
+
+
+#class DecodeNonConformingPathInfo(object):
+#	'''Attempts to decode PATH_INFO that is left as percent-encoded.
+#	
+#	It will try to decode as utf8, then latin1 as specified in wsgi specs
+#	for python 3. It does not channel utf8 bytes as latin1!
+#	
+#	:note: Only use this app if definitely know that your server
+#		does not conform
+#	'''
+#	
+#	def __init__(self, app):
+#		self.app = app
+#	
+#	def __call__(self, environ, start_response):
+#		new_path_info = urllib.parse.unquote(environ['PATH_INFO'])
+#		
+#		_logger.debug('PATH_INFO %s to %s', environ['PATH_INFO'], new_path_info)
+#		
+#		environ['PATH_INFO'] = new_path_info
+#		return self.app(environ, start_response)
+
+class DecodeFromLatin1ToUnicode(object):
+	'''Decodes utf8 bytes channelled into latin1 to unicode'''
+	
+	def __init__(self, app):
+		self.app = app
+	
+	def __call__(self, environ, start_response):
+		new_path_info = environ['PATH_INFO'].encode('latin1').decode('utf8')
+		
+		_logger.debug('PATH_INFO %s to %s', environ['PATH_INFO'], new_path_info)
+		
+		environ['PATH_INFO'] = new_path_info
+		return self.app(environ, start_response)
+	

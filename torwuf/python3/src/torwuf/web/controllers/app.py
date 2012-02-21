@@ -32,6 +32,7 @@ import torwuf.web.controllers.pacs
 import torwuf.web.controllers.resource
 import torwuf.web.controllers.security
 import torwuf.web.controllers.session
+import torwuf.web.controllers.test
 import torwuf.web.controllers.xkcd_geocities
 import torwuf.web.views
 
@@ -50,6 +51,7 @@ class Application(lolram.web.framework.app.ApplicationController):
 		torwuf.web.controllers.account.account.AccountController,
 		torwuf.web.controllers.account.authorization.authorization.AuthorizationController,
 		torwuf.web.controllers.pacs.PacsController,
+		torwuf.web.controllers.test.TestController,
 		
 		torwuf.web.controllers.index.IndexController,
 	]

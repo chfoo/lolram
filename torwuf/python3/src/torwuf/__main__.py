@@ -75,8 +75,9 @@ def configure_application(config_parser, debug_mode=False):
 	
 	if server_method == 'fastcgi':
 		path = config_parser['server']['path']
-		wsgi_application = torwuf.web.utils.StripDummyAppPath(
-			application.wsgi_application)
+		wsgi_application = lolram.web.wsgi.StripDummyAppPath(
+			lolram.web.wsgi.DecodeFromLatin1ToUnicode(
+				application.wsgi_application))
 		server = flup.server.fcgi.WSGIServer(wsgi_application,
 			bindAddress=path, umask=0o111)
 		
@@ -84,7 +85,8 @@ def configure_application(config_parser, debug_mode=False):
 		address = config_parser['server']['address']
 		port = int(config_parser['server']['port'])
 		server = wsgiref.simple_server.make_server(address, port,
-			application.wsgi_application)
+			lolram.web.wsgi.DecodeFromLatin1ToUnicode(
+				application.wsgi_application))
 	
 	if config_parser['application'].getboolean('compress'):
 		application = lolram.web.wsgi.Compressor(application)
