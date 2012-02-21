@@ -201,16 +201,15 @@ class StripDummyAppPath(object):
 	def __call__(self, environ, start_response):
 		new_script_name = environ['SCRIPT_NAME'].replace(
 			self.prefix, '', 1)
-		
-		# TODO: remove following logic (not sure why i put it there)
-#		new_path_info = environ['REQUEST_URI'].split('?', 1)[0]
+		new_path_info = environ['PATH_INFO'].replace(
+			self.prefix, '', 1)
 		
 		_logger.debug('SCRIPT_NAME %s to %s', environ['SCRIPT_NAME'], new_script_name)
-#		_logger.debug('PATH_INFO %s to %s', environ['PATH_INFO'], new_path_info)
-		_logger.debug('REQUEST_URI %s', environ.get('REQUEST_URI'))
+		_logger.debug('PATH_INFO %s to %s', environ['PATH_INFO'], new_path_info)
+#		_logger.debug('REQUEST_URI %s', environ.get('REQUEST_URI'))
 		
 		environ['SCRIPT_NAME'] = new_script_name
-#		environ['PATH_INFO'] = new_path_info
+		environ['PATH_INFO'] = new_path_info
 		return self.app(environ, start_response)
 
 
@@ -243,9 +242,12 @@ class DecodeFromLatin1ToUnicode(object):
 	
 	def __call__(self, environ, start_response):
 		new_path_info = environ['PATH_INFO'].encode('latin1').decode('utf8')
+#		new_request_uri = environ['REQUEST_URI'].encode('latin1').decode('utf8')
 		
 		_logger.debug('PATH_INFO %s to %s', environ['PATH_INFO'], new_path_info)
+#		_logger.debug('REQUEST_URI %s to %s', environ['REQUEST_URI'], new_request_uri)
 		
 		environ['PATH_INFO'] = new_path_info
+#		environ['REQUEST_URI'] = new_request_uri
 		return self.app(environ, start_response)
 	
