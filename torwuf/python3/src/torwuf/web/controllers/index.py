@@ -23,12 +23,33 @@ import torwuf.web.controllers.base
 class IndexController(torwuf.web.controllers.base.BaseController):
 	def init(self):
 		self.add_url_spec(r'/', IndexRequestHandler)
+		self.add_url_spec(r'/dummy.fcgi/(.*)', MisconfiguredDummyAppHandler)
+		self.add_url_spec(r'/z/(.*)', MissingStaticFilesHandler)
 		self.add_url_spec(r'/(.*)', CatchAllRequestHandler)
 
 class IndexRequestHandler(torwuf.web.controllers.base.BaseHandler):
+	name = 'index'
+	
 	def get(self):
 		self.render('index/index.html')
 
 class CatchAllRequestHandler(torwuf.web.controllers.base.BaseHandler):
+	name = 'catch_all'
+	
 	def get(self, arg):
 		raise tornado.web.HTTPError(500)
+
+class MisconfiguredDummyAppHandler(torwuf.web.controllers.base.BaseHandler):
+	# XXX: might want to fix this in the lighttpd config
+	
+	name = 'misconfigured_dummy_app'
+	
+	def get(self, arg):
+		self.redirect('/%s' % arg, permanent=True)
+
+class MissingStaticFilesHandler(torwuf.web.controllers.base.BaseHandler):
+	name = 'missing_static_files'
+	
+	def get(self, arg):
+		raise tornado.web.HTTPError(500, 
+			'Static file directory missing? Not in production mode?')

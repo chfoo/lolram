@@ -36,8 +36,10 @@ import configparser
 import logging
 import lolram.web.tornado
 import os.path
+import string
 import tempfile
 import tornado.web
+import urllib.parse
 import warnings
 
 _logger = logging.getLogger(__name__)
@@ -183,9 +185,12 @@ class BaseController(object):
 		return self._url_specs
 	
 	def add_url_spec(self, url_pattern, handler_class, **handler_kargs):
-		handler_kargs['controller'] = self 
+		handler_kargs['controller'] = self
 		
-		url_spec = tornado.web.URLSpec(url_pattern, handler_class, 
+		# XXX: hax to get utf8 support
+		escaped_url_pattern = urllib.parse.quote(url_pattern, safe=string.printable)
+		
+		url_spec = tornado.web.URLSpec(escaped_url_pattern, handler_class, 
 			handler_kargs, name=handler_class.name)
 		self._url_specs.append(url_spec)
 
