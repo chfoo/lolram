@@ -4,7 +4,7 @@
 {% for result in results %}
 <section>
 <aside class="pacs-edit-link">
-<a href="{{ reverse_url('pacs_edit', result['_id']) }}" title="Edit">_</a>
+<a href="{{ reverse_url('pacs_view_single', str(result['_id']).lower()) }}" title="View">_</a>
 </aside>
 <pre>{{ result[PacsCollection.TEXT] }}</pre>
 </section>

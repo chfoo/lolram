@@ -54,3 +54,6 @@ deb-clean-packages:
 	rm ../python-lolram-doc_*.deb
 	rm ../lolram_*.changes
 
+deb-package-torwuf:
+	make -C torwuf/ deb-package
+

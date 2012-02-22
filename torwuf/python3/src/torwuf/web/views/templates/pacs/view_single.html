@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<section>
+<pre>{{ result[PacsCollection.TEXT] }}</pre>
+
+<aside>
+<a href="{{ reverse_url('pacs_edit', result['_id']) }}" title="Edit">Edit</a>
+</aside>
+</section>
+
+
+
+{% end %}

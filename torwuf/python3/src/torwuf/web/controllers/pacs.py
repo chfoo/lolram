@@ -46,8 +46,9 @@ class PacsController(torwuf.web.controllers.base.BaseController):
 	def init(self):
 		self.add_url_spec('/pacs/', ListAllHandler)
 		self.add_url_spec('/pacs/new', NewHandler)
+		self.add_url_spec('/pacs/mass_new', MassNewHandler)
 		self.add_url_spec('/pacs/tag/(.*)', ListByTagHandler)
-#		self.add_url_spec(r'/pacs/([{}-a-zA-Z0-9]+)', None)
+		self.add_url_spec(r'/pacs/([-{}a-zA-Z0-9]+)', ViewSingleHandler)
 		self.add_url_spec(r'/pacs/([-{}a-zA-Z0-9]+)/edit', EditHandler)
 		
 		self.pac_collection.ensure_index([(PacsCollection.TAGS, pymongo.ASCENDING)])
@@ -104,6 +105,32 @@ class NewHandler(torwuf.web.controllers.base.BaseHandler):
 		
 		self.redirect(self.reverse_url(ListAllHandler.name))
 
+class MassNewHandler(torwuf.web.controllers.base.BaseHandler):
+	name = 'pacs_mass_new'
+	SEPERATOR = '{4942fb40-a139-41ba-95a4-c692941e52a9}'
+	
+	@require_group('pacs')
+	def get(self):
+		self.render('pacs/mass_new.html', mass_text='', tags='', 
+			seperator=MassNewHandler.SEPERATOR)
+	
+	@require_group('pacs')
+	def post(self):
+		mass_text = self.get_argument('mass_text')
+		tags = self.get_argument('tags', '')
+		tag_list = list(sorted(frozenset(shlex.split(tags))))
+		
+		for text in mass_text.split(MassNewHandler.SEPERATOR):
+			doc_id = self.controller.pac_collection.insert({
+				PacsCollection.TEXT: text,
+				PacsCollection.TAGS: tag_list
+			})
+		
+		self.controller.aggregate_tags()
+		
+		self.redirect(self.reverse_url(ListAllHandler.name))
+
+
 def list_to_str(tags):
 	escaped_list = []
 	
@@ -117,6 +144,17 @@ def list_to_str(tags):
 		escaped_list.append(tag)
 	
 	return ' '.join(escaped_list)
+
+class ViewSingleHandler(torwuf.web.controllers.base.BaseHandler):
+	name = 'pacs_view_single'
+	
+	def get(self, doc_hex_id):
+		result = self.controller.pac_collection.find_one(bson.objectid.ObjectId(doc_hex_id))
+		
+		if result:
+			self.render('pacs/view_single.html', result=result, PacsCollection=PacsCollection)
+		else:
+			raise HTTPError(404, 'pac not found')
 
 class EditHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'pacs_edit'
