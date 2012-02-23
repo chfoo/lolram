@@ -17,6 +17,7 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
+import http.client
 import tornado.web
 import torwuf.web.controllers.base
 
@@ -37,7 +38,24 @@ class CatchAllRequestHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'catch_all'
 	
 	def get(self, arg):
+		handlers = self.app_controller.wsgi_application._get_host_handlers(self.request)
+		path = self.request.path
+		
+		if path.endswith('/'):
+			path = path.rstrip('/')
+		else:
+			path = '%s/' % path
+		
+		for spec in handlers:
+			match = spec.regex.match(path)
+			if match and spec.name != CatchAllRequestHandler.name:
+				self.set_status(http.client.MULTIPLE_CHOICES)
+				self.render('index/disambig.html', path=path)
+				return
+					
 		raise tornado.web.HTTPError(500)
+	
+					
 
 class MisconfiguredDummyAppHandler(torwuf.web.controllers.base.BaseHandler):
 	# XXX: might want to fix this in the lighttpd config

@@ -26,21 +26,29 @@ class SessionController(torwuf.web.controllers.base.BaseController):
 	# TODO: periodic maintenance (ie cleaning up old sessions)
 
 class TestHandler(torwuf.web.controllers.base.BaseHandler):
+	name = 'session_test'
 	KEY = 'session_test_text'
 	PERSISTENT_KEY = 'persistent_session_test_text'
 	
 	def get(self):
+		self.add_message('hello')
+		
 		self.render('session/test.html', 
 			text=self.session.get(TestHandler.KEY, ''),
 			persistent_text=self.persistent_session.get(TestHandler.PERSISTENT_KEY, ''),
 		)
 	
 	def post(self):
-		self.session[TestHandler.KEY] = self.get_argument('text', '')
-		self.persistent_session[TestHandler.PERSISTENT_KEY] = self.get_argument('persistent_text', '')
-		self.session_commit()
+		with self.get_session() as session, \
+		self.get_persistent_session() as persistent_session:
+			session[TestHandler.KEY] = self.get_argument('text', '')
+			persistent_session[TestHandler.PERSISTENT_KEY] = self.get_argument('persistent_text', '')
 		
-		self.render('session/test.html', 
-			text=self.session.get(TestHandler.KEY, ''),
-			persistent_text=self.persistent_session.get(TestHandler.PERSISTENT_KEY, ''),
-		)
+		self.add_message('Text saved')
+		
+		self.redirect(self.reverse_url(TestHandler.name))
+#		self.render('session/test.html', 
+#			text=self.session.get(TestHandler.KEY, ''),
+#			persistent_text=self.persistent_session.get(TestHandler.PERSISTENT_KEY, ''),
+#		)
+		

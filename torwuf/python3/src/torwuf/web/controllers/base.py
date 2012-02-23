@@ -17,22 +17,53 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
+from torwuf.web.controllers.account.authentication.mixins import \
+	AuthenticationHandlerMixIn
+from torwuf.web.controllers.session.mixin import SessionHandlerMixIn
+import logging
 import lolram.web.framework.app
 import torwuf.web.controllers.error
-import torwuf.web.controllers.sessionbase
-from torwuf.web.controllers.account.authentication.mixins import AuthenticationHandlerMixIn
+
+_logger = logging.getLogger(__name__)
 
 class BaseController(lolram.web.framework.app.BaseController):
 	pass
 
 class BaseHandler(lolram.web.framework.app.BaseHandler, 
 torwuf.web.controllers.error.ErrorOutputHandlerMixin,
-torwuf.web.controllers.sessionbase.SessionHandlerMixIn,
+SessionHandlerMixIn,
 AuthenticationHandlerMixIn,
 ):
+	MESSAGE_SESSION_KEY = '_messages'
+	
 	def write_error(self, *args, **kargs):
 		torwuf.web.controllers.error.\
 			ErrorOutputHandlerMixin.write_error(self, *args, **kargs)
 	
 	def get_current_user(self):
 		return AuthenticationHandlerMixIn.get_current_user(self)
+	
+	def render(self, template_name, **kargs):
+		if BaseHandler.MESSAGE_SESSION_KEY in self.session:
+			if not hasattr(self.request, 'messages'):
+				self.request.messages = []
+			
+			self.request.messages.extend(self.session[BaseHandler.MESSAGE_SESSION_KEY])
+		
+		lolram.web.framework.app.BaseHandler.render(self, template_name, **kargs)
+	
+	def add_message(self, title, body=None):
+		if not hasattr(self.request, 'messages'):
+			self.request.messages = []
+		
+		self.request.messages.append((title, body))
+	
+	def finish(self, chunk=None):
+		if hasattr(self.request, 'messages') and self.request.messages:
+			with self.get_session() as session:
+				session[BaseHandler.MESSAGE_SESSION_KEY] = self.request.messages
+		elif hasattr(self.request, 'messages'):
+			with self.get_session() as session:
+				session.pop(BaseHandler.MESSAGE_SESSION_KEY, None)
+		
+		lolram.web.framework.app.BaseHandler.finish(self, chunk)

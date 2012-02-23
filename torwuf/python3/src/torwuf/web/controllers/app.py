@@ -31,7 +31,7 @@ import torwuf.web.controllers.index
 import torwuf.web.controllers.pacs
 import torwuf.web.controllers.resource
 import torwuf.web.controllers.security
-import torwuf.web.controllers.session
+import torwuf.web.controllers.session.session
 import torwuf.web.controllers.test
 import torwuf.web.controllers.xkcd_geocities
 import torwuf.web.views
@@ -45,7 +45,7 @@ class Application(lolram.web.framework.app.ApplicationController):
 		torwuf.web.controllers.resource.ResourceController,
 		torwuf.web.controllers.xkcd_geocities.XKCDGeocitiesController,
 		torwuf.web.controllers.cms.CMSController,
-		torwuf.web.controllers.session.SessionController,
+		torwuf.web.controllers.session.session.SessionController,
 		torwuf.web.controllers.account.authentication.openid_.OpenIDController,
 		torwuf.web.controllers.account.authentication.googident.GoogleIdentityController,
 		torwuf.web.controllers.account.account.AccountController,
