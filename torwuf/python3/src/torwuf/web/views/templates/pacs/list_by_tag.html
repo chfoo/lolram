@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
+{% block layout_title %}
+	{{ tag }}
+{% end %}
 
 {% block content %}
 
-{% block title %}
-	{% set title = tag %}
-{% end %}
 
 {% for result in results %}
 <section>

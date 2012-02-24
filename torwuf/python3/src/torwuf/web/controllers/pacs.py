@@ -21,6 +21,7 @@ from tornado.web import HTTPError
 from torwuf.web.controllers.account.authorization.decorators import \
 	require_group
 from torwuf.web.models.pacs import PacsCollection, PacsTagsCollection
+from torwuf.web.utils import tag_list_to_str
 import bson.code
 import bson.objectid
 import pymongo
@@ -103,6 +104,8 @@ class NewHandler(torwuf.web.controllers.base.BaseHandler):
 		
 		self.controller.aggregate_tags()
 		
+		self.add_message('Pac added')
+		
 		self.redirect(self.reverse_url(ListAllHandler.name))
 
 class MassNewHandler(torwuf.web.controllers.base.BaseHandler):
@@ -128,22 +131,10 @@ class MassNewHandler(torwuf.web.controllers.base.BaseHandler):
 		
 		self.controller.aggregate_tags()
 		
+		self.add_message('lotsa pacs added')
+		
 		self.redirect(self.reverse_url(ListAllHandler.name))
 
-
-def list_to_str(tags):
-	escaped_list = []
-	
-	for tag in tags:
-		if '"' in tag:
-			tag = tag.replace('"', r'\"')
-		
-		if ' ' in tag:
-			tag = '"%s"' % tag
-		
-		escaped_list.append(tag)
-	
-	return ' '.join(escaped_list)
 
 class ViewSingleHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'pacs_view_single'
@@ -165,7 +156,7 @@ class EditHandler(torwuf.web.controllers.base.BaseHandler):
 		
 		if result:
 			text = result[PacsCollection.TEXT]
-			tags = list_to_str(result[PacsCollection.TAGS])
+			tags = tag_list_to_str(result[PacsCollection.TAGS])
 		
 			self.render('pacs/edit.html', text=text, tags=tags)
 		else:
@@ -184,6 +175,8 @@ class EditHandler(torwuf.web.controllers.base.BaseHandler):
 		})
 		
 		self.controller.aggregate_tags()
+		
+		self.add_message('pac added')
 		
 		self.redirect(self.reverse_url(ListAllHandler.name))
 		

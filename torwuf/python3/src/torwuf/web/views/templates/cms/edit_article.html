@@ -1,12 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
 
-{% block title %}
-{% if 'id' in form_data %}
-	{% set title = 'New Article' %}
-{% else %}
-	{% set title = 'Edit Article' %}
-{% end %}
+{% block layout_title %}
+	Edit Article
 {% end %}
 
 {% if 'doc_info' in globals() %}
@@ -20,40 +16,38 @@
 <form action="" method="POST" enctype="multipart/form-data">
 	{% raw xsrf_form_html() %}
 
-	{% if 'id' in form_data %}
 	<label>
-		ID:
-		<input type="text" name="id" value="{{ form_data['id'] }}"/>
+		UUID:
+		<input type="text" name="uuid" value="{{ uuid }}"/>
 	</label>
-	{% end %}
 	
 	<label>
 		Title:
-		<input type="text" name="title" value="{{ form_data.get('title', '') }}"/>
+		<input type="text" name="title" value="{{ title }}"/>
 	</label>
 	
 	<label>
 		Date:
-		<input type="text" name="date" value="{{ form_data.get('date', '') }}"/>
+		<input type="text" name="date" value="{{ date }}"/>
 	</label>
 	
 	<label>
 		Content:
 		
-		<textarea name='text'>{{ form_data.get('text', '') }}</textarea>
+		<textarea name='text'>{{ text }}</textarea>
 	
 	</label>
 	
 	<label>
 		Tags:
-		<input type="text" name="tags" value="{{ form_data.get('tags', '') }}"/>
+		<input type="text" name="tags" value="{{ tags }}"/>
 	</label>
-	
+	<!-- 
 	<label>
 		Related Tags:
-		<input type="text" name="related_tags" value="{{ form_data.get('related_tags', '') }}"/>
+		<input type="text" name="related_tags" value="{related_tags }"/>
 	</label>
-	
+	 -->
 	<input type="submit" name='save' value="Save"/>
 	<input type="submit" name='preview' value="Preview"/>
 </form>

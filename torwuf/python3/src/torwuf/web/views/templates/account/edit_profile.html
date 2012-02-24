@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 
-{% block content %}
-
-{% block title %}
-	{% set title = 'Edit Profile' %}
+{% block layout_title %}
+	Edit Profile
 {% end %}
+
+{% block content %}
 
 <form action="{{ reverse_url('account_profile_edit') }}" 
 enctype="application/x-www-form-urlencoded" method="POST">

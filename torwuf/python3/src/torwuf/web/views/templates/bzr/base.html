@@ -1,11 +1,8 @@
 {% extends '../theme/layout.html' %}
-{% block title %}
-	{% set title = 'bzr' %}
-{% end %}
 
 {% block layout_content %}
 
-<h1>{{ title }}</h1>
+<h1>{% block layout_title %} bzr {% end %}</h1>
 
 <section>
 {% block content %}

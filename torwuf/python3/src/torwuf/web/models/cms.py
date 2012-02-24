@@ -17,14 +17,22 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-class CollectionNames(object):
-	ARTICLES = 'articles'
-	FILES = 'files'
-
-class ArticleKeys(object):
+class ArticleCollection(object):
+	COLLECTION = 'cms_articles'
 	PUBLICATION_DATE = 'date'
-	CREATION_DATE = 'created'
 	UPDATED_DATE = 'updated'
 	TAGS = 'tags'
 	RELATED_TAGS = 'related_tags'
 	TITLE = 'title'
+	UUID = 'uuid'
+	TEXT = 'text'
+
+class FileCollection(object):
+	COLLECTION = 'cms_files'
+	UUID = 'uuid'
+	PUBLICATION_DATE = 'date'
+	TITLE = 'title'
+	
+class TagCollection(object):
+	TITLE = 'title'
+	

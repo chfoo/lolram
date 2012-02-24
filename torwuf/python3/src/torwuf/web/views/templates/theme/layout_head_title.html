@@ -1,12 +1,10 @@
-<!--
-{% block title %}
+{% set _layout_is_default_title = False %}
+<title>
+{% block layout_title %}
+	{% set _layout_is_default_title = True %}
+	Torwuf
 {% end %}
- -->
-
-{% try %}
-	{% set _layout_head_title = '%s – %s' % (title, 'Torwuf') %}
-{% except NameError %}
-	{% set _layout_head_title = 'Torwuf' %}
+{% if not _layout_is_default_title %}
+– Torwuf
 {% end %}
-
-<title>{{ _layout_head_title }}</title>
+</title>
