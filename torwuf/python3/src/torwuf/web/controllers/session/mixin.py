@@ -17,6 +17,7 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
+from torwuf.web.models.session import SessionCollection
 import base64
 import bson
 import contextlib
@@ -69,7 +70,7 @@ class SessionHandlerMixIn(object):
 	
 	@property
 	def _session_collection(self):
-		return self.app_controller.database.sessions
+		return self.app_controller.database[SessionCollection.COLLECTION]
 	
 	def _get_session_dict(self, persistent=False):
 		if persistent:
@@ -165,14 +166,14 @@ class SessionHandlerMixIn(object):
 	def _get_session_data_from_db(self, object_id, secret_key):
 		return self._session_collection.find_one({
 			'_id': object_id,
-			'key': secret_key,
+			SessionCollection.SECRET_KEY: secret_key,
 		})
 		
 	def _save_session_data_to_db(self, object_id, secret_key, data):
 		d = {
 			'key': secret_key,
-			'data': data,
-			'modified': datetime.datetime.utcnow(),
+			SessionCollection.DATA_BYTES: data,
+			SessionCollection.DATE_MODIFIED: datetime.datetime.utcnow(),
 		}
 		
 		if object_id:

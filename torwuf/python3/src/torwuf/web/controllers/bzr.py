@@ -299,45 +299,37 @@ class CreateUserRequestHandler(BaseRequestHandler, PasswordMixIn):
 
 	@BaseRequestHandler.require_auth
 	def post(self):
-		render_dict = {}
 		raw_username = self.get_argument('username')
 		password = self.get_argument('password')
 		confirm_password = self.get_argument('password2')
 		
-		def f():
-			if not self.controller.is_valid_raw_username(raw_username):
-				render_dict.update(
-					layout_message_title=
-						'Username contains unacceptable characters',
-					layout_message_body=
-						'Please use a different username.',
-				)
-				return
-			
+		if not self.controller.is_valid_raw_username(raw_username):
+			self.add_message(
+				'Username contains unacceptable characters',
+				'Please use a different username.',
+			)
+		else:
 			username = self.controller.norm_username(raw_username)
 			
 			if password != confirm_password:
-				render_dict.update(
-					layout_message_title=
-						'Passwords do not match',
-					layout_message_body=
-						'Confirm that you’ve entered a password correctly.',
+				self.add_message(
+					'Passwords do not match',
+					'Confirm that you’ve entered a password correctly.',
 				)
 			elif username in self.controller.bzr_users_db:
-				render_dict.update(
-					layout_message_title='User already exists',
-					layout_message_body='Please use a different username',
+				self.add_message(
+					'User already exists',
+					'Please use a different username',
 				)
 			else:
 				self.create_user(username, raw_username)
 				self.update_password(username, password)
 				
-				render_dict.update(
-					layout_message_title='Account created'
+				self.add_message(
+					'Account created'
 				)
 		
-		f()
-		self.render('bzr/user_create.html', **render_dict)
+		self.render('bzr/user_create.html')
 
 
 class EditUserPasswordRequestHandler(BaseRequestHandler, PasswordMixIn):
@@ -349,32 +341,29 @@ class EditUserPasswordRequestHandler(BaseRequestHandler, PasswordMixIn):
 
 	@BaseRequestHandler.require_auth
 	def post(self):
-		render_dict = {}
 		password = self.get_argument('password')
 		confirm_password = self.get_argument('password2')
 		
 		username = self.controller.norm_username(self.request.username)
 		
 		if password != confirm_password:
-			render_dict.update(
-				layout_message_title=
-					'Passwords do not match',
-				layout_message_body=
-					'Confirm that you’ve entered a password correctly.',
+			self.add_message(
+				'Passwords do not match',
+				'Confirm that you’ve entered a password correctly.',
 			)
 		elif username not in self.controller.bzr_users_db:
-			render_dict.update(
-				layout_message_title='The username is invalid',
-				layout_message_body='Please check the username’s spelling',
+			self.add_message(
+				'The username is invalid',
+				'Please check the username’s spelling',
 			)
 		else:
 			self.update_password(username, password)
 			
-			render_dict.update(
-				layout_message_title='Password changed'
+			self.add_message(
+				'Password changed'
 			)
 		
-		self.render('bzr/user_password.html', **render_dict)
+		self.render('bzr/user_password.html',)
 	
 
 class SignOutRequestHandler(BaseRequestHandler):
@@ -393,32 +382,28 @@ class DeleteUserRequestHandler(BaseRequestHandler):
 		
 	@BaseRequestHandler.require_auth
 	def post(self):
-		render_dict = {}
 		raw_username = self.get_argument('username')
 		
-		def f():
-			if not self.controller.is_valid_username(raw_username):
-				render_dict.update(
-					layout_message_title='Username is invalid',
-				)
-				return
-			
+		if not self.controller.is_valid_username(raw_username):
+			self.add_message(
+				'Username is invalid',
+			)
+		else:
 			username = self.controller.norm_username(raw_username)
 			
 			if self.request.username == username:
 				_logger.info('Deleting bzr account %s', username)
 				del self.controller.bzr_users_db[username]
 				
-				render_dict.update(
-					layout_message_title='%s deleted' % username,
+				self.add_message(
+					'%s deleted' % username,
 				)
 			else:
-				render_dict.update(
-					layout_message_title='Username is invalid',
+				self.add_message(
+					'Username is invalid',
 				)
 		
-		f()
-		self.render('bzr/user_delete.html', **render_dict)
+		self.render('bzr/user_delete.html')
 
 
 class RepoRequestHandler(BaseRequestHandler):
@@ -514,17 +499,17 @@ class CreateRepoRequestHandler(BaseRequestHandler, RepoActionMixIn):
 			name = self.get_argument('name')
 			
 			if not self.is_valid_repo_name(name):
-				render_dict.update(
-					layout_message_title='Invalid repository name'
+				self.add_message(
+					'Invalid repository name'
 				)
 				return
 			
 			new_repo_path = os.path.join(self.controller.repo_path, name)
 		
 			if os.path.exists(new_repo_path):
-				render_dict.update(
-					layout_message_title='Repository already exists',
-					layout_message_body='No action taken.',
+				self.add_message(
+					'Repository already exists',
+					'No action taken.',
 				)
 				
 			else:
@@ -541,7 +526,9 @@ class CreateRepoRequestHandler(BaseRequestHandler, RepoActionMixIn):
 					stdout=outdata,
 					stderr=errdata,
 					return_code=p.returncode,
-					layout_message_title='Repository created',
+				)
+				self.add_message(
+					'Repository created',
 				)
 				
 				_logger.debug('Repo creation stdout: %s', outdata)
@@ -563,27 +550,27 @@ class DeleteRepoRequestHandler(BaseRequestHandler, RepoActionMixIn):
 		render_dict = {}
 		
 		if not self.is_valid_repo_name(self.get_argument('name')):
-			render_dict.update(
-				layout_message_title='Invalid repository name'
+			self.add_message(
+				'Invalid repository name'
 			)
 		elif self.get_argument('mollyguard') == 'deletion':
 			repo_path = os.path.join(self.controller.repo_path, self.get_argument('name'))
 			
 			if not os.path.exists(repo_path):
-				render_dict.update(
-					layout_message_title='Repository does not exist',
-					layout_message_body='No action taken.'
+				self.add_message(
+					'Repository does not exist',
+					'No action taken.'
 				)
 			else:
 				_logger.info('Repo %s deleted', repo_path)
 				shutil.rmtree(repo_path)
-				render_dict.update(
-					layout_message_title='Repository deleted',
+				self.add_message(
+					'Repository deleted',
 				)
 		else:
-			render_dict.update(
-				layout_message_title='Incorrect guard password',
-				layout_message_body='No action taken.'
+			self.add_message(
+				'Incorrect guard password',
+				'No action taken.'
 			)
 		
 		self.render('bzr/repo_delete.html', **render_dict)

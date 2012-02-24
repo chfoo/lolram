@@ -17,13 +17,29 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
+from torwuf.web.models.session import SessionCollection
+import datetime
+import threading
+import time
 import torwuf.web.controllers.base
 
 class SessionController(torwuf.web.controllers.base.BaseController):
+	DAYS_4 = 345600
+	
 	def init(self):
 		self.add_url_spec('/session/test', TestHandler)
 	
-	# TODO: periodic maintenance (ie cleaning up old sessions)
+		self.clean_timer = threading.Timer(SessionController.DAYS_4, 
+			self.clean_old_sessions)
+		self.clean_timer.start()
+		self.clean_old_sessions()
+	
+	def clean_old_sessions(self):
+		date_nine_months_ago = datetime.datetime.utcfromtimestamp(
+			time.time() - 23667694)
+		self.application.database[SessionCollection.COLLECTION].remove({
+			SessionCollection.DATE_MODIFIED: {'$lt': date_nine_months_ago}
+		})
 
 class TestHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'session_test'
