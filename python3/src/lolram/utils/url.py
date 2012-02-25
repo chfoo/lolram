@@ -41,55 +41,130 @@ DEFAULT_PORTS = {
 	'telnet' : 23,
 }
 
+def bytes_to_str(bytes_or_str):
+	'''Converts utf8 `bytes` to `str`
+	
+	If the argument is already `str`, it is left unchanged
+	'''
+	
+	if isinstance(bytes_or_str, bytes):
+		return bytes_or_str.decode()
+	else:
+		return bytes_or_str
+
+
 class URLQuery(dict):
-	def __init__(self, string=None, query=None):
-		if string:
-			q = urllib.parse.parse_qs(string, True)
+	'''A url query key and value list map
+	
+	The keys are `str`. The values are a `list` of `str`
+	'''
+	
+	def __init__(self, encoded_string=None, query_map=None):
+		'''Initialize a map
 		
-			for key, value in q.items():
-				vl = decode(value)
-				vl.sort()
-				self[key] = vl
+		:parameters:
+			encoded_str : `str`, `byte`
+				A percent-encoded URL query.
+			query_map : `dict`
+				A mapping of query values.
+		'''
 		
-		if query:
-			for key, value in query.items():
-				if isinstance(value, list) or isinstance(value, tuple):
-					vl = list(map(decode, value))
-				else:
-					vl = [decode(value)]
+		if encoded_string:
+			query_map = urllib.parse.parse_qs(encoded_string, True)
+		
+		if query_map:
+			for key, value_list in query_map.items():
+				key = bytes_to_str(key)
 				
-				self[key] = vl
+				try:
+					iter(value_list)
+				except TypeError:
+					value_list = [value_list]
+				
+				value_list = list(map(bytes_to_str, value_list))
+				value_list.sort()
+				self[key] = value_list
 	
 	def getfirst(self, key, default=None):
+		'''Get the first value for a key
+		
+		:rtype: `str`
+		'''
+		
 		return self.get(key, (default,))[0]
 	
 	def __str__(self):
+		'''Return the percent-encoded url query form
+		
+		:rtype: `str`
+		'''
+		
+		# Make sure everything is consistently `str` :)
+		query_obj = URLQuery(query_map=self)
+		
 		q = []
-		for key, value in sorted(iter(self.items()), key=lambda x:x[0]):
-			if isinstance(value, list):
-				for v in sorted(value):
-					if not isinstance(v, str) and not isinstance(v, str):
-						v = str(v)
-					
-					if v:
-						q.append('%s=%s' % (urllib.parse.quote(key.encode('utf8')),
-							urllib.parse.quote(str(v).encode('utf8'))))
+		for key, value_list in sorted(iter(query_obj.items()), key=lambda x:x[0]):
+			if value_list:
+				for value in value_list:
+					if value:
+						q.append('%s=%s' % (urllib.parse.quote(key.encode()),
+							urllib.parse.quote(value.encode())))
 					else:
-						q.append(urllib.parse.quote(key.encode('utf8')))
+						q.append(urllib.parse.quote(key.encode()))
 			else:
-				if not isinstance(value, str) and not isinstance(value, str):
-					value = str(value)
-				
-				q.append('%s=%s' % (urllib.parse.quote(key.encode('utf8')),
-					urllib.parse.quote(value.encode('utf8'))))
+				q.append(urllib.parse.quote(key.encode()))
 		
 		return '&'.join(q)
 	
+	def to_key_value_map(self):
+		'''Return a plain `dict` with key and first value'''
+		
+		new_dict = {}
+		for key, value_list in self.items():
+			new_dict[key] = value_list[0]
+		
+		return new_dict
 	
 class URL(object):
-	def __init__(self, string=None, scheme=None, username=None, 
+	'''A fancy URL parser and builder
+	
+	It helps with normalization and canonicalization of URLs.
+	'''
+	
+	def __init__(self, encoded_string=None, scheme=None, username=None, 
 	password=None, hostname=None, port=None, path=None, params=None,
-	query=None, fragment=None, keep_trailing_slash=True):
+	query_map=None, fragment=None, keep_trailing_slash=True):
+		'''Initialze the URL object
+		
+		:parameters:
+			encoded_str : `str`
+				A percent-encoded, punycode-encoded URL string
+			scheme: `str`
+				The scheme portion. For example, http and ftp.
+			username: `str`
+				The username portion.
+			password: `str`
+				The password portion.
+			hostname: `str`
+				The hostname portion.
+			port: `int`
+				The port number.
+			path: `str`
+				The path portion without the parameter portion.
+			params: `str`
+				The parameters portion.
+			query_map: `dict`
+				A key and value list map of query values.
+			fragment: `str`
+				The fragment portion
+			keep_trailing_slash: `bool`
+				If `True`, the trailing slash of the path is not stripped.
+				Technically, a trailing slash indicates a directory and a 
+				non-trailing slash indicate a file. However, this semantic
+				is not intuitive to regular web users. On a search engine
+				optimization perspective, the trailing slash usually matters.
+		'''
+	
 		self._scheme = scheme
 		self._username = username
 		self._password = password
@@ -97,17 +172,15 @@ class URL(object):
 		self._port = port
 		self._path = path
 		self._params = params
-		self._query = URLQuery(query=query)
+		self._query = URLQuery(query_map=query_map)
 		self._fragment = fragment
 		self._keep_trailing_slash = keep_trailing_slash
 		self._has_trailing_slash = False
+		# TODO: maybe some ajax url parsing as well?
 #		self.ajax_url = None
-#		self.query_first = None
 		
-		self._string = string
-		
-		if self._string is not None:
-			self.parse(self._string)
+		if encoded_string is not None:
+			self.parse(encoded_string)
 	
 	@property
 	def scheme(self):
@@ -171,7 +244,7 @@ class URL(object):
 	
 	@params.setter
 	def params(self, s):
-		self._params = unquote(s)
+		self._params = urllib.parse.unquote(s)
 	
 	@property
 	def query(self):
@@ -179,10 +252,10 @@ class URL(object):
 	
 	@query.setter
 	def query(self, o):
-		if isinstance(o, str) or isinstance(o, str):
-			self._query = URLQuery(string=o)
+		if isinstance(o, str) or isinstance(o, bytes):
+			self._query = URLQuery(encoded_string=o)
 		else:
-			self._query = URLQuery(query=o)
+			self._query = URLQuery(query_map=o)
 	
 	@property
 	def fragment(self):
@@ -203,11 +276,11 @@ class URL(object):
 			s.write('//')
 		
 		if self._username:
-			s.write(urllib.parse.quote_plus(self._username.encode('utf8')))
+			s.write(urllib.parse.quote_plus(self._username.encode()))
 			
 		if self._password:
 			s.write(':')
-			s.write(urllib.parse.quote_plus(self._password.encode('utf8')))
+			s.write(urllib.parse.quote_plus(self._password.encode()))
 		
 		if self._username:
 			s.write('@')
@@ -220,7 +293,7 @@ class URL(object):
 			s.write(str(self._port))
 		
 		if self.path:
-			s.write(urllib.parse.quote(self.path.encode('utf8')))
+			s.write(urllib.parse.quote(self.path.encode()))
 		
 		if self._params:
 			s.write(';')
@@ -232,7 +305,7 @@ class URL(object):
 		
 		if self._fragment:
 			s.write('#')
-			s.write(urllib.parse.quote(self._fragment.encode('utf8')))
+			s.write(urllib.parse.quote(self._fragment.encode()))
 		
 		s.seek(0)
 		return s.read()
@@ -244,7 +317,8 @@ class URL(object):
 		return self.__str__()
 	
 	def parse(self, string):
-		p = urllib.parse.urlparse(string)
+		
+		p = urllib.parse.urlparse(bytes_to_str(string))
 		
 		if p.path.endswith('/') and p.params:
 			self._has_trailing_slash = True
@@ -252,16 +326,16 @@ class URL(object):
 		self.scheme = p.scheme
 		self.path = p.path
 		self.params = p.params
-		self.query = URLQuery(string=p.query)
+		self.query = URLQuery(encoded_string=p.query)
 		
-#		self.query_first = {}
-#		
-#		for key, values in q.iteritems():
-#			self.query_first[key] = values[0]
-			
-		self.fragment = unquote(p.fragment)
-		self.username = unquote(p.username)
-		self.password = unquote(p.password)
+		if p.fragment:
+			self.fragment = urllib.parse.unquote(p.fragment)
+		
+		if p.username:
+			self.username = urllib.parse.unquote(p.username)
+		
+		if p.username:
+			self.password = urllib.parse.unquote(p.password)
 		
 		if p.hostname:
 			self.hostname = from_punycode_hostname(p.hostname)
@@ -310,32 +384,33 @@ def is_allowable_hostname(s):
 def normalize(s):
 	return str(URL(s))
 
-def unquote(s):
-	if s is None:
-		return None
-	
-	try:
-		return urllib.parse.unquote(s).decode('utf8')
-	except UnicodeEncodeError:
-		try:
-			return urllib.parse.unquote(str(s)).decode('utf8')
-		except UnicodeEncodeError:
-			return s
+#def unquote(s):
+#	if s is None:
+#		return None
+#	
+#	try:
+#		return urllib.parse.unquote(s).decode('utf8')
+#	except UnicodeEncodeError:
+#		try:
+#			return urllib.parse.unquote(str(s)).decode('utf8')
+#		except UnicodeEncodeError:
+#			return s
+#
+#def decode(s):
+#	if isinstance(s, str):
+#		return s.decode('utf8')
+#	else:
+#		return s
+#
+#def quote(s):
+#	return urllib.parse.quote(s.encode('utf8'))
 
-def decode(s):
-	if isinstance(s, str):
-		return s.decode('utf8')
-	else:
-		return s
-
-def quote(s):
-	return urllib.parse.quote(s.encode('utf8'))
 
 def collapse_path(s, keep_trailing_slash=True):
 	l = []
 	
 	for part in s.replace('//', '/').split('/'):
-		part = unquote(part)
+		part = urllib.parse.unquote(part)
 		if part == '..':
 			if len(l):
 				del l[-1]
@@ -356,7 +431,7 @@ def from_punycode_hostname(s):
 	
 	h = s.split('.')
 	if len(h) > 1 and h[-2].startswith('x--'):
-		h[-2] = h[-2].replace('x--', '', 1).decode('punycode')
+		h[-2] = bytes(h[-2].replace('x--', '', 1), 'utf8').decode('punycode')
 	return '.'.join(h)
 
 def to_punycode_hostname(s):
@@ -364,6 +439,6 @@ def to_punycode_hostname(s):
 		return s
 	else:
 		h = s.split('.')
-		h[-2] = 'x--' + h[-2].encode('punycode')
+		h[-2] = 'x--' + str(h[-2].encode('punycode'), 'utf8')
 		return '.'.join(h)
 

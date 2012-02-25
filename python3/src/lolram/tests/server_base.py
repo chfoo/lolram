@@ -53,7 +53,7 @@ class ServerBaseMixIn(object):
 		self.thread.start()
 		time.sleep(.5)
 	
-	def request(self, path, method='GET', headers={}, query={}, data={}, host=None, port=None):
+	def request(self, path, method='GET', headers={}, query_map={}, data={}, host=None, port=None):
 		'''Make a HTTP request to the server
 		
 		:parameters:
@@ -63,7 +63,7 @@ class ServerBaseMixIn(object):
 				The HTTP request method. It is usually ``GET`` or ``POST``.
 			headers : `dict`
 				HTTP headers to send
-			query : `dict`
+			query_map : `dict`
 				HTTP GET query
 			data : `dict`
 				Multi-part form data. 
@@ -72,8 +72,7 @@ class ServerBaseMixIn(object):
 		
 		hc = http.client.HTTPConnection(host or '127.0.0.1', port or self.thread.port)
 		
-		# FIXME: fix up url
-#		path = str(lolram.utils.url.URL(path=path, query=query))
+		path = str(lolram.utils.url.URL(path=path, query_map=query_map))
 		
 		if data:
 			if method != 'POST':

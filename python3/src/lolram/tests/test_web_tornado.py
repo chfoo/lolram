@@ -23,13 +23,14 @@ import unittest
 import lolram.tests.server_base
 
 class TestTornadoApp(unittest.TestCase, lolram.tests.server_base.ServerBaseMixIn):
-	def __init__(self):
-		unittest.TestCase.__init__(self)
+	def __init__(self, *args, **kargs):
+		unittest.TestCase.__init__(self, *args, **kargs)
 		self.app = lolram.web.tornado.WSGIApplication()
 		self.start_server()
 
-	def test_init(self):
-		pass
+	# TODO: write tests
+#	def test_init(self):
+#		pass
 
 
 if __name__ == "__main__":
