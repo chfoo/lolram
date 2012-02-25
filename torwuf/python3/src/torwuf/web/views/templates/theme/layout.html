@@ -13,7 +13,8 @@
 	<a href="/"><div id="site-banner"></div></a>
 </header>
 
-{% include 'layout_message.html' %}
+{% include 'layout_message_deprecated.html' %}
+{% module Template('theme/layout_message.html') %}
 
 <article id="site-content">
 {% block layout_content %}

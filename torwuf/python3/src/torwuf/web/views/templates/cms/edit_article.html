@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
-{% block content %}
-
 {% block layout_title %}
 	Edit Article
 {% end %}
+
+{% block content %}
 
 {% if 'doc_info' in globals() %}
 <section>
@@ -51,5 +51,7 @@
 	<input type="submit" name='save' value="Save"/>
 	<input type="submit" name='preview' value="Preview"/>
 </form>
+
+{{doc_info.meta}}
 
 {% end %}

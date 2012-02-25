@@ -1,12 +1,3 @@
-{% if 'layout_message_title' in globals() %}
-	<section id="site-message">
-		<strong id="site-message-title">{{ layout_message_title }}</strong>
-		{% if 'layout_message_body' in globals() %}
-			<p id="site-message-body">{{ layout_message_body }}</p>
-		{% end %}
-	</section>
-{% end %}
-
 {% if hasattr(request, 'messages') %}
 	{% for title, body in request.messages %}
 		<section id="site-message">
