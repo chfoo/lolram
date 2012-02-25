@@ -24,6 +24,7 @@ from torwuf.web.models.pacs import PacsCollection, PacsTagsCollection
 from torwuf.web.utils import tag_list_to_str
 import bson.code
 import bson.objectid
+import http.client
 import pymongo
 import shlex
 import string
@@ -106,7 +107,8 @@ class NewHandler(torwuf.web.controllers.base.BaseHandler):
 		
 		self.add_message('Pac added')
 		
-		self.redirect(self.reverse_url(ListAllHandler.name))
+		self.redirect(self.reverse_url(ListAllHandler.name), 
+			status=http.client.SEE_OTHER)
 
 class MassNewHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'pacs_mass_new'
@@ -133,7 +135,8 @@ class MassNewHandler(torwuf.web.controllers.base.BaseHandler):
 		
 		self.add_message('lotsa pacs added')
 		
-		self.redirect(self.reverse_url(ListAllHandler.name))
+		self.redirect(self.reverse_url(ListAllHandler.name),
+			status=http.client.SEE_OTHER)
 
 
 class ViewSingleHandler(torwuf.web.controllers.base.BaseHandler):
@@ -178,7 +181,8 @@ class EditHandler(torwuf.web.controllers.base.BaseHandler):
 		
 		self.add_message('pac added')
 		
-		self.redirect(self.reverse_url(ListAllHandler.name))
+		self.redirect(self.reverse_url(ListAllHandler.name),
+			status=http.client.SEE_OTHER)
 		
 class ListByTagHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'pacs_list_by_tag'

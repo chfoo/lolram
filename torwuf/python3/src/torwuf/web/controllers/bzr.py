@@ -40,6 +40,7 @@ class LoggerheadThread(threading.Thread):
 		self.isDaemon = True
 		self.controller = controller
 		self.port = port
+		self.name = '{}:{}'.format(__name__, LoggerheadThread.__name__)
 		
 		self.init_log_dir()
 		self.init_process()
@@ -65,7 +66,7 @@ class LoggerheadThread(threading.Thread):
 		returncode = self.process.wait()
 		
 		if returncode != 0:
-			raise Exception('starting loggerhead failed')
+			raise Exception('starting loggerhead failed (exit return code {})'.format(returncode))
 
 
 class InvalidUsernameError(Exception):

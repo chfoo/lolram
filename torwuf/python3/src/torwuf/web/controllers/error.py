@@ -20,6 +20,7 @@
 import http.client
 import traceback
 import logging
+import sys
 _logger = logging.getLogger(__name__)
 
 class ErrorOutputHandlerMixin(object):
@@ -41,6 +42,10 @@ class ErrorOutputHandlerMixin(object):
 				traceback_str = '(Error during formatting exception)'
 		else:
 			traceback_str = ''
+		
+		if self.controller.config.config_parser.getboolean('logging', 
+		'stack_trace_to_stderr', fallback=False):
+			sys.stderr.write(traceback_str)
 		
 		self.render(template_name, status_code=status_code, 
 			status_msg=status_msg, traceback_str=traceback_str)

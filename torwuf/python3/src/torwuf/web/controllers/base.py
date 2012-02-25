@@ -36,6 +36,20 @@ AuthenticationHandlerMixIn,
 ):
 	MESSAGE_SESSION_KEY = '_messages'
 	
+	def is_testing_key_valid(self):
+		if 'Testing-Key' in self.request.headers:
+			local_key = self.controller.application.config.\
+				config_parser['account']['testing_key']
+			client_key = self.request.headers['Testing-Key']
+			
+			return local_key == client_key
+	
+	def check_xsrf_cookie(self):
+		if self.is_testing_key_valid():
+			return
+		
+		lolram.web.framework.app.BaseHandler.check_xsrf_cookie(self)
+	
 	def write_error(self, *args, **kargs):
 		torwuf.web.controllers.error.\
 			ErrorOutputHandlerMixin.write_error(self, *args, **kargs)

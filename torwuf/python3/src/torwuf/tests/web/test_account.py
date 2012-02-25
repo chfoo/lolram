@@ -1,4 +1,4 @@
-'''Testing'''
+'''Test the account controllers'''
 #
 #	Copyright (c) 2012 Christopher Foo <chris.foo@gmail.com>
 #
@@ -17,19 +17,20 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-import http.client
-import torwuf.web.controllers.base
+import torwuf.tests.web.server_base
+import unittest
 
 
-class TestController(torwuf.web.controllers.base.BaseController):
-	def init(self):
-		self.add_url_spec('/test/unicodeð', OKHandler)
-		self.add_url_spec('/test/unicode😸', OKHandler)
-		self.add_url_spec('/test/', OKHandler)
-		
-class OKHandler(torwuf.web.controllers.base.BaseHandler):
-	name = 'test_ok'
+class TestAccount(unittest.TestCase, torwuf.tests.web.server_base.ServerBaseMixIn):
+	def setUp(self):
+		self.create_app()
+		self.start_server()
 	
-	def get(self):
-		self.set_status(http.client.OK)
-		self.write('ok')
+	def tearDown(self):
+		self.stop_server()
+
+	# TODO: write tests
+
+if __name__ == "__main__":
+	#import sys;sys.argv = ['', 'Test.testName']
+	unittest.main()

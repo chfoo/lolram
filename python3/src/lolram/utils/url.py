@@ -76,9 +76,7 @@ class URLQuery(dict):
 			for key, value_list in query_map.items():
 				key = bytes_to_str(key)
 				
-				try:
-					iter(value_list)
-				except TypeError:
+				if isinstance(value_list, (bytes, str)):
 					value_list = [value_list]
 				
 				value_list = list(map(bytes_to_str, value_list))

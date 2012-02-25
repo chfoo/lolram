@@ -89,7 +89,7 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 			
 		doc_info = self.controller.render_text(text)
 		
-		if not title:
+		if not title and doc_info.title:
 			title = doc_info.title
 		
 		publication_date = None

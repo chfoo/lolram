@@ -35,6 +35,7 @@ class AppServerThread(threading.Thread):
 		self.daemon = True
 		self.app = app
 		self.port = port
+		self.name = '{}:{}'.format(__name__, AppServerThread.__name__)
 	
 	def run(self):
 		# XXX The wsgi validator cannot be used due to cgi.FieldStorage relying on
@@ -53,6 +54,10 @@ class ServerBaseMixIn(object):
 		self.thread.start()
 		time.sleep(.5)
 	
+	def stop_server(self):
+		'''Stop the server'''
+		self.thread.httpd.shutdown()
+	
 	def request(self, path, method='GET', headers={}, query_map={}, data={}, host=None, port=None):
 		'''Make a HTTP request to the server
 		
@@ -68,6 +73,8 @@ class ServerBaseMixIn(object):
 			data : `dict`
 				Multi-part form data. 
 				:see: `urllib3.encode_multipart_formdata`
+		
+		:rtype: `http.client.HTTPResponse`
 		'''
 		
 		hc = http.client.HTTPConnection(host or '127.0.0.1', port or self.thread.port)
