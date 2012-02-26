@@ -20,6 +20,8 @@
 from torwuf.web.controllers.account.authentication.mixins import \
 	AuthenticationHandlerMixIn
 from torwuf.web.controllers.session.mixin import SessionHandlerMixIn
+from torwuf.web.utils import json_serializer
+import json
 import logging
 import lolram.web.framework.app
 import torwuf.web.controllers.error
@@ -64,7 +66,15 @@ AuthenticationHandlerMixIn,
 			
 			self.request.messages.extend(self.session[BaseHandler.MESSAGE_SESSION_KEY])
 		
-		lolram.web.framework.app.BaseHandler.render(self, template_name, **kargs)
+		if self.get_argument('_render_format', False) == 'json':
+			if BaseHandler.MESSAGE_SESSION_KEY in self.session:
+				kargs['_messages'] = self.request.messages
+			
+			self.set_header('Content-Type', 'application/json')
+			self.write(json.dumps(kargs, default=json_serializer))
+			self.finish()
+		else:
+			lolram.web.framework.app.BaseHandler.render(self, template_name, **kargs)
 	
 	def add_message(self, title, body=None):
 		if not hasattr(self.request, 'messages'):

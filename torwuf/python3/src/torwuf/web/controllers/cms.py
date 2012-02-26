@@ -21,6 +21,7 @@ from torwuf.web.models.cms import ArticleCollection, FileCollection
 from torwuf.web.utils import tag_list_to_str, bytes_to_b32low_str
 import bson.objectid
 import datetime
+import http.client
 import iso8601
 import logging
 import lolram.utils.restpub
@@ -132,7 +133,8 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 			self.add_message('Article saved')
 			
 			id_str = bytes_to_b32low_str(object_id.binary)
-			self.redirect(self.reverse_url(UniqueItemHandler.name, id_str))
+			self.redirect(self.reverse_url(UniqueItemHandler.name, id_str),
+				status=http.client.SEE_OTHER)
 		else:
 			self.render('cms/edit_article.html', **form_data)
 

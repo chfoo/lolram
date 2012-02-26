@@ -17,22 +17,25 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-class ArticleCollection(object):
+from torwuf.web.models.base import ModelStringMap
+
+class ArticleCollection(ModelStringMap):
 	COLLECTION = 'cms_articles'
 	PUBLICATION_DATE = 'date'
 	UPDATED_DATE = 'updated'
 	TAGS = 'tags'
-	RELATED_TAGS = 'related_tags'
+	FILE_TAGS = 'file_tags'
 	TITLE = 'title'
 	UUID = 'uuid'
 	TEXT = 'text'
 
-class FileCollection(object):
+class FileCollection(ModelStringMap):
 	COLLECTION = 'cms_files'
 	UUID = 'uuid'
 	PUBLICATION_DATE = 'date'
 	TITLE = 'title'
 	
-class TagCollection(object):
+class TagCollection(ModelStringMap):
+	COLLECTION = 'cms_tags'
 	TITLE = 'title'
 	

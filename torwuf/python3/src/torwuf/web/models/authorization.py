@@ -17,7 +17,9 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-class TokenCollection(object):
+from torwuf.web.models.base import ModelStringMap
+
+class TokenCollection(ModelStringMap):
 	COLLECTION = 'authorization_tokens'
 	ACTIVATION_KEY = 'key'
 	TARGET_GROUP = 'group'

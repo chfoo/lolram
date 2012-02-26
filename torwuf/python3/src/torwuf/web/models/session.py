@@ -17,7 +17,9 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-class SessionCollection(object):
+from torwuf.web.models.base import ModelStringMap
+
+class SessionCollection(ModelStringMap):
 	COLLECTION = 'sessions'
 	SECRET_KEY = 'key'
 	DATA_BYTES = 'data'

@@ -17,8 +17,10 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-class UsernameCollection(object):
-	class Password(object):
+from torwuf.web.models.base import ModelStringMap
+
+class UsernameCollection(ModelStringMap):
+	class Password(ModelStringMap):
 		LABEL = 'label'
 		PASSWORD = 'password'
 	
@@ -30,7 +32,7 @@ class UsernameCollection(object):
 	PASSWORDS = 'passwords'
 
 
-class AccountCollection(object):
+class AccountCollection(ModelStringMap):
 	COLLECTION = 'accounts'
 	DATE_CREATED = 'date_created'
 	DATE_DELETED = 'date_deleted'

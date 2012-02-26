@@ -17,7 +17,10 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
+from torwuf.web.models.base import ModelStringMap
 import base64
+import inspect
+import pymongo.collection
 
 def tag_list_to_str(tags):
 	'''Convert a list parsed by ``shlex.split()`` to a string'''
@@ -44,3 +47,11 @@ def b32low_str_to_bytes(s):
 		s = '%s%s' % (s, '=' * (8 - length % 8))
 	
 	return  base64.b32decode(s.encode(), True, 'l')
+
+def json_serializer(obj):
+	if isinstance(obj, pymongo.collection.Cursor):
+		return list(obj)
+	elif inspect.isclass(obj) and issubclass(obj, ModelStringMap):
+		return obj.dict()
+	else:
+		return repr(obj)

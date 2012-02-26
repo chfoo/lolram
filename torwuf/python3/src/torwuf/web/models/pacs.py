@@ -17,12 +17,13 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
+from torwuf.web.models.base import ModelStringMap
 
-class PacsCollection(object):
+class PacsCollection(ModelStringMap):
 	COLLECTION = 'pacs'
 	TEXT = 'text'
 	TAGS = 'tags'
 
-class PacsTagsCollection(object):
+class PacsTagsCollection(ModelStringMap):
 	COLLECTION = 'pacs_tags'
 	COUNT = 'value'

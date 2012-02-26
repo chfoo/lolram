@@ -1,4 +1,4 @@
-'''Authentication database keys'''
+'''Model base'''
 #
 #	Copyright (c) 2012 Christopher Foo <chris.foo@gmail.com>
 #
@@ -17,16 +17,20 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-from torwuf.web.models.base import ModelStringMap
 
-class SessionKeys(ModelStringMap):
-	CURRENT_ACCOUNT_ID = 'current_account_id'
-	CURRENT_OPENID = 'current_openid'
-
-class SuccessSessionKeys(ModelStringMap):
-	KEY = 'openid_authen_success'
-	OPENID = 'id'
-	EMAIL = 'email'
-	DISPLAY_NAME = 'display_name'
-	FIRST_NAME = 'first_name'
-	LAST_NAME = 'last_name'
+class ModelStringMapType(type):
+	def dict(self):
+		d = {}
+		for name in dir(self):
+			if not name.startswith('__'):
+				value = getattr(self, name)
+				try:
+					value = value.dict()
+				except AttributeError:
+					d[name] = value
+		
+		return d
+	
+class ModelStringMap(object, metaclass=ModelStringMapType):
+	pass
+	
