@@ -65,6 +65,7 @@ class Application(lolram.web.framework.app.ApplicationController):
 			'cookie_secret': configuration\
 				.config_parser['application']['cookie-secret'],
 			'template_path': template_path,
+			'static_path': configuration.upload_path,
 		})
 		
 		lolram.web.framework.app.ApplicationController.__init__(self,

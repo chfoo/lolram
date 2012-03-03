@@ -27,7 +27,9 @@ class ModelStringMapType(type):
 				try:
 					value = value.dict()
 				except AttributeError:
-					d[name] = value
+					pass
+				
+				d[name] = value
 		
 		return d
 	

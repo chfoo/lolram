@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block layout_title %}
-	Edit Article
+	Edit File
 {% end %}
 
 {% block content %}
@@ -32,10 +32,13 @@
 	</label>
 	
 	<label>
-		Content:
-		
-		<textarea name='text'>{{ text }}</textarea>
+		File:
+		<input type="file" name="file"/>
+	</label>
 	
+	<label>
+		Description:
+		<textarea name='text'>{{ text }}</textarea>
 	</label>
 	
 	<label>
@@ -43,20 +46,7 @@
 		<input type="text" name="tags" value="{{ tags }}"/>
 	</label>
 	
-	<label>
-		Show related items with these tags:
-		<input type="text" name="related_tags" value="{{ related_tags }}"/>
-	</label>
-	
-		
-	<!-- 
-	<label>
-		Related Tags:
-		<input type="text" name="related_tags" value="{related_tags }"/>
-	</label>
-	 -->
 	<input type="submit" name='save' value="Save"/>
-	<input type="submit" name='preview' value="Preview"/>
 </form>
 
 {% end %}

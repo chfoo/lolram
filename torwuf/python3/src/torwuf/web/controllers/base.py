@@ -67,14 +67,23 @@ AuthenticationHandlerMixIn,
 			self.request.messages.extend(self.session[BaseHandler.MESSAGE_SESSION_KEY])
 		
 		if self.get_argument('_render_format', False) == 'json':
-			if BaseHandler.MESSAGE_SESSION_KEY in self.session:
-				kargs['_messages'] = self.request.messages
-			
-			self.set_header('Content-Type', 'application/json')
-			self.write(json.dumps(kargs, default=json_serializer))
-			self.finish()
+			self.render_json(kargs)
 		else:
 			lolram.web.framework.app.BaseHandler.render(self, template_name, **kargs)
+	
+	def render_json(self, data):
+		if BaseHandler.MESSAGE_SESSION_KEY in self.session:
+			data['_messages'] = self.request.messages
+		
+		self.set_header('Content-Type', 'application/json')
+		self.write(json.dumps(data, default=json_serializer))
+		self.finish()
+	
+	def redirect(self, url, permanent=False, status=None, api_data=None):
+		if self.get_argument('_render_format', False) == 'json':
+			self.render_json(api_data)
+		else:
+			lolram.web.framework.app.BaseHandler.redirect(self, url, permanent, status)
 	
 	def add_message(self, title, body=None):
 		if not hasattr(self.request, 'messages'):

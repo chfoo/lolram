@@ -46,7 +46,7 @@ def b32low_str_to_bytes(s):
 	if length % 8 != 0:
 		s = '%s%s' % (s, '=' * (8 - length % 8))
 	
-	return  base64.b32decode(s.encode(), True, 'l')
+	return base64.b32decode(s.encode(), True, b'l')
 
 def json_serializer(obj):
 	if isinstance(obj, pymongo.collection.Cursor):
@@ -54,4 +54,4 @@ def json_serializer(obj):
 	elif inspect.isclass(obj) and issubclass(obj, ModelStringMap):
 		return obj.dict()
 	else:
-		return repr(obj)
+		return str(obj)

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block layout_title %}
+	{{ article[ArticleCollection.TITLE] }}
+{% end %}
+
+{% block layout_head %}
+	{% raw rest_doc.html_parts['meta'] %}
+{% end %}
+
+{% block content %}
+	{% module Template('cms/modules/rest.html', article=article, rest_doc=rest_doc) %}
+	
+	
+	{% if related_files %}
+	<section>
+		<p>Files:
+		{% for related_file in related_files %}
+			{% module Template('cms/modules/file_thumbnail.html', article=related_file,
+				ArticleCollection=ArticleCollection) %}
+		{% end %}
+		</p>
+	</section>
+	{% end %}
+	
+	{% if article[ArticleCollection.TAGS] %}
+	<section>
+		<p>
+		Tags:
+		{% for tag in article[ArticleCollection.TAGS] %}
+		<a href="{{ reverse_url('cms_tag', tag) }}">{{ tag }}</a>
+		{% end %}
+		</p>
+	</section>
+	{% end %}
+	
+	<nav>
+		<a href="{{ reverse_url('cms_article_edit', article['_id']) }}">Edit</a>
+	</nav>
+{% end %}

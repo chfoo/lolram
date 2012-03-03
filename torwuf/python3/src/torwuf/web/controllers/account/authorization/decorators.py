@@ -24,7 +24,7 @@ def require_admin(fn):
 	@functools.wraps(fn)
 	def wrapper(self, *args, **kargs):
 		if self.current_account_id \
-		and self.app_controller.controllers['AuthorizationController'].is_admin_account(self.current_account_uuid) \
+		and self.controllers['AuthorizationController'].is_admin_account(self.current_account_uuid) \
 		or self.is_testing_key_valid():
 			return fn(self, *args, **kargs)
 		else:
@@ -37,7 +37,7 @@ def require_group(*group):
 		@functools.wraps(fn)
 		def wrapper(self, *args, **kargs):
 			if self.current_account_id \
-			and self.app_controller.controllers['AuthorizationController'].is_account_in_group(self.current_account_uuid, *group) \
+			and self.controllers['AuthorizationController'].is_account_in_group(self.current_account_uuid, *group) \
 			or self.is_testing_key_valid():
 				return fn(self, *args, **kargs)
 			elif self.current_account_id:

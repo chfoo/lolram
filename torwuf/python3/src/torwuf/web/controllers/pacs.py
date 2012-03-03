@@ -21,6 +21,7 @@ from tornado.web import HTTPError
 from torwuf.web.controllers.account.authorization.decorators import \
 	require_group
 from torwuf.web.models.pacs import PacsCollection, PacsTagsCollection
+from torwuf.web.resource import make_map_tags_code, make_reduce_tags_code
 from torwuf.web.utils import tag_list_to_str
 import bson.code
 import bson.objectid
@@ -31,18 +32,6 @@ import string
 import torwuf.web.controllers.base
 
 VALID_TAG_SET = frozenset(string.printable)
-MAP_TAGS = bson.code.Code("function () {"
-	"  this.tags.forEach(function(z) {"
-	"    emit(z, 1);"
-	"  });"
-	"}")
-REDUCE_TAGS = bson.code.Code("function (key, values) {"
-	"  var total = 0;"
-	"  for (var i = 0; i < values.length; i++) {"
-	"    total += values[i];"
-	"  }"
-	"  return total;"
-	"}")
 
 class PacsController(torwuf.web.controllers.base.BaseController):
 	def init(self):
@@ -65,7 +54,8 @@ class PacsController(torwuf.web.controllers.base.BaseController):
 	
 	def aggregate_tags(self):
 		# XXX: for api 1.9 (2.1.1 out is a required argument)
-		self.pac_collection.map_reduce(MAP_TAGS, REDUCE_TAGS, 
+		self.pac_collection.map_reduce(make_map_tags_code(), 
+			make_reduce_tags_code(), 
 			out=PacsTagsCollection.COLLECTION)
 
 
@@ -108,7 +98,9 @@ class NewHandler(torwuf.web.controllers.base.BaseHandler):
 		self.add_message('Pac added')
 		
 		self.redirect(self.reverse_url(ListAllHandler.name), 
-			status=http.client.SEE_OTHER)
+			status=http.client.SEE_OTHER, api_data={
+				'id': str(doc_id),
+			})
 
 class MassNewHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'pacs_mass_new'

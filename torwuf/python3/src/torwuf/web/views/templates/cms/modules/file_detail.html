@@ -1,0 +1,12 @@
+{% import torwuf.web.utils %}
+
+<article>
+<h1>{{ article[ArticleCollection.TITLE] }}</h1>
+
+<img src="{{ reverse_url('cms_unique_item', 
+	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes) + ';resize=preview') }}"
+	alt="{{ article[ArticleCollection.TITLE] }}"
+/>
+
+</article>
+	

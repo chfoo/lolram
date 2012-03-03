@@ -6,6 +6,8 @@
 <link rel="stylesheet" href="/resource/styles.css"/>
 <link rel="shortcut icon" href="/favicon.ico" />
 <link rel="alternate" type="application/json" href="{{ request.path }}?_render_format=json"/>
+{% block layout_head %}
+{% end %}
 <script type="text/javascript" src="/resource/scripts.js"></script>
 </head>
 <body>
@@ -17,11 +19,12 @@
 {% include 'layout_message_deprecated.html' %}
 {% module Template('theme/layout_message.html') %}
 
-<article id="site-content">
+<div id="site-content">
 {% block layout_content %}
 No content defined
 {% end %}
-</article>
+</div>
+
 <footer id="site-footer">
 {% include 'layout_nav.html' %}
 {% include 'layout_copyright.html' %}

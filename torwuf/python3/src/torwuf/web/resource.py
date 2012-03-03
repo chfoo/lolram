@@ -1,4 +1,4 @@
-'''CMS database keys'''
+'''String resources and constants'''
 #
 #	Copyright (c) 2012 Christopher Foo <chris.foo@gmail.com>
 #
@@ -17,25 +17,25 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-from torwuf.web.models.base import ModelStringMap
+import bson.code
 
-class ArticleCollection(ModelStringMap):
-	COLLECTION = 'cms_articles'
-	PUBLICATION_DATE = 'date'
-	UPDATED_DATE = 'updated'
-	TAGS = 'tags'
-	RELATED_TAGS = 'related_tags'
-	TITLE = 'title'
-	UUID = 'uuid'
-	TEXT = 'text'
-	FILENAME = 'filename'
-	FILE_SHA1 = 'sha1'
-	
-class TagCollection(ModelStringMap):
-	COLLECTION = 'cms_tags'
-	TITLE = 'title'
-	COUNT = 'count'
+MAP_TAGS = ("function () {"
+	"  this.%s.forEach(function(z) {"
+	"    emit(z, 1);"
+	"  });"
+	"}")
 
-class TagCountCollection(ModelStringMap):
-	COLLECTION = 'cms_tag_counts'
-	COUNT = 'value'
+REDUCE_TAGS = ("function (key, values) {"
+	"  var total = 0;"
+	"  for (var i = 0; i < values.length; i++) {"
+	"    total += values[i];"
+	"  }"
+	"  return total;"
+	"}")
+
+def make_map_tags_code(key_name='tags'):
+	return bson.code.Code(MAP_TAGS % key_name)
+
+def make_reduce_tags_code():
+	return bson.code.Code(REDUCE_TAGS)
+

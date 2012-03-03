@@ -34,6 +34,11 @@ class AuthenticationHandlerMixIn(object):
 		
 		if openid_id:
 			return 'openid:%s' % openid_id
+		
+		if self.app_controller.config.config_parser.getboolean('account', 
+		'use_dummy_localhost_account', fallback=False) \
+		and self.request.host.split(':', 1)[0] in ('localhost', '127.0.0.1'):
+			return 'test:localhost'
 	
 	@property
 	def current_account_id(self):

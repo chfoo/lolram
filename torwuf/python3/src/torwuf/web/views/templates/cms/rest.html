@@ -1,9 +1,0 @@
-{% if doc_info.errors %}
-<section>
-<strong>There are errors with this document:</strong>
-<pre>{{ doc_info.errors }}</pre>
-</section>
-{% end %}
-<article>
-{% raw doc_info.html_parts['html_body'] %}
-</article>

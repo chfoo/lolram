@@ -1,4 +1,4 @@
-'''Test the pacs controller'''
+'''Test the cms controller'''
 #
 #	Copyright (c) 2012 Christopher Foo <chris.foo@gmail.com>
 #
@@ -17,15 +17,15 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
+from torwuf.web.utils import bytes_to_b32low_str
 import http.client
 import json
-import tornado.escape
 import torwuf.tests.web.server_base
 import unittest
+import uuid
 
 
-class TestPacs(unittest.TestCase, torwuf.tests.web.server_base.ServerBaseMixIn):
-	UNIQUE_PAC = '(397c756b-7810-4141-8701-739d9c4ffbca<'
+class TestCMS(unittest.TestCase, torwuf.tests.web.server_base.ServerBaseMixIn):
 	
 	def setUp(self):
 		self.create_app()
@@ -33,33 +33,39 @@ class TestPacs(unittest.TestCase, torwuf.tests.web.server_base.ServerBaseMixIn):
 	
 	def tearDown(self):
 		self.stop_server()
-
-	def test_new(self):
-		response = self.request('/pacs/new', 
-			query_map={
-				'text': TestPacs.UNIQUE_PAC,
-				'tags': '"two word" my_tag',
-				'_render_format': 'json',
-			},
-			method='POST',
-		)
+	
+	def test_new_article(self):
+		uuid_obj = uuid.uuid4()
+		
+		response = self.request('/cms/article/new', method='POST', query_map={
+			'title': 'my title',
+			'text': 'my test',
+			'date': '2000-01-01 00:00:00',
+			'uuid': str(uuid_obj),
+			'_render_format': 'json',
+			'save': 'save',
+		})
 		
 		self.assertEqual(response.status, http.client.OK)
 		response_dict = json.loads(response.read().decode())
-		pac_id = response_dict['id']
+		uuid_obj = uuid.UUID(response_dict['uuid'])
+		doc_id = response_dict['id']
 		
-		response = self.request('/pacs/' + pac_id)
+		response = self.request('/a/' + bytes_to_b32low_str(uuid_obj.bytes))
+		
 		self.assertEqual(response.status, http.client.OK)
 		response_text = response.read().decode()
+		self.assertIn('my test', response_text)
 		
-		self.assertIn(tornado.escape.xhtml_escape(TestPacs.UNIQUE_PAC), response_text)
+		response = self.request('/cms/article/delete/' + doc_id, method='POST',
+			query_map={'_render_format': 'json', 'confirm': 'confirm'},
+		)
 		
-		response = self.request('/pacs/')
 		self.assertEqual(response.status, http.client.OK)
-		response_text = response.read().decode()
 		
-		self.assertIn(tornado.escape.xhtml_escape(TestPacs.UNIQUE_PAC), response_text)
+		response = self.request('/a/' + bytes_to_b32low_str(uuid_obj.bytes))
 		
+		self.assertEqual(response.status, http.client.NOT_FOUND)
 
 if __name__ == "__main__":
 	#import sys;sys.argv = ['', 'Test.testName']

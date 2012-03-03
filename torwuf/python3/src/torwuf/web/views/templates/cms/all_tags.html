@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block layout_title %}
+	All Tags
+{% end %}
+
+{% block content %}
+	<ul>
+		{% for tag in tags %}
+			<li>
+				{{ tag.get(TagCollection.TITLE) or tag['_id'] }}
+			</li>
+		{% end %}
+	</ul>
+{% end %}
