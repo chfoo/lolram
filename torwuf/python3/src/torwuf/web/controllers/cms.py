@@ -17,7 +17,10 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
+from lolram.web.framework.mixins import StaticFileMixIn
 from tornado.web import HTTPError
+from torwuf.web.controllers.account.authorization.decorators import \
+	require_admin
 from torwuf.web.models.cms import ArticleCollection, TagCountCollection, \
 	TagCollection
 from torwuf.web.resource import make_map_tags_code, make_reduce_tags_code
@@ -51,7 +54,8 @@ class CMSController(torwuf.web.controllers.base.BaseController):
 	
 	def init(self):
 		self.add_url_spec(r'/a/([0-9a-zA-Z]+)', UniqueItemHandler)
-		self.add_url_spec(r'/a/([0-9a-zA-Z]+);([0-9a-zA-Z]+)', ItemFormatHandler)
+		self.add_url_spec(r'/a/([0-9a-zA-Z]+);download', DownloadHandler)
+		self.add_url_spec(r'/a/([0-9a-zA-Z]+);resize=([0-9a-zA-Z]+)', ResizeHandler)
 		self.add_url_spec(r'/cms/article/new', NewArticleHandler)
 		self.add_url_spec(r'/cms/article/edit/([0-9a-f]+)', EditArticleHandler)
 		self.add_url_spec(r'/cms/article/delete/([0-9a-f]+)', DeleteArticleHandler)
@@ -113,18 +117,9 @@ class HandlerMixin(object):
 class UniqueItemHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	name = 'cms_unique_item'
 	
-	def get(self, b32_str, params=None):
+	def get(self, b32_str):
 		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
 		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
-		
-		if result and params == 'download':
-			if ArticleCollection.FILE_SHA1 in result:
-				self.do_file_download(result)
-			else:
-				self.set_header('Content-Type', 'text/plain; encoding=utf-8')
-				self.write(result[ArticleCollection.TEXT])
-				self.finish()
-				return
 		
 		if result and ArticleCollection.FILE_SHA1 not in result:
 			self.do_article(result)
@@ -193,15 +188,74 @@ class UniqueItemHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 		
 		return (prev_article, next_article)
 	
-	def do_file_download(self, result, ):
-		self.redirect(self.static_url(self.get_disk_file_path(
-			base64.b16encode(result[ArticleCollection.FILE_SHA1]).decode())))
 
-class ItemFormatHandler(UniqueItemHandler):
-	name = 'cms_item_format'
+class DownloadHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, StaticFileMixIn):
+	name = 'cms_download'
 	
-	def get(self, b32_str, params):
-		UniqueItemHandler.get(self, b32_str, params)
+	def get(self, b32_str):
+		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
+		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
+		
+		if ArticleCollection.FILE_SHA1 in result:
+			self.do_file_download(result)
+		else:
+			self.set_header('Content-Type', 'text/plain; encoding=utf-8')
+			self.write(result[ArticleCollection.TEXT])
+			self.finish()
+			return
+
+	def post(self, b32_str):
+		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
+		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
+		
+		if ArticleCollection.FILE_SHA1 in result:
+			self.do_file_download_head(result)
+		else:
+			return HTTPError(http.client.BAD_REQUEST)
+	
+	def do_file_download(self, result, include_body=True):
+		path = base64.b16encode(result[ArticleCollection.FILE_SHA1]).decode()
+		
+		if result[ArticleCollection.FILENAME]:
+			filename = result[ArticleCollection.FILENAME]
+		else:
+			filename = None
+		
+		self.serve_file(self.get_disk_file_path(path), filename=filename, 
+			include_body=include_body)
+
+
+class ResizeHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, StaticFileMixIn):
+	name = 'cms_resize'
+	
+	def get(self, b32_str, resize_method):
+		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
+		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
+		
+		if ArticleCollection.FILE_SHA1 in result:
+			self.do_file_download(result)
+		else:
+			return HTTPError(http.client.BAD_REQUEST)
+
+	def post(self, b32_str, resize_method):
+		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
+		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
+		
+		if ArticleCollection.FILE_SHA1 in result:
+			self.do_file_download_head(result)
+		else:
+			return HTTPError(http.client.BAD_REQUEST)
+	
+	def do_file_download(self, result, include_body=True):
+		path = base64.b16encode(result[ArticleCollection.FILE_SHA1]).decode()
+		
+		if result[ArticleCollection.FILENAME]:
+			filename = result[ArticleCollection.FILENAME]
+		else:
+			filename = None
+		
+		self.serve_file(self.get_disk_file_path(path), filename=filename, 
+			include_body=include_body)
 
 class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	def new_form_data(self):
@@ -228,7 +282,7 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 				text=result[ArticleCollection.TEXT],
 				related_tags=tag_list_to_str(result[ArticleCollection.RELATED_TAGS]),
 			)
-		
+	
 	def save(self, object_id=None):
 		uuid_obj = uuid.UUID(self.get_argument('uuid'))
 		title = self.get_argument('title', None)
@@ -303,11 +357,13 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 class NewArticleHandler(BaseEditArticleHandler):
 	name = 'cms_article_new'
 	
+	@require_admin
 	def get(self):
 		form_data = self.new_form_data()
 		
 		self.render('cms/edit_article.html', **form_data)
 	
+	@require_admin
 	def post(self):
 		self.save()
 
@@ -315,11 +371,13 @@ class NewArticleHandler(BaseEditArticleHandler):
 class EditArticleHandler(BaseEditArticleHandler):
 	name = 'cms_article_edit'
 
+	@require_admin
 	def get(self, hex_id):
 		form_data = self.get_form_data(hex_id)
 		
 		self.render('cms/edit_article.html', **form_data)
 	
+	@require_admin
 	def post(self, hex_id):
 		object_id = bson.objectid.ObjectId(hex_id)
 		self.save(object_id)
@@ -328,6 +386,7 @@ class EditArticleHandler(BaseEditArticleHandler):
 class DeleteArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	name = 'cms_article_delete'
 	
+	@require_admin
 	def get(self, hex_id):
 		object_id = bson.objectid.ObjectId(hex_id)
 		result = self.article_collection.find_one({'_id': object_id})
@@ -339,6 +398,7 @@ class DeleteArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin
 		else:
 			raise HTTPError(http.client.NOT_FOUND)
 	
+	@require_admin
 	def post(self, hex_id):
 		object_id = bson.objectid.ObjectId(hex_id)
 		result = self.article_collection.find_one({'_id': object_id})
@@ -411,8 +471,11 @@ class BaseEditFileHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin)
 		
 		if object_id is None:
 			file_obj = self.request.field_storage['file'].file
-			filename = self.request.field_storage['file'].name
+			filename = self.request.field_storage['file'].filename
 			sha1 = self.save_to_disk(file_obj)
+			
+			if not title:
+				title = filename
 		
 			object_id = self.article_collection.insert({
 				ArticleCollection.FILENAME: filename,
@@ -452,9 +515,11 @@ class BaseEditFileHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin)
 class UploadFileHandler(BaseEditFileHandler):
 	name = 'cms_file_upload'
 	
+	@require_admin
 	def get(self):
 		self.render('cms/upload_file.html', **self.new_form_data())
 	
+	@require_admin
 	def post(self):
 		self.save()
 
@@ -462,6 +527,7 @@ class UploadFileHandler(BaseEditFileHandler):
 class EditFileHandler(BaseEditFileHandler):
 	name = 'cms_file_edit'
 	
+	@require_admin
 	def get(self, hex_id):
 		form_data = self.get_form_data(hex_id)
 		
@@ -470,6 +536,7 @@ class EditFileHandler(BaseEditFileHandler):
 		else:
 			raise HTTPError(http.client.NOT_FOUND)
 	
+	@require_admin
 	def post(self, hex_id):
 		object_id = bson.objectid.ObjectId(hex_id)
 		self.save(object_id)

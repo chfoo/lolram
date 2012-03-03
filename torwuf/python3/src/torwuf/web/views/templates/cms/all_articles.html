@@ -16,4 +16,11 @@
 			</li>
 		{% end %}
 	</ul>
+	
+	<nav>
+		{% if current_user %}
+		<a href="{{ reverse_url('cms_file_upload') }}">Upload</a>
+		<a href="{{ reverse_url('cms_article_new') }}">New</a>
+		{% end %}
+	</nav>
 {% end %}
