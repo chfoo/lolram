@@ -98,7 +98,7 @@ class Configuration(object):
 	
 	def create_db_dirs(self):
 		if self.debug_mode:
-			self._temp_dir = tempfile.TemporaryDirectory()
+			self._temp_dir = tempfile.TemporaryDirectory(prefix='lolram-test-db-')
 			self._db_path = self._temp_dir.name
 			_logger.info('Using temporary directory')
 		else:
@@ -135,6 +135,7 @@ class ApplicationController(object):
 	
 	@property
 	def database(self):
+		# database should probably be a controller
 		return self._database
 	
 	@property
@@ -164,8 +165,8 @@ class ApplicationController(object):
 
 
 class BaseController(object):
-	def __init__(self, application):
-		self._application = application
+	def __init__(self, app_controller):
+		self._app_controller = app_controller
 		self._url_specs = []
 		self.init()
 		
@@ -174,11 +175,24 @@ class BaseController(object):
 	
 	@property
 	def application(self):
-		return self._application
+		'''
+		
+		:deprecated:
+			Use `app_controller`
+		'''
+		return self._app_controller
+	
+	@property
+	def app_controller(self):
+		return self._app_controller
 	
 	@property
 	def config(self):
-		return self._application.config
+		return self._app_controller.config
+	
+	@property
+	def controllers(self):
+		return self._app_controller.controllers
 	
 	@property
 	def url_specs(self):
@@ -187,10 +201,7 @@ class BaseController(object):
 	def add_url_spec(self, url_pattern, handler_class, **handler_kargs):
 		handler_kargs['controller'] = self
 		
-		# XXX: hax to get utf8 support
-		escaped_url_pattern = urllib.parse.quote(url_pattern, safe=string.printable)
-		
-		url_spec = tornado.web.URLSpec(escaped_url_pattern, handler_class, 
+		url_spec = tornado.web.URLSpec(url_pattern, handler_class, 
 			handler_kargs, name=handler_class.name)
 		self._url_specs.append(url_spec)
 
@@ -204,7 +215,11 @@ class BaseHandler(tornado.web.RequestHandler):
 		
 	@property
 	def app_controller(self):
-		return self._controller.application
+		return self._controller.app_controller
+	
+	@property
+	def controllers(self):
+		return self._controller.controllers
 	
 	def initialize(self, controller, **kargs):
 		self._controller = controller

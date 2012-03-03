@@ -156,8 +156,11 @@ class HTTPRequest(tornado.wsgi.HTTPRequest):
 	def _parse_environ(self):
 		environ = self.environ
 		self.method = environ["REQUEST_METHOD"]
-		self.path = urllib.parse.quote(environ.get("SCRIPT_NAME", ""))
-		self.path += urllib.parse.quote(environ.get("PATH_INFO", ""))
+#		self.path = urllib.parse.quote(environ.get("SCRIPT_NAME", ""))
+#		self.path += urllib.parse.quote(environ.get("PATH_INFO", ""))
+		# FIXME: i'm not sure why we quote it, it breaks non-alphanumeric url matching
+		self.path = environ.get("SCRIPT_NAME", "")
+		self.path += environ.get("PATH_INFO", "")
 		self.uri = self.path
 		self.arguments = {}
 		self.query = environ.get("QUERY_STRING", "")
