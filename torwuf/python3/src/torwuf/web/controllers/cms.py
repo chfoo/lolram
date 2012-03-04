@@ -37,9 +37,11 @@ import lolram.utils.restpub
 import os.path
 import pymongo
 import shlex
+import subprocess
 import tempfile
 import torwuf.web.controllers.base
 import uuid
+import mimetypes
 
 _logger = logging.getLogger(__name__)
 
@@ -78,6 +80,8 @@ class CMSController(torwuf.web.controllers.base.BaseController):
 		return doc_info
 	
 	def generate_tag_count_collection(self):
+		_logger.info('Generating tag collection')
+		
 		self.article_collection.map_reduce(make_map_tags_code(), 
 			make_reduce_tags_code(), 
 			out=TagCountCollection.COLLECTION)
@@ -95,7 +99,8 @@ class CMSController(torwuf.web.controllers.base.BaseController):
 			)
 		else:
 			self.tag_collection.update({'_id': tag_id}, 
-				{'$set': {TagCollection.COUNT: count}}
+				{'$set': {TagCollection.COUNT: count}},
+				upsert=True,
 			)
 
 
@@ -204,20 +209,25 @@ class DownloadHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, Sta
 			self.finish()
 			return
 
-	def post(self, b32_str):
+	def head(self, b32_str):
 		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
 		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
 		
 		if ArticleCollection.FILE_SHA1 in result:
-			self.do_file_download_head(result)
+			self.do_file_download(result, include_body=False)
 		else:
-			return HTTPError(http.client.BAD_REQUEST)
+			raise HTTPError(http.client.BAD_REQUEST)
 	
 	def do_file_download(self, result, include_body=True):
 		path = base64.b16encode(result[ArticleCollection.FILE_SHA1]).decode()
 		
 		if result[ArticleCollection.FILENAME]:
 			filename = result[ArticleCollection.FILENAME]
+			file_type, encoding = mimetypes.guess_type(filename)
+			
+			if file_type:
+				self.set_header('Content-Type', file_type)
+			
 		else:
 			filename = None
 		
@@ -227,35 +237,78 @@ class DownloadHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, Sta
 
 class ResizeHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, StaticFileMixIn):
 	name = 'cms_resize'
+	SIZE_THUMBNAIL = 75
+	SIZE_PREVIEW = 500
+	SIZE_LARGE = 1000
+	
+	def get_thumbnail_path(self, hash_str, suffix):
+		hash_str = hash_str.lower()
+		return os.path.join(self.app_controller.config.upload_path, 
+			'cms_thumbnails', hash_str[0:2], hash_str[2:4], hash_str[4:6], 
+			hash_str + suffix)
 	
 	def get(self, b32_str, resize_method):
 		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
 		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
 		
 		if ArticleCollection.FILE_SHA1 in result:
-			self.do_file_download(result)
+			self.do_file_download(result, resize_method)
 		else:
-			return HTTPError(http.client.BAD_REQUEST)
+			raise HTTPError(http.client.BAD_REQUEST)
 
-	def post(self, b32_str, resize_method):
+	def head(self, b32_str, resize_method):
 		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
 		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
 		
 		if ArticleCollection.FILE_SHA1 in result:
-			self.do_file_download_head(result)
+			self.do_file_download(result, resize_method, include_body=False)
 		else:
-			return HTTPError(http.client.BAD_REQUEST)
+			raise HTTPError(http.client.BAD_REQUEST)
 	
-	def do_file_download(self, result, include_body=True):
-		path = base64.b16encode(result[ArticleCollection.FILE_SHA1]).decode()
-		
-		if result[ArticleCollection.FILENAME]:
-			filename = result[ArticleCollection.FILENAME]
+	def do_file_download(self, article, resize_method, include_body=True):
+		if resize_method == 'thumbnail':
+			size = ResizeHandler.SIZE_THUMBNAIL
+		elif resize_method == 'preview':
+			size = ResizeHandler.SIZE_PREVIEW
+		elif resize_method == 'large':
+			size = ResizeHandler.SIZE_LARGE
 		else:
-			filename = None
+			raise HTTPError(http.client.BAD_REQUEST, 
+				'unknown size {}'.format(resize_method))
 		
-		self.serve_file(self.get_disk_file_path(path), filename=filename, 
-			include_body=include_body)
+		hash_str = base64.b16encode(article[ArticleCollection.FILE_SHA1]).decode().lower()
+		source_path = self.get_disk_file_path(hash_str)
+		dest_path = self.get_thumbnail_path(hash_str, str(size))
+		
+		if not os.path.exists(dest_path):
+			self.resize(source_path, dest_path, size)
+		
+		if article[ArticleCollection.FILENAME]:
+			filename = article[ArticleCollection.FILENAME]
+			file_type, encoding = mimetypes.guess_type(filename)
+			
+			if file_type:
+				self.set_header('Content-Type', file_type)
+		
+		self.serve_file(dest_path, include_body=include_body)
+		
+	def resize(self, source_path, dest_path, size):
+		_logger.debug('Attempt convert %s to %s size %s', source_path, 
+			dest_path, size)
+		
+		dest_dir = os.path.dirname(dest_path)
+		
+		if not os.path.exists(dest_dir):
+			os.makedirs(dest_dir)
+		
+		p = subprocess.Popen(['convert', source_path, '-resize', 
+			'{}x{}>'.format(size, size), dest_path])
+		
+		return_code = p.wait()
+		
+		if return_code:
+			raise HTTPError(http.client.INTERNAL_SERVER_ERROR, 
+				'imagemagick convert gave error code {}'.format(return_code))
 
 class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	def new_form_data(self):
@@ -284,7 +337,7 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 			)
 	
 	def save(self, object_id=None):
-		uuid_obj = uuid.UUID(self.get_argument('uuid'))
+		
 		title = self.get_argument('title', None)
 		text = self.get_argument('text', None)
 		# TODO: remove duplicates with sets
@@ -297,6 +350,13 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 			self.add_message('Title automatically parsed from document')
 			
 			title = rest_doc.title
+		
+		if not self.get_argument('uuid', None) and rest_doc.meta.get('uuid'):
+			self.add_message('UUID automatically parsed from document')
+			
+			uuid_obj = uuid.UUID(rest_doc.meta.get('uuid'))
+		else:
+			uuid_obj = uuid.UUID(self.get_argument('uuid'))
 		
 		publication_date = None
 		
@@ -507,6 +567,7 @@ class BaseEditFileHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin)
 					update_dict
 				)
 		
+		self.controller.generate_tag_count_collection()
 		self.add_message('File saved')
 		self.redirect(self.reverse_url(UniqueItemHandler.name, 
 			bytes_to_b32low_str(uuid_obj.bytes)))

@@ -3,8 +3,8 @@
 <article>
 <h1>{{ article[ArticleCollection.TITLE] }}</h1>
 
-<img src="{{ reverse_url('cms_download', 
-	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes)) }}"
+<img src="{{ reverse_url('cms_resize', 
+	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes), 'large') }}"
 	alt="{{ article[ArticleCollection.TITLE] }}"
 />
 

@@ -57,6 +57,7 @@ Other
  * lighttpd
  * mongodb
  * sqlite3
+ * imagemagick
 
  
 Websites

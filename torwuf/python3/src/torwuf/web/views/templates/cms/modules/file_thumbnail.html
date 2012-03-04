@@ -1,9 +1,9 @@
 <section>
 {% import torwuf.web.utils %}
-{#<img src="{{ reverse_url('cms_unique_item', 
-	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes) + ';resize=thumbnail') }}"
+<img src="{{ reverse_url('cms_resize', 
+	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes), 'thumbnail') }}"
 	alt="{{ article[ArticleCollection.TITLE] }}"
-/>#}
+/>
 <a href="{{ reverse_url('cms_unique_item', 
 	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes)) }}">
 	{{ article[ArticleCollection.TITLE] }}

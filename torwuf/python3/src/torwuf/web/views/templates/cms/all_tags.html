@@ -8,7 +8,8 @@
 	<ul>
 		{% for tag in tags %}
 			<li>
-				{{ tag.get(TagCollection.TITLE) or tag['_id'] }}
+				<a href="{{ reverse_url('cms_tag', tag['_id']) }}">
+					{{ tag.get(TagCollection.TITLE) or tag['_id'] }}</a>
 			</li>
 		{% end %}
 	</ul>
