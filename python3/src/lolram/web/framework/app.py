@@ -97,13 +97,7 @@ class Configuration(object):
 			_logger.warn('No configuration files read')
 	
 	def create_db_dirs(self):
-		if self.debug_mode:
-			self._temp_dir = tempfile.TemporaryDirectory(prefix='lolram-test-db-')
-			self._db_path = self._temp_dir.name
-			_logger.info('Using temporary directory')
-		else:
-			self._db_path = os.path.join(self.root_path, 'databases/')
-		
+		self._db_path = os.path.join(self.root_path, 'databases/')
 		self._upload_path = os.path.join(self._db_path, 'uploads/')
 		
 		_logger.info('Database path: %s', self._db_path)
