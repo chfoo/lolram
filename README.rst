@@ -27,10 +27,10 @@ pip, easy_install, or a package manager (apt-get) for installation of packages.
 repository.)
 
 Packages required
------------------
++++++++++++++++++
 
 Python 2
-........
+--------
 
  * pymongo
  * openidmongodb
@@ -38,7 +38,7 @@ Python 2
  * loggerhead
 
 Python 3
-........
+--------
 
  * docutils
  * tornado
@@ -52,7 +52,7 @@ Python 3
  * roman
 
 Other
------
++++++
 
  * lighttpd
  * mongodb
