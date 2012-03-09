@@ -1,0 +1,15 @@
+=== modified file 'torwuf/python3/src/tornado/template.py'
+--- torwuf/python3/src/tornado/template.py	2012-02-25 19:39:35 +0000
++++ torwuf/python3/src/tornado/template.py	2012-03-09 03:33:13 +0000
+@@ -350,8 +350,8 @@
+ 
+     def _create_template(self, name):
+         path = os.path.join(self.root, name)
+-        f = open(path, "r")
+-        template = Template(f.read(), name=name, loader=self)
++        f = open(path, "rb")
++        template = Template(f.read().decode(), name=name, loader=self)
+         f.close()
+         return template
+ 
+
