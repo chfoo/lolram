@@ -131,7 +131,9 @@ class UniqueItemHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 		elif result:
 			self.do_file(result)
 		else:
-			raise HTTPError(http.client.NOT_FOUND)
+			# TODO: once all articles have been put back, switch to 404
+			raise HTTPError(http.client.INTERNAL_SERVER_ERROR)
+#			raise HTTPError(http.client.NOT_FOUND)
 	
 	def do_article(self, result):
 		rest_doc = self.controller.render_text(result[ArticleCollection.TEXT])

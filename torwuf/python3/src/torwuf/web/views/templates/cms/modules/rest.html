@@ -6,8 +6,10 @@
 {% end %}
 
 <article>
-{% if not rest_doc.title and article['title'] %}
-<h1>{{ article['title'] }}</h1>
+{% if 'article' in globals() %}
+	{% if not rest_doc.title and article['title'] %}
+	<h1>{{ article['title'] }}</h1>
+	{% end %}
 {% end %}
 
 {% raw rest_doc.html_parts['html_body'] %}

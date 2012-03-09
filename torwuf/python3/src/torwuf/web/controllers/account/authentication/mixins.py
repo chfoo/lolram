@@ -37,7 +37,8 @@ class AuthenticationHandlerMixIn(object):
 		
 		if self.app_controller.config.config_parser.getboolean('account', 
 		'use_dummy_localhost_account', fallback=False) \
-		and self.request.host.split(':', 1)[0] in ('localhost', '127.0.0.1'):
+		and self.request.host.split(':', 1)[0] in ('localhost', '127.0.0.1', 
+		'localdev.torwuf.com'):
 			return 'test:localhost'
 	
 	@property
