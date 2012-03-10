@@ -37,9 +37,10 @@
 	</section>
 	{% end %}
 	
-	{% block cms_menu %}
-		{% if current_user %}
-		<a href="{{ reverse_url('cms_article_edit', article['_id']) }}">Edit</a>
-		{% end %}
+{% end %}
+
+{% block cms_menu %}
+	{% if current_user %}
+	<a href="{{ reverse_url('cms_article_edit', article['_id']) }}">Edit</a>
 	{% end %}
 {% end %}

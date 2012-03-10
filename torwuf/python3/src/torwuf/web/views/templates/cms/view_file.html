@@ -56,13 +56,14 @@
 	</section>
 	{% end %}
 	
-	{% block cms_download %}
-		<a href="{{ reverse_url('cms_download', 
-			torwuf.web.utils.bytes_to_b32low_str(
-				article[ArticleCollection.UUID].bytes)) }}">Download</a>
-				
-		{% if current_user %}
-		<a href="{{ reverse_url('cms_file_edit', article['_id']) }}">Edit</a>
-		{% end %}
+{% end %}
+
+{% block cms_menu %}
+	<a href="{{ reverse_url('cms_download', 
+		torwuf.web.utils.bytes_to_b32low_str(
+			article[ArticleCollection.UUID].bytes)) }}">Download</a>
+			
+	{% if current_user %}
+	<a href="{{ reverse_url('cms_file_edit', article['_id']) }}">Edit</a>
 	{% end %}
 {% end %}

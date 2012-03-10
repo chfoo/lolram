@@ -58,6 +58,7 @@ Other
  * mongodb
  * sqlite3
  * imagemagick
+ * librsvg2-bin (for rsvg-convert)
 
  
 Websites

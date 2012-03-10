@@ -138,13 +138,17 @@ class UniqueItemHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	
 	def do_article(self, result):
 		rest_doc = self.controller.render_text(result[ArticleCollection.TEXT])
-		query = {
-			ArticleCollection.TAGS: result[ArticleCollection.RELATED_TAGS],
-			ArticleCollection.FILE_SHA1: {'$exists': True},
-		}
-		related_files = list(self.article_collection.find(query,
-			sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.ASCENDING)]
-		))
+		
+		if result[ArticleCollection.RELATED_TAGS]:
+			query = {
+				ArticleCollection.TAGS: result[ArticleCollection.RELATED_TAGS],
+				ArticleCollection.FILE_SHA1: {'$exists': True},
+			}
+			related_files = list(self.article_collection.find(query,
+				sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.ASCENDING)]
+			))
+		else:
+			related_files = []
 		
 		self.render('cms/view_article.html', article=result, 
 			rest_doc=rest_doc,
@@ -152,23 +156,31 @@ class UniqueItemHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 			ArticleCollection=ArticleCollection)
 	
 	def do_file(self, result):
-		query = {
-			ArticleCollection.TAGS: result[ArticleCollection.TAGS],
-			ArticleCollection.FILE_SHA1: {'$exists': False},
-		}
-		related_articles = list(self.article_collection.find(query,
-			sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.ASCENDING)]
-		))
+		if result[ArticleCollection.TAGS]:
+			query = {
+				ArticleCollection.TAGS: result[ArticleCollection.TAGS],
+				ArticleCollection.FILE_SHA1: {'$exists': False},
+			}
+			related_articles = list(self.article_collection.find(query,
+				sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.ASCENDING)]
+			))
+		else:
+			related_articles = []
 		
-		query = {
-			ArticleCollection.TAGS: result[ArticleCollection.TAGS],
-			ArticleCollection.FILE_SHA1: {'$exists': True},
-		}
-		related_files = list(self.article_collection.find(query,
-			sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.ASCENDING)]
-		))
+		if result[ArticleCollection.TAGS]:
+			query = {
+				ArticleCollection.TAGS: result[ArticleCollection.TAGS],
+				ArticleCollection.FILE_SHA1: {'$exists': True},
+			}
+			related_files = list(self.article_collection.find(query,
+				sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.ASCENDING)]
+			))
+			
+			prev_article, next_article = self.find_prev_and_next(result[ArticleCollection.UUID], related_files)
 		
-		prev_article, next_article = self.find_prev_and_next(result[ArticleCollection.UUID], related_files)
+		else:
+			prev_article = None
+			next_article = None
 		
 		self.render('cms/view_file.html', article=result, 
 			related_articles=related_articles,
@@ -245,6 +257,9 @@ class ResizeHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, Stati
 	SIZE_LARGE = 1000
 	
 	def get_thumbnail_path(self, hash_str, suffix):
+		if '/' in suffix:
+			raise Exception('Bad suffix (Slash deliminator not allowed)')
+		
 		hash_str = hash_str.lower()
 		return os.path.join(self.app_controller.config.upload_path, 
 			'cms_thumbnails', hash_str[0:2], hash_str[2:4], hash_str[4:6], 
@@ -283,15 +298,22 @@ class ResizeHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, Stati
 		source_path = self.get_disk_file_path(hash_str)
 		dest_path = self.get_thumbnail_path(hash_str, str(size))
 		
-		if not os.path.exists(dest_path):
-			self.resize(source_path, dest_path, size)
 		
 		if article[ArticleCollection.FILENAME]:
 			filename = article[ArticleCollection.FILENAME]
-			file_type, encoding = mimetypes.guess_type(filename)
 			
-			if file_type:
-				self.set_header('Content-Type', file_type)
+			if filename.endswith('.svg'):
+				self.set_header('Content-Type', 'image/svg+xml')
+				
+				dest_path += '.svg.png'
+			else:
+				file_type, encoding = mimetypes.guess_type(filename)
+				
+				if file_type:
+					self.set_header('Content-Type', file_type)
+			
+			if not os.path.exists(dest_path):
+				self.resize(source_path, dest_path, size)
 		
 		self.serve_file(dest_path, include_body=include_body)
 		
@@ -304,14 +326,21 @@ class ResizeHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, Stati
 		if not os.path.exists(dest_dir):
 			os.makedirs(dest_dir)
 		
-		p = subprocess.Popen(['convert', source_path, '-resize', 
-			'{}x{}>'.format(size, size), dest_path])
-		
-		return_code = p.wait()
+		if dest_path.endswith('.svg.png'):
+			program_name = 'librsvg2-bin'
+			p = subprocess.Popen(['rsvg-convert', source_path,
+				'--width', size, '--height', size, 
+				'--format', 'png', '--keep-aspect-ratio', '--output', dest_path])
+		else:
+			program_name = 'imagemagick'
+			p = subprocess.Popen(['convert', source_path, '-resize', 
+				'{}x{}>'.format(size, size), dest_path])
+			
+			return_code = p.wait()
 		
 		if return_code:
 			raise HTTPError(http.client.INTERNAL_SERVER_ERROR, 
-				'imagemagick convert gave error code {}'.format(return_code))
+				'{} convert gave error code {}'.format(program_name, return_code))
 
 class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	def new_form_data(self):
