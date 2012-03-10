@@ -4,6 +4,12 @@
 	{{ article[ArticleCollection.TITLE] }}
 {% end %}
 
+{% block cms_layout_head %}
+	<meta name="urn" content="{{ article[ArticleCollection.UUID].urn }}"/>
+	<meta name="uuid" content="{{ '{' }}{{ str(article[ArticleCollection.UUID]) }}{{ '}' }}"/>
+	
+{% end %}
+
 {% block content %}
 	{% import torwuf.web.utils %}
 	
@@ -50,15 +56,13 @@
 	</section>
 	{% end %}
 	
-	<nav>
+	{% block cms_download %}
 		<a href="{{ reverse_url('cms_download', 
 			torwuf.web.utils.bytes_to_b32low_str(
 				article[ArticleCollection.UUID].bytes)) }}">Download</a>
 				
 		{% if current_user %}
 		<a href="{{ reverse_url('cms_file_edit', article['_id']) }}">Edit</a>
-		<a href="{{ reverse_url('cms_file_upload') }}">Upload</a>
-		<a href="{{ reverse_url('cms_article_new') }}">New</a>
 		{% end %}
-	</nav>
+	{% end %}
 {% end %}

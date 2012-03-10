@@ -53,7 +53,7 @@ class CatchAllRequestHandler(torwuf.web.controllers.base.BaseHandler):
 				self.render('index/disambig.html', path=path)
 				return
 					
-		raise tornado.web.HTTPError(500)
+		raise tornado.web.HTTPError(http.client.NOT_FOUND)
 	
 					
 

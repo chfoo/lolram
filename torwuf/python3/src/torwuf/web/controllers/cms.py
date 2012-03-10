@@ -58,14 +58,17 @@ class CMSController(torwuf.web.controllers.base.BaseController):
 		self.add_url_spec(r'/a/([0-9a-zA-Z]+)', UniqueItemHandler)
 		self.add_url_spec(r'/a/([0-9a-zA-Z]+);download', DownloadHandler)
 		self.add_url_spec(r'/a/([0-9a-zA-Z]+);resize=([0-9a-zA-Z]+)', ResizeHandler)
+		self.add_url_spec(r'/a/file=(.*)', LookupFileHandler)
 		self.add_url_spec(r'/cms/article/new', NewArticleHandler)
 		self.add_url_spec(r'/cms/article/edit/([0-9a-f]+)', EditArticleHandler)
 		self.add_url_spec(r'/cms/article/delete/([0-9a-f]+)', DeleteArticleHandler)
 		self.add_url_spec(r'/cms/file/upload', UploadFileHandler)
 		self.add_url_spec(r'/cms/file/edit/([0-9a-f]+)', EditFileHandler)
+		self.add_url_spec(r'/cms/file/lookup/(.+)', LookupFileHandler)
 		self.add_url_spec(r'/cms/tags', AllTagsHandler)
 		self.add_url_spec(r'/cms/tag/(.*)', TagHandler)
 		self.add_url_spec(r'/cms/articles', AllArticlesHandler)
+		self.add_url_spec(r'/cms/atom.xml', AtomFeedHandler)
 		
 		self.article_collection.ensure_index(
 			[(ArticleCollection.TAGS, pymongo.ASCENDING)])
@@ -131,9 +134,7 @@ class UniqueItemHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 		elif result:
 			self.do_file(result)
 		else:
-			# TODO: once all articles have been put back, switch to 404
-			raise HTTPError(http.client.INTERNAL_SERVER_ERROR)
-#			raise HTTPError(http.client.NOT_FOUND)
+			raise HTTPError(http.client.NOT_FOUND)
 	
 	def do_article(self, result):
 		rest_doc = self.controller.render_text(result[ArticleCollection.TEXT])
@@ -605,6 +606,25 @@ class EditFileHandler(BaseEditFileHandler):
 		self.save(object_id)
 
 
+class LookupFileHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
+	def get(self, search_term):
+		results = self.article_collection.find({
+			ArticleCollection.FILE_SHA1: {'$exists': True},
+			ArticleCollection.FILENAME: search_term,
+		})
+		
+		if results.count() == 1:
+			result = results[0]
+			id_ = bytes_to_b32low_str(result[ArticleCollection.UUID].bytes)
+			self.redirect(self.reverse_url(UniqueItemHandler.name, id_))
+		elif results.count():
+			self.set_status(http.client.MULTIPLE_CHOICES)
+			self.render('cms/file_lookup_multiple_choices.html', 
+				articles=list(results), ArticleCollection=ArticleCollection)
+		else:
+			raise HTTPError(http.client.NOT_FOUND)
+
+
 class AllTagsHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	name = 'cms_all_tags'
 	
@@ -625,9 +645,14 @@ class TagHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 		results = list(self.article_collection.find(query,
 			sort=[(ArticleCollection.TITLE, pymongo.ASCENDING)]))
 		
-		self.render('cms/all_articles.html', ArticleCollection=ArticleCollection, 
-			articles=results,
-		)	
+		
+		if results:
+			self.render('cms/all_articles.html', ArticleCollection=ArticleCollection, 
+				articles=results,
+			)
+		else:
+			raise HTTPError(http.client.NOT_FOUND)
+
 		
 class AllArticlesHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	name = 'cms_all_articles'
@@ -639,3 +664,23 @@ class AllArticlesHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 		self.render('cms/all_articles.html', ArticleCollection=ArticleCollection, 
 			articles=results,
 		)	
+		
+
+class AtomFeedHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
+	name = 'cms_atom_feed'
+	
+	def get(self):
+		results = list(self.article_collection.find(
+			sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.DESCENDING)],
+			limit=20,
+		))
+		
+		if results:
+			updated = results[0][ArticleCollection.PUBLICATION_DATE]
+		else:
+			updated = datetime.datetime.fromtimestamp(0)
+		
+		self.set_header('Content-Type', 'application/atom+xml')
+
+		self.render('cms/article_atom.xml', articles=results, 
+			ArticleCollection=ArticleCollection, updated=updated)

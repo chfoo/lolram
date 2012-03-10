@@ -4,7 +4,10 @@
 	{{ article[ArticleCollection.TITLE] }}
 {% end %}
 
-{% block layout_head %}
+{% block cms_layout_head %}
+	<meta name="urn" content="{{ article[ArticleCollection.UUID].urn }}"/>
+	<meta name="uuid" content="{{ '{' }}{{ str(article[ArticleCollection.UUID]) }}{{ '}' }}"/>
+	
 	{% raw rest_doc.html_parts['meta'] %}
 {% end %}
 
@@ -34,11 +37,9 @@
 	</section>
 	{% end %}
 	
-	<nav>
+	{% block cms_menu %}
 		{% if current_user %}
 		<a href="{{ reverse_url('cms_article_edit', article['_id']) }}">Edit</a>
-		<a href="{{ reverse_url('cms_file_upload') }}">Upload</a>
-		<a href="{{ reverse_url('cms_article_new') }}">New</a>
 		{% end %}
-	</nav>
+	{% end %}
 {% end %}
