@@ -326,17 +326,19 @@ class ResizeHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, Stati
 		if not os.path.exists(dest_dir):
 			os.makedirs(dest_dir)
 		
+		# rsvg-convert doesn't support advanced sizes, it also appears
+		# that imagemagick uses librsvg anyway
+		program_name = 'imagemagick'
+		args = ['convert', source_path, '-resize', 
+			'{}x{}>'.format(size, size), dest_path]
+		
 		if dest_path.endswith('.svg.png'):
-			program_name = 'librsvg2-bin'
-			p = subprocess.Popen(['rsvg-convert', source_path,
-				'--width', size, '--height', size, 
-				'--format', 'png', '--keep-aspect-ratio', '--output', dest_path])
-		else:
-			program_name = 'imagemagick'
-			p = subprocess.Popen(['convert', source_path, '-resize', 
-				'{}x{}>'.format(size, size), dest_path])
-			
-			return_code = p.wait()
+			args.insert(1, '-background')
+			args.insert(2, 'none')
+		
+		p = subprocess.Popen(args)
+		
+		return_code = p.wait()
 		
 		if return_code:
 			raise HTTPError(http.client.INTERNAL_SERVER_ERROR, 
@@ -587,17 +589,18 @@ class BaseEditFileHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin)
 				ArticleCollection.UUID: uuid_obj,
 			}
 			
-			if 'file' in self.request.field_storage:
+			if 'file' in self.request.field_storage \
+			and self.request.field_storage['file'].filename:
 				file_obj = self.request.field_storage['file'].file
-				filename = self.request.field_storage['file'].name
+				filename = self.request.field_storage['file'].filename
 				sha1 = self.save_to_disk(file_obj)
 				
 				update_dict[ArticleCollection.FILENAME] = filename
 				update_dict[ArticleCollection.FILE_SHA1] = sha1
 				
-				self.article_collection.update({'_id': object_id},
-					update_dict
-				)
+			self.article_collection.update({'_id': object_id},
+				{'$set': update_dict}
+			)
 		
 		self.controller.generate_tag_count_collection()
 		self.add_message('File saved')
