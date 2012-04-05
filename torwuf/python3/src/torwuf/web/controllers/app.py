@@ -34,6 +34,7 @@ import torwuf.web.controllers.security
 import torwuf.web.controllers.session.session
 import torwuf.web.controllers.test
 import torwuf.web.controllers.xkcd_geocities
+import torwuf.web.controllers.blogmigrate
 import torwuf.web.views
 
 _logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ class Application(lolram.web.framework.app.ApplicationController):
 		torwuf.web.controllers.account.authorization.authorization.AuthorizationController,
 		torwuf.web.controllers.pacs.PacsController,
 		torwuf.web.controllers.test.TestController,
+		torwuf.web.controllers.blogmigrate.BlogMigrateController,
 		
 		torwuf.web.controllers.index.IndexController,
 	]

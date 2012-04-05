@@ -12,7 +12,12 @@
 {% end %}
 
 {% block content %}
-	{% module Template('cms/modules/rest.html', article=article, rest_doc=rest_doc) %}
+	{% if article[ArticleCollection.LEGACY_ALLOW_RAW_HTML] %}
+		<h1>{{ article[ArticleCollection.TITLE] }}</h1>
+		{% raw article[ArticleCollection.TEXT] %}
+	{% else %}
+		{% module Template('cms/modules/rest.html', article=article, rest_doc=rest_doc) %}
+	{% end %}
 	
 	
 	{% if related_files %}
@@ -26,7 +31,7 @@
 	</section>
 	{% end %}
 	
-	{% if article[ArticleCollection.TAGS] %}
+	{% if article.get(ArticleCollection.TAGS) %}
 	<section>
 		<p>
 		Tags:

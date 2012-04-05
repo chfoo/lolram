@@ -45,7 +45,7 @@ import urllib
 
 __docformat__ = 'restructedtext en'
 
-SIZE_BYTES_1MB = '1048576'
+SIZE_BYTES_1MB = 1048576
 
 class WSGIApplication(tornado.web.Application):
 	def __call__(self, environ, start_response):
@@ -148,10 +148,14 @@ class HTTPRequest(tornado.wsgi.HTTPRequest):
 	
 	@property
 	def files(self):
-		if not hasattr(self, '_files'):
-			self._parse_request_body()
-		
-		return self._files
+		#FIXME: this just hangs
+		raise Exception('fix me')
+#		self.body()
+#		
+#		if not hasattr(self, '_files'):
+#			self._parse_request_body()
+#		
+#		return self._files
 	
 	def _parse_environ(self):
 		environ = self.environ

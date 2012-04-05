@@ -48,6 +48,23 @@
 		<input type="text" name="related_tags" value="{{ related_tags }}"/>
 	</label>
 	
+	<label>
+		Private:
+		<input type="checkbox" name="private" value="private"
+		{% if private %}
+		checked="checked"
+		{% end %}
+		/>
+	</label>
+	
+	<label>
+		Legacy raw html:
+		<input type="checkbox" name="raw_html" value="raw_html"
+		{% if raw_html %}
+		checked="checked"
+		{% end %}
+		/>
+	</label>
 		
 	<!-- 
 	<label>

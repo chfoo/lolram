@@ -129,7 +129,11 @@ class UniqueItemHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
 		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
 		
-		if result and ArticleCollection.FILE_SHA1 not in result:
+		if result and result.get(ArticleCollection.PRIVATE)\
+		and (not self.app_controller.controllers['AuthorizationController'].\
+		is_admin_account(self.current_user) and not self.get_current_user() == 'test:localhost'):
+			raise HTTPError(http.client.FORBIDDEN)
+		elif result and ArticleCollection.FILE_SHA1 not in result:
 			self.do_article(result)
 		elif result:
 			self.do_file(result)
@@ -139,7 +143,7 @@ class UniqueItemHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	def do_article(self, result):
 		rest_doc = self.controller.render_text(result[ArticleCollection.TEXT])
 		
-		if result[ArticleCollection.RELATED_TAGS]:
+		if result.get(ArticleCollection.RELATED_TAGS):
 			query = {
 				ArticleCollection.TAGS: result[ArticleCollection.RELATED_TAGS],
 				ArticleCollection.FILE_SHA1: {'$exists': True},
@@ -216,7 +220,9 @@ class DownloadHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin, Sta
 		uuid_obj = uuid.UUID(bytes=b32low_str_to_bytes(b32_str))
 		result = self.article_collection.find_one({ArticleCollection.UUID: uuid_obj})
 		
-		if ArticleCollection.FILE_SHA1 in result:
+		if result and result.get(ArticleCollection.PRIVATE):
+			raise HTTPError(http.client.FORBIDDEN)
+		elif ArticleCollection.FILE_SHA1 in result:
 			self.do_file_download(result)
 		else:
 			self.set_header('Content-Type', 'text/plain; encoding=utf-8')
@@ -353,6 +359,8 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 			tags='',
 			text='',
 			related_tags='',
+			private=False,
+			raw_html=False,
 		)
 	
 	def get_form_data(self, hex_id):
@@ -368,6 +376,8 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 				tags=tag_list_to_str(result[ArticleCollection.TAGS]),
 				text=result[ArticleCollection.TEXT],
 				related_tags=tag_list_to_str(result[ArticleCollection.RELATED_TAGS]),
+				private=result.get(ArticleCollection.PRIVATE, False),
+				raw_html=result.get(ArticleCollection.LEGACY_ALLOW_RAW_HTML, False)
 			)
 	
 	def save(self, object_id=None):
@@ -377,6 +387,8 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 		# TODO: remove duplicates with sets
 		tags = shlex.split(self.get_argument('tags', ''))
 		related_tags = shlex.split(self.get_argument('related_tags', ''))
+		private = self.get_argument('private', None) == 'private'
+		raw_html = self.get_argument('raw_html', None) == 'raw_html'
 			
 		rest_doc = self.controller.render_text(text)
 		
@@ -415,6 +427,8 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 			text=text,
 			rest_doc=rest_doc,
 			related_tags=tag_list_to_str(related_tags),
+			private=private,
+			raw_html=raw_html,
 		)
 		
 		if self.get_argument('save', False) != False:
@@ -425,6 +439,8 @@ class BaseEditArticleHandler(torwuf.web.controllers.base.BaseHandler, HandlerMix
 				ArticleCollection.TEXT: text,
 				ArticleCollection.UUID: uuid_obj,
 				ArticleCollection.RELATED_TAGS: related_tags,
+				ArticleCollection.PRIVATE: private,
+				ArticleCollection.LEGACY_ALLOW_RAW_HTML: raw_html,
 			}
 			
 			if object_id:
@@ -674,8 +690,13 @@ class TagHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 		query = {
 			ArticleCollection.TAGS: tag_id,
 		}
-		results = list(self.article_collection.find(query,
-			sort=[(ArticleCollection.TITLE, pymongo.ASCENDING)]))
+		
+		if tag_id == 'blog':
+			results = list(self.article_collection.find(query,
+				sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.DESCENDING)]))
+		else:
+			results = list(self.article_collection.find(query,
+				sort=[(ArticleCollection.TITLE, pymongo.ASCENDING)]))
 		
 		
 		if results:
@@ -703,6 +724,12 @@ class AtomFeedHandler(torwuf.web.controllers.base.BaseHandler, HandlerMixin):
 	
 	def get(self):
 		results = list(self.article_collection.find(
+			{
+				'$or': [
+					{ArticleCollection.PRIVATE: False},
+					{ArticleCollection.PRIVATE: {'$exists': False}},
+				]
+			},
 			sort=[(ArticleCollection.PUBLICATION_DATE, pymongo.DESCENDING)],
 			limit=20,
 		))

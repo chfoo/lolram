@@ -43,3 +43,5 @@ class AccountCollection(ModelStringMap):
 	OPENID_ID_URLS = 'openid_id_urls'
 	FIRST_NAME = 'first_name'
 	LAST_NAME = 'last_name'
+	LEGACY_BLOGGER_ID = 'blogger_id'
+
