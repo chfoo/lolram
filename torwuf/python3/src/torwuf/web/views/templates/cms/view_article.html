@@ -12,7 +12,7 @@
 {% end %}
 
 {% block content %}
-	{% if article[ArticleCollection.LEGACY_ALLOW_RAW_HTML] %}
+	{% if article.get(ArticleCollection.LEGACY_ALLOW_RAW_HTML) %}
 		<h1>{{ article[ArticleCollection.TITLE] }}</h1>
 		{% raw article[ArticleCollection.TEXT] %}
 	{% else %}
