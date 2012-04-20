@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html expr:dir='data:blog.languageDirection'
+	xmlns='http://www.w3.org/1999/xhtml' 
+	xmlns:b='http://www.google.com/2005/gml/b' 
+	xmlns:data='http://www.google.com/2005/gml/data' 
+	xmlns:expr='http://www.google.com/2005/gml/expr'>
+<head>
+<meta charset="utf-8"/>
+<title><data:blog.pageTitle/></title>
+<link rel="stylesheet" href="http://www.torwuf.com/resource/styles.css"/>
+<link rel="shortcut icon" href="http://www.torwuf.com/favicon.ico" />
+<b:include data='blog' name='all-head-content'/>
+<b:skin><![CDATA[/*
+]]></b:skin>
+</head>
+
+<body>
+
+<header id="site-header">
+	<a href="/"><div id="site-banner"></div></a>
+</header>
+
+<div id="site-content">
+	<b:section class='header' id='header' maxwidgets='1' showaddelement='no'>
+	<b:widget id='Header1' locked='true' title='Christopher Foo (Header)' type='Header'/>
+	</b:section>
+
+	<b:section class='main' id='main' showaddelement='no'>
+	<b:widget id='Blog1' locked='true' title='Blog Posts' type='Blog'/>
+	</b:section>
+	
+	<aside>
+	<b:section class='sidebar' id='sidebar' preferred='yes'>
+	<b:widget id='BlogArchive1' locked='false' title='Blog Archive' type='BlogArchive'/>
+	<b:widget id='Label1' locked='false' title='Labels' type='Label'/>
+	<b:widget id='Subscribe1' locked='false' title='Subscribe To' type='Subscribe'/>
+	<b:widget id='HTML1' locked='false' title='Twitter' type='HTML'/>
+	<b:widget id='Profile1' locked='false' title='About Me' type='Profile'/>
+	<b:widget id='LinkList1' locked='false' title='Links' type='LinkList'/>
+	<b:widget id='Followers1' locked='false' title='Followers' type='Followers'/>
+	</b:section>
+</aside>
+
+</div>
+
+
+<footer id="site-footer">
+	<nav id="site-nav">
+		<a href="http://www.torwuf.com/">TORWUF Home</a>
+		<a href="http://blog.torwuf.com/">Blog</a>
+		<a href="http://sites.google.com/site/chrisfoo/">Pages</a>
+		<a href="http://thoowoof.blogspot.ca/">Drawings</a>
+		<a href="http://www.torwuf.com/z/">Stuff</a>
+	</nav>
+
+
+	<section id="site_copyright_notice">
+		Copyright © 2010-2012 Christopher Foo
+	</section>
+
+</footer>
+
+
+</body>
+</html>
