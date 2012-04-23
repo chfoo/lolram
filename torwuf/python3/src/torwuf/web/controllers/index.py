@@ -27,6 +27,7 @@ class IndexController(torwuf.web.controllers.base.BaseController):
 		self.add_url_spec(r'/dummy.fcgi/(.*)', MisconfiguredDummyAppHandler)
 		self.add_url_spec(r'/z/(.*)', MissingStaticFilesHandler)
 		self.add_url_spec(r'/about', AboutHandler)
+		self.add_url_spec(r'/projects', ProjectsHandler)
 		self.add_url_spec(r'/(.*)', CatchAllRequestHandler)
 
 class IndexRequestHandler(torwuf.web.controllers.base.BaseHandler):
@@ -41,6 +42,14 @@ class AboutHandler(torwuf.web.controllers.base.BaseHandler):
 	
 	def get(self):
 		self.render('index/about.html')
+
+
+class ProjectsHandler(torwuf.web.controllers.base.BaseHandler):
+	name = 'projects'
+	
+	def get(self):
+		self.render('index/projects.html')
+
 
 class CatchAllRequestHandler(torwuf.web.controllers.base.BaseHandler):
 	name = 'catch_all'
