@@ -12,7 +12,7 @@ Description: lolram python framework and utilities
 
 Package: python3-lolram
 Architecture: all
-Depends: python3 (>=3.0)
+Depends: python3 (>=3.2)
 Description: lolram python 3 framework and utilities
 
 
