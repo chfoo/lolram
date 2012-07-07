@@ -1,6 +1,6 @@
-'''HTTP header manipulation'''
+'''Coroutine helpers'''
 #
-#	Copyright © 2010-2011 Christopher Foo <chris.foo@gmail.com>
+#	Copyright © 2011-2012 Christopher Foo <chris.foo@gmail.com>
 #
 #	This file is part of Lolram.
 #
@@ -17,33 +17,24 @@
 #	You should have received a copy of the GNU General Public License
 #	along with Lolram.  If not, see <http://www.gnu.org/licenses/>.
 #
-import wsgiref.headers
+import functools
 
 __docformat__ = 'restructuredtext en'
 
-def header_list_to_dict(header_list):
-	d = {}
-	
-	for name, value in header_list:
-		if name not in d:
-			d[name] = [value]
-		else:
-			d[name].append(value)
-	
-	return d
 
-def header_dict_to_list(header_dict):
-	l = []
-	
-	for name, values in header_dict.items():
-		for value in values:
-			l.append((name, value))
-	
-	return l
+def coroutine(func):
+    '''A decorator function that takes care of starting a coroutine
+    automatically on call.
 
-class HeaderListMap(wsgiref.headers.Headers):
-	'''Lightweight WSGI header list mapping'''
-	
-	def to_list(self):
-		return self.items()
+    :See: http://www.dabeaz.com/coroutines/
+    '''
 
+    @functools.wraps(func)
+    def start(*args, **kwargs):
+        cr = func(*args, **kwargs)
+
+        next(cr)
+
+        return cr
+
+    return start

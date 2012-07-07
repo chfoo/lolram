@@ -37,14 +37,14 @@ import datetime
 import email.utils
 import hashlib
 import logging
-import lolram.web.framework.app
+import lolram.deprecated.web.framework.app
 import mimetypes
 import os.path
 import stat
 import time
 
 
-class SimpleStaticFileHandler(lolram.web.framework.app.BaseHandler):
+class SimpleStaticFileHandler(lolram.deprecated.web.framework.app.BaseHandler):
     """A simple handler that can serve static content from a directory.
 
     To map a path to this handler for a static data directory /var/www,
