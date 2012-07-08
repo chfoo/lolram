@@ -27,7 +27,7 @@ import lolram.deprecated.web.wsgi
 import os.path
 import subprocess
 import threading
-import torwuf.web.controllers.app
+import torwuf.deprecated.web.controllers.app
 import wsgiref.simple_server
 
 
@@ -70,7 +70,8 @@ def configure_application(config_parser, debug_mode=False):
 
     configuration = lolram.deprecated.web.framework.app.Configuration(
         config_parser, debug_mode=debug_mode)
-    application = torwuf.web.controllers.app.Application(configuration)
+    application = torwuf.deprecated.web.controllers.app.Application(
+        configuration)
 
     if server_method == 'fastcgi':
         path = config_parser['server']['path']
