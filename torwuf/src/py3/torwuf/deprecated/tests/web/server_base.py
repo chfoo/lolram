@@ -23,7 +23,7 @@ import lolram.deprecated.web.framework.app
 import lolram.deprecated.web.wsgi
 import os.path
 import tempfile
-import torwuf.web.controllers.app
+import torwuf.deprecated.web.controllers.app
 
 
 class ServerBaseMixIn(lolram.deprecated.tests.server_base.ServerBaseMixIn):
@@ -45,7 +45,7 @@ class ServerBaseMixIn(lolram.deprecated.tests.server_base.ServerBaseMixIn):
         config_parser['application']['root-path'] = self.root_path
         configuration = lolram.deprecated.web.framework.app.Configuration(
             config_parser, debug_mode=True)
-        self.app_wrapper = torwuf.web.controllers.app.Application(
+        self.app_wrapper = torwuf.deprecated.web.controllers.app.Application(
             configuration)
         self.app = lolram.deprecated.web.wsgi.DecodeFromLatin1ToUnicode(
             self.app_wrapper.wsgi_application)
