@@ -6,5 +6,5 @@ mkdir -p /var/run/torwuf-service/
 chown www-torwuf:www-torwuf /var/run/torwuf-service/
 sudo -u www-torwuf -g www-torwuf \
 	PYTHONPATH=${PYTHONPATH}:/usr/share/torwuf/python3 \
-	python3 /usr/share/torwuf/python3/torwuf \
+	python3 /usr/share/torwuf/python3/torwuf/deprecated \
 	--rpc-server --python-2-path /usr/share/torwuf/python2/

@@ -21,15 +21,13 @@ import argparse
 import configparser
 import flup.server.fcgi
 import glob
-import logging.handlers
 import lolram.deprecated.web.framework.app
 import lolram.deprecated.web.wsgi
-import os.path
 import subprocess
 import threading
 import torwuf.deprecated.web.controllers.app
 import wsgiref.simple_server
-
+import torwuf.website.main
 
 def main():
     arg_parser = argparse.ArgumentParser()
@@ -53,7 +51,7 @@ def main():
     if not sucessful_files:
         raise Exception('Configuration file %s not found' % args.config)
 
-    configure_logging(config_parser)
+    torwuf.website.main.configure_logging(config_parser)
     application, server = configure_application(config_parser, args.debug_mode)
 
     if args.rpc_server:
@@ -92,32 +90,6 @@ def configure_application(config_parser, debug_mode=False):
         application = lolram.deprecated.web.wsgi.Compressor(application)
 
     return (application, server)
-
-
-def configure_logging(config_parser):
-    root_path = config_parser['application']['root-path']
-    log_dir = os.path.join(root_path, 'logs')
-
-    def create_log_dir():
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-
-    if config_parser['logging'].getboolean('enable'):
-        create_log_dir()
-
-        logging.captureWarnings(True)
-        logger = logging.getLogger()
-
-        if config_parser['logging'].getboolean('debug'):
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.INFO)
-
-        handler = logging.handlers.RotatingFileHandler('%s/torwuf' % log_dir,
-            maxBytes=4194304, backupCount=10)
-        logger.addHandler(handler)
-        handler.setFormatter(logging.Formatter('%(asctime)s ' +
-            '%(name)s:%(module)s:%(lineno)d:%(levelname)s %(message)s'))
 
 
 def run_rpc_server(path, config_path, config_glob_path):
