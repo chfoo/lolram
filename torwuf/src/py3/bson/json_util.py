@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,8 +53,13 @@ Currently this does not handle special encoding and decoding for
 import calendar
 import datetime
 import re
-import uuid
+try:
+    import uuid
+    _use_uuid = True
+except ImportError:
+    _use_uuid = False
 
+from bson import EPOCH_AWARE
 from bson.dbref import DBRef
 from bson.max_key import MaxKey
 from bson.min_key import MinKey
@@ -79,7 +84,8 @@ def object_hook(dct):
     if "$ref" in dct:
         return DBRef(dct["$ref"], dct["$id"], dct.get("$db", None))
     if "$date" in dct:
-        return datetime.datetime.fromtimestamp(dct["$date"] / 1000, utc)
+        secs = float(dct["$date"]) / 1000.0
+        return EPOCH_AWARE + datetime.timedelta(seconds=secs)
     if "$regex" in dct:
         flags = 0
         if "i" in dct["$options"]:
@@ -91,7 +97,7 @@ def object_hook(dct):
         return MinKey()
     if "$maxKey" in dct:
         return MaxKey()
-    if "$uuid" in dct:
+    if _use_uuid and "$uuid" in dct:
         return uuid.UUID(dct["$uuid"])
     return dct
 
@@ -122,6 +128,6 @@ def default(obj):
         return {"$maxKey": 1}
     if isinstance(obj, Timestamp):
         return {"t": obj.time, "i": obj.inc}
-    if isinstance(obj, uuid.UUID):
+    if _use_uuid and isinstance(obj, uuid.UUID):
         return {"$uuid": obj.hex}
     raise TypeError("%r is not JSON serializable" % obj)

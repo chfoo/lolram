@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 """Python driver for MongoDB."""
 
-from pymongo.connection import Connection as PyMongo_Connection
 
 ASCENDING = 1
 """Ascending sort order."""
@@ -31,6 +30,17 @@ GEO2D = "2d"
 .. _geospatial index: http://www.mongodb.org/display/DOCS/Geospatial+Indexing
 """
 
+GEOHAYSTACK = "geoHaystack"
+"""Index specifier for a 2-dimensional `haystack index`_.
+
+.. versionadded:: 2.1
+
+.. note:: Geo-spatial indexing requires server version **>= 1.5.6+**.
+
+.. _geospatial index: http://www.mongodb.org/display/DOCS/Geospatial+Haystack+Indexing
+"""
+
+
 OFF = 0
 """No database profiling."""
 SLOW_ONLY = 1
@@ -38,13 +48,61 @@ SLOW_ONLY = 1
 ALL = 2
 """Profile all operations."""
 
-# Remember to change in setup.py as well!
-version = "1.9b1"
+class ReadPreference:
+    """An enum that defines the read preferences supported by PyMongo.
+
+    +----------------------+--------------------------------------------------+
+    |    Connection type   |                 Read Preference                  |
+    +======================+================+================+================+
+    |                      |`PRIMARY`       |`SECONDARY`     |`SECONDARY_ONLY`|
+    +----------------------+----------------+----------------+----------------+
+    |Connection to a single|Queries are     |Queries are     |Same as         |
+    |host.                 |allowed if the  |allowed if the  |`SECONDARY`     |
+    |                      |connection is to|connection is to|                |
+    |                      |the replica set |the replica set |                |
+    |                      |primary.        |primary or a    |                |
+    |                      |                |secondary.      |                |
+    +----------------------+----------------+----------------+----------------+
+    |Connection to a       |Queries are sent|Queries are     |Same as         |
+    |mongos.               |to the primary  |distributed     |`SECONDARY`     |
+    |                      |of a shard.     |among shard     |                |
+    |                      |                |secondaries.    |                |
+    |                      |                |Queries are sent|                |
+    |                      |                |to the primary  |                |
+    |                      |                |if no           |                |
+    |                      |                |secondaries are |                |
+    |                      |                |available.      |                |
+    |                      |                |                |                |
+    +----------------------+----------------+----------------+----------------+
+    |ReplicaSetConnection  |Queries are sent|Queries are     |Queries are     |
+    |                      |to the primary  |distributed     |never sent to   |
+    |                      |of the replica  |among replica   |the replica set |
+    |                      |set.            |set secondaries.|primary. An     |
+    |                      |                |Queries are sent|exception is    |
+    |                      |                |to the primary  |raised if no    |
+    |                      |                |if no           |secondary is    |
+    |                      |                |secondaries are |available.      |
+    |                      |                |available.      |                |
+    |                      |                |                |                |
+    +----------------------+----------------+----------------+----------------+
+    """
+
+    PRIMARY = 0
+    SECONDARY = 1
+    SECONDARY_ONLY = 2
+
+version_tuple = (2, 2, 1)
+
+def get_version_string():
+    if isinstance(version_tuple[-1], str):
+        return '.'.join(map(str, version_tuple[:-1])) + version_tuple[-1]
+    return '.'.join(map(str, version_tuple))
+
+version = get_version_string()
 """Current version of PyMongo."""
 
-Connection = PyMongo_Connection
-"""Alias for :class:`pymongo.connection.Connection`."""
-
+from pymongo.connection import Connection
+from pymongo.replica_set_connection import ReplicaSetConnection
 
 def has_c():
     """Is the C extension installed?

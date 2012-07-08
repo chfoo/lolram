@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Different managers to handle when cursors are killed after they are closed.
+"""DEPRECATED - Different managers to handle when cursors are killed after
+they are closed.
 
 New cursor managers should be defined as subclasses of CursorManager and can be
 installed on a connection by calling
-`pymongo.connection.Connection.set_cursor_manager`."""
+`pymongo.connection.Connection.set_cursor_manager`.
+
+.. versionchanged:: 2.1+
+   Deprecated.
+"""
+
+import weakref
 
 
 class CursorManager(object):
@@ -31,7 +38,7 @@ class CursorManager(object):
         :Parameters:
           - `connection`: a Mongo Connection
         """
-        self.__connection = connection
+        self.__connection = weakref.ref(connection)
 
     def close(self, cursor_id):
         """Close a cursor by killing it immediately.
@@ -44,7 +51,7 @@ class CursorManager(object):
         if not isinstance(cursor_id, int):
             raise TypeError("cursor_id must be an instance of (int, long)")
 
-        self.__connection.kill_cursors([cursor_id])
+        self.__connection().kill_cursors([cursor_id])
 
 
 class BatchCursorManager(CursorManager):
@@ -59,14 +66,14 @@ class BatchCursorManager(CursorManager):
         """
         self.__dying_cursors = []
         self.__max_dying_cursors = 20
-        self.__connection = connection
+        self.__connection = weakref.ref(connection)
 
         CursorManager.__init__(self, connection)
 
     def __del__(self):
         """Cleanup - be sure to kill any outstanding cursors.
         """
-        self.__connection.kill_cursors(self.__dying_cursors)
+        self.__connection().kill_cursors(self.__dying_cursors)
 
     def close(self, cursor_id):
         """Close a cursor by killing it in a batch.
@@ -82,5 +89,5 @@ class BatchCursorManager(CursorManager):
         self.__dying_cursors.append(cursor_id)
 
         if len(self.__dying_cursors) > self.__max_dying_cursors:
-            self.__connection.kill_cursors(self.__dying_cursors)
+            self.__connection().kill_cursors(self.__dying_cursors)
             self.__dying_cursors = []

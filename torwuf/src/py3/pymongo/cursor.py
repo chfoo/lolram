@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 from bson.code import Code
 from bson.son import SON
 from pymongo import (helpers,
-                     message)
+                     message,
+                     ReadPreference)
 from pymongo.errors import (InvalidOperation,
                             AutoReconnect)
 
@@ -25,7 +26,10 @@ _QUERY_OPTIONS = {
     "tailable_cursor": 2,
     "slave_okay": 4,
     "oplog_replay": 8,
-    "no_timeout": 16}
+    "no_timeout": 16,
+    "await_data": 32,
+    "exhaust": 64,
+    "partial": 128}
 
 
 # TODO might be cool to be able to do find().include("foo") or
@@ -37,9 +41,10 @@ class Cursor(object):
 
     def __init__(self, collection, spec=None, fields=None, skip=0, limit=0,
                  timeout=True, snapshot=False, tailable=False, sort=None,
-                 max_scan=None, as_class=None,
-                 _must_use_master=False, _is_command=False,
-                 **kwargs):
+                 max_scan=None, as_class=None, slave_okay=False,
+                 await_data=False, partial=False, manipulate=True,
+                 read_preference=ReadPreference.PRIMARY,
+                 _must_use_master=False, _uuid_subtype=None, **kwargs):
         """Create a new cursor.
 
         Should not be called directly by application developers - see
@@ -64,6 +69,12 @@ class Cursor(object):
             raise TypeError("snapshot must be an instance of bool")
         if not isinstance(tailable, bool):
             raise TypeError("tailable must be an instance of bool")
+        if not isinstance(slave_okay, bool):
+            raise TypeError("slave_okay must be an instance of bool")
+        if not isinstance(await_data, bool):
+            raise TypeError("await_data must be an instance of bool")
+        if not isinstance(partial, bool):
+            raise TypeError("partial must be an instance of bool")
 
         if fields is not None:
             if not fields:
@@ -91,15 +102,21 @@ class Cursor(object):
 
         self.__timeout = timeout
         self.__tailable = tailable
+        self.__await_data = tailable and await_data
+        self.__partial = partial
         self.__snapshot = snapshot
         self.__ordering = sort and helpers._index_document(sort) or None
         self.__max_scan = max_scan
         self.__explain = False
         self.__hint = None
         self.__as_class = as_class
+        self.__slave_okay = slave_okay
+        self.__manipulate = manipulate
+        self.__read_preference = read_preference
         self.__tz_aware = collection.database.connection.tz_aware
         self.__must_use_master = _must_use_master
-        self.__is_command = _is_command
+        self.__uuid_subtype = _uuid_subtype or collection.uuid_subtype
+        self.__query_flags = 0
 
         self.__data = []
         self.__connection_id = None
@@ -150,11 +167,22 @@ class Cursor(object):
         """
         copy = Cursor(self.__collection, self.__spec, self.__fields,
                       self.__skip, self.__limit, self.__timeout,
-                      self.__tailable, self.__snapshot)
+                      self.__snapshot, self.__tailable)
         copy.__ordering = self.__ordering
         copy.__explain = self.__explain
         copy.__hint = self.__hint
         copy.__batch_size = self.__batch_size
+        copy.__max_scan = self.__max_scan
+        copy.__as_class = self.__as_class
+        copy.__slave_okay = self.__slave_okay
+        copy.__await_data = self.__await_data
+        copy.__partial = self.__partial
+        copy.__manipulate = self.__manipulate
+        copy.__read_preference = self.__read_preference
+        copy.__must_use_master = self.__must_use_master
+        copy.__uuid_subtype = self.__uuid_subtype
+        copy.__query_flags = self.__query_flags
+        copy.__kwargs = self.__kwargs
         return copy
 
     def __die(self):
@@ -168,34 +196,61 @@ class Cursor(object):
                 connection.close_cursor(self.__id)
         self.__killed = True
 
+    def close(self):
+        """Explicitly close / kill this cursor. Required for PyPy, Jython and
+        other Python implementations that don't use reference counting
+        garbage collection.
+        """
+        self.__die()
+
     def __query_spec(self):
         """Get the spec to use for a query.
         """
-        spec = self.__spec
-        if not self.__is_command and "$query" not in self.__spec:
-            spec = SON({"$query": self.__spec})
+        operators = {}
         if self.__ordering:
-            spec["$orderby"] = self.__ordering
+            operators["$orderby"] = self.__ordering
         if self.__explain:
-            spec["$explain"] = True
+            operators["$explain"] = True
         if self.__hint:
-            spec["$hint"] = self.__hint
+            operators["$hint"] = self.__hint
         if self.__snapshot:
-            spec["$snapshot"] = True
+            operators["$snapshot"] = True
         if self.__max_scan:
-            spec["$maxScan"] = self.__max_scan
-        return spec
+            operators["$maxScan"] = self.__max_scan
+
+        if operators:
+            # Make a shallow copy so we can cleanly rewind or clone.
+            spec = self.__spec.copy()
+            if "$query" not in spec:
+                # $query has to come first
+                spec = SON({"$query": spec})
+            spec.update(operators)
+            return spec
+        # Have to wrap with $query if "query" is the first key.
+        # We can't just use $query anytime "query" is a key as
+        # that breaks commands like count and find_and_modify.
+        # Checking spec.keys()[0] covers the case that the spec
+        # was passed as an instance of SON or OrderedDict.
+        elif ("query" in self.__spec and
+              (len(self.__spec) == 1 or list(self.__spec.keys())[0] == "query")):
+                return SON({"$query": self.__spec})
+
+        return self.__spec
 
     def __query_options(self):
         """Get the query options string to use for this query.
         """
-        options = 0
+        options = self.__query_flags
         if self.__tailable:
             options |= _QUERY_OPTIONS["tailable_cursor"]
-        if self.__collection.database.connection.slave_okay:
+        if self.__slave_okay or self.__read_preference:
             options |= _QUERY_OPTIONS["slave_okay"]
         if not self.__timeout:
             options |= _QUERY_OPTIONS["no_timeout"]
+        if self.__await_data:
+            options |= _QUERY_OPTIONS["await_data"]
+        if self.__partial:
+            options |= _QUERY_OPTIONS["partial"]
         return options
 
     def __check_okay_to_chain(self):
@@ -203,6 +258,32 @@ class Cursor(object):
         """
         if self.__retrieved or self.__id is not None:
             raise InvalidOperation("cannot set options after executing query")
+
+    def add_option(self, mask):
+        """Set arbitary query flags using a bitmask.
+
+        To set the tailable flag:
+        cursor.add_option(2)
+        """
+        if not isinstance(mask, int):
+            raise TypeError("mask must be an int")
+        self.__check_okay_to_chain()
+
+        self.__query_flags |= mask
+        return self
+
+    def remove_option(self, mask):
+        """Unset arbitrary query flags using a bitmask.
+
+        To unset the tailable flag:
+        cursor.remove_option(2)
+        """
+        if not isinstance(mask, int):
+            raise TypeError("mask must be an int")
+        self.__check_okay_to_chain()
+
+        self.__query_flags &= ~mask
+        return self
 
     def limit(self, limit):
         """Limits the number of results to be returned by this cursor.
@@ -226,7 +307,14 @@ class Cursor(object):
         return self
 
     def batch_size(self, batch_size):
-        """Set the size for batches of results returned by this cursor.
+        """Limits the number of documents returned in one batch. Each batch
+        requires a round trip to the server. It can be adjusted to optimize
+        performance and limit data transfer.
+
+        .. note:: batch_size can not override MongoDB's internal limits on the
+           amount of data it will return to the client in a single batch (i.e
+           if you set batch size to 1,000,000,000, MongoDB will currently only
+           return 4-16MB of results per batch).
 
         Raises :class:`TypeError` if `batch_size` is not an instance
         of :class:`int`. Raises :class:`ValueError` if `batch_size` is
@@ -384,6 +472,12 @@ class Cursor(object):
         `with_limit_and_skip` to ``True`` if that is the desired behavior.
         Raises :class:`~pymongo.errors.OperationFailure` on a database error.
 
+        With :class:`~pymongo.replica_set_connection.ReplicaSetConnection`
+        or :class:`~pymongo.master_slave_connection.MasterSlaveConnection`,
+        if `read_preference` is not :attr:`pymongo.ReadPreference.PRIMARY` or
+        (deprecated) `slave_okay` is `True` the count command will be sent to
+        a secondary or slave.
+
         :Parameters:
           - `with_limit_and_skip` (optional): take any :meth:`limit` or
             :meth:`skip` that has been applied to this cursor into account when
@@ -399,15 +493,22 @@ class Cursor(object):
         """
         command = {"query": self.__spec, "fields": self.__fields}
 
+        command['read_preference'] = self.__read_preference
+        command['slave_okay'] = self.__slave_okay
+        use_master = not self.__slave_okay and not self.__read_preference
+        command['_use_master'] = use_master
+
         if with_limit_and_skip:
             if self.__limit:
                 command["limit"] = self.__limit
             if self.__skip:
                 command["skip"] = self.__skip
 
-        r = self.__collection.database.command("count", self.__collection.name,
-                                               allowable_errors=["ns missing"],
-                                               **command)
+        database = self.__collection.database
+        r = database.command("count", self.__collection.name,
+                             allowable_errors=["ns missing"],
+                             uuid_subtype = self.__uuid_subtype,
+                             **command)
         if r.get("errmsg", "") == "ns missing":
             return 0
         return int(r["n"])
@@ -417,7 +518,13 @@ class Cursor(object):
         in the result set of this query.
 
         Raises :class:`TypeError` if `key` is not an instance of
-        :class:`str`.
+        :class:`basestring` (:class:`str` in python 3).
+
+        With :class:`~pymongo.replica_set_connection.ReplicaSetConnection`
+        or :class:`~pymongo.master_slave_connection.MasterSlaveConnection`,
+        if `read_preference` is not :attr:`pymongo.ReadPreference.PRIMARY` or
+        (deprecated) `slave_okay` is `True` the distinct command will be sent
+        to a secondary or slave.
 
         :Parameters:
           - `key`: name of key for which we want to get the distinct values
@@ -429,15 +536,23 @@ class Cursor(object):
         .. versionadded:: 1.2
         """
         if not isinstance(key, str):
-            raise TypeError("key must be an instance of str")
+            raise TypeError("key must be an instance "
+                            "of %s" % (str.__name__,))
 
         options = {"key": key}
         if self.__spec:
             options["query"] = self.__spec
 
-        return self.__collection.database.command("distinct",
-                                                  self.__collection.name,
-                                                  **options)["values"]
+        options['read_preference'] = self.__read_preference
+        options['slave_okay'] = self.__slave_okay
+        use_master = not self.__slave_okay and not self.__read_preference
+        options['_use_master'] = use_master
+
+        database = self.__collection.database
+        return database.command("distinct",
+                                self.__collection.name,
+                                uuid_subtype = self.__uuid_subtype,
+                                **options)["values"]
 
     def explain(self):
         """Returns an explain plan record for this cursor.
@@ -484,16 +599,16 @@ class Cursor(object):
     def where(self, code):
         """Adds a $where clause to this query.
 
-        The `code` argument must be an instance of :class:`str`
-        or :class:`~bson.code.Code` containing a JavaScript
-        expression. This expression will be evaluated for each
-        document scanned. Only those documents for which the
-        expression evaluates to *true* will be returned as
-        results. The keyword *this* refers to the object currently
+        The `code` argument must be an instance of :class:`basestring`
+        (:class:`str` in python 3) or :class:`~bson.code.Code`
+        containing a JavaScript expression. This expression will be
+        evaluated for each document scanned. Only those documents
+        for which the expression evaluates to *true* will be returned
+        as results. The keyword *this* refers to the object currently
         being scanned.
 
         Raises :class:`TypeError` if `code` is not an instance of
-        :class:`str`. Raises
+        :class:`basestring` (:class:`str` in python 3). Raises
         :class:`~pymongo.errors.InvalidOperation` if this
         :class:`Cursor` has already been used. Only the last call to
         :meth:`where` applied to a :class:`Cursor` has any effect.
@@ -513,12 +628,21 @@ class Cursor(object):
         """
         db = self.__collection.database
         kwargs = {"_must_use_master": self.__must_use_master}
+        kwargs["read_preference"] = self.__read_preference
         if self.__connection_id is not None:
             kwargs["_connection_to_use"] = self.__connection_id
         kwargs.update(self.__kwargs)
 
-        response = db.connection._send_message_with_response(message,
-                                                             **kwargs)
+        try:
+            response = db.connection._send_message_with_response(message,
+                                                                 **kwargs)
+        except AutoReconnect:
+            # Don't try to send kill cursors on another socket
+            # or to another server. It can cause a _pinValue
+            # assertion on some server releases if we get here
+            # due to a socket timeout.
+            self.__killed = True
+            raise
 
         if isinstance(response, tuple):
             (connection_id, response) = response
@@ -532,13 +656,18 @@ class Cursor(object):
                                                 self.__as_class,
                                                 self.__tz_aware)
         except AutoReconnect:
+            # Don't send kill cursors to another server after a "not master"
+            # error. It's completely pointless.
+            self.__killed = True
             db.connection.disconnect()
             raise
         self.__id = response["cursor_id"]
 
         # starting from doesn't get set on getmore's for tailable cursors
         if not self.__tailable:
-            assert response["starting_from"] == self.__retrieved
+            assert response["starting_from"] == self.__retrieved, (
+                "Result batch started from %s, expected %s" % (
+                    response['starting_from'], self.__retrieved))
 
         self.__retrieved += response["number_returned"]
         self.__data = response["data"]
@@ -557,11 +686,18 @@ class Cursor(object):
             return len(self.__data)
 
         if self.__id is None:  # Query
+            ntoreturn = self.__batch_size
+            if self.__limit:
+                if self.__batch_size:
+                    ntoreturn = min(self.__limit, self.__batch_size)
+                else:
+                    ntoreturn = self.__limit
             self.__send_message(
                 message.query(self.__query_options(),
                               self.__collection.full_name,
-                              self.__skip, self.__limit,
-                              self.__query_spec(), self.__fields))
+                              self.__skip, ntoreturn,
+                              self.__query_spec(), self.__fields,
+                              self.__uuid_subtype))
             if not self.__id:
                 self.__killed = True
         elif self.__id:  # Get More
@@ -591,6 +727,18 @@ class Cursor(object):
         """
         return bool(len(self.__data) or (not self.__killed))
 
+    @property
+    def cursor_id(self):
+        """Returns the id of the cursor
+
+        Useful if you need to manage cursor ids and want to handle killing
+        cursors manually using
+        :meth:`~pymongo.connection.Connection.kill_cursors`
+
+        .. versionadded:: 2.2
+        """
+        return self.__id
+
     def __iter__(self):
         return self
 
@@ -599,7 +747,16 @@ class Cursor(object):
             raise StopIteration
         db = self.__collection.database
         if len(self.__data) or self._refresh():
-            next = db._fix_outgoing(self.__data.pop(0), self.__collection)
+            if self.__manipulate:
+                return db._fix_outgoing(self.__data.pop(0), self.__collection)
+            else:
+                return self.__data.pop(0)
         else:
             raise StopIteration
-        return next
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.__die()
+

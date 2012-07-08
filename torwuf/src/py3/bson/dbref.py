@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
 
 """Tools for manipulating DBRefs (references to MongoDB documents)."""
 
-from bson.son import SON
 from copy import deepcopy
+
+from bson.son import SON
 
 
 class DBRef(object):
@@ -26,10 +27,10 @@ class DBRef(object):
         """Initialize a new :class:`DBRef`.
 
         Raises :class:`TypeError` if `collection` or `database` is not
-        an instance of :class:`str`. `database` is optional and
-        allows references to documents to work across databases. Any
-        additional keyword arguments will create additional fields in
-        the resultant embedded document.
+        an instance of :class:`basestring` (:class:`str` in python 3).
+        `database` is optional and allows references to documents to work
+        across databases. Any additional keyword arguments will create
+        additional fields in the resultant embedded document.
 
         :Parameters:
           - `collection`: name of the collection the document is stored in
@@ -46,9 +47,11 @@ class DBRef(object):
         .. mongodoc:: dbrefs
         """
         if not isinstance(collection, str):
-            raise TypeError("collection must be an instance of str")
+            raise TypeError("collection must be an "
+                            "instance of %s" % (str.__name__,))
         if database is not None and not isinstance(database, str):
-            raise TypeError("database must be an instance of str")
+            raise TypeError("database must be an "
+                            "instance of %s" % (str.__name__,))
 
         self.__collection = collection
         self.__id = id
@@ -79,7 +82,16 @@ class DBRef(object):
         return self.__database
 
     def __getattr__(self, key):
-        return self.__kwargs[key]
+        try:
+            return self.__kwargs[key]
+        except KeyError:
+            raise AttributeError(key)
+
+    # Have to provide __setstate__ to avoid
+    # infinite recursion since we override
+    # __getattr__.
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     def as_doc(self):
         """Get the SON document representation of this DBRef.
@@ -103,11 +115,11 @@ class DBRef(object):
 
     def __eq__(self, other):
         if isinstance(other, DBRef):
-            mylist = [self.__database, self.__collection,
-                      self.__id, self.__kwargs]
-            otherlist = [other.__database, other.__collection,
-                         other.__id, other.__kwargs]
-            return mylist == otherlist
+            us = [self.__database, self.__collection,
+                  self.__id, self.__kwargs]
+            them = [other.__database, other.__collection,
+                    other.__id, other.__kwargs]
+            return us == them
         return NotImplemented
 
     def __hash__(self):
@@ -115,8 +127,8 @@ class DBRef(object):
 
         .. versionadded:: 1.1
         """
-        return hash((self.__collection, self.__id,
-                     self.__database, self.__kwargs))
+        return hash((self.__collection, self.__id, self.__database,
+                     tuple(sorted(self.__kwargs.items()))))
 
     def __deepcopy__(self, memo):
         """Support function for `copy.deepcopy()`.

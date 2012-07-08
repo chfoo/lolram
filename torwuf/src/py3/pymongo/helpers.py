@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,19 @@
 
 """Bits and pieces used by the driver that don't really fit elsewhere."""
 
-import hashlib
+try:
+    import hashlib
+    _md5func = hashlib.md5
+except:  # for Python < 2.5
+    import md5
+    _md5func = md5.new
+import random
 import struct
 
 import bson
-from bson.son import SON
 import pymongo
+
+from bson.son import SON
 from pymongo.errors import (AutoReconnect,
                             OperationFailure,
                             TimeoutError)
@@ -60,9 +67,9 @@ def _index_document(index_list):
     for (key, value) in index_list:
         if not isinstance(key, str):
             raise TypeError("first item in each key pair must be a string")
-        if value not in [pymongo.ASCENDING, pymongo.DESCENDING, pymongo.GEO2D]:
+        if value not in [pymongo.ASCENDING, pymongo.DESCENDING, pymongo.GEO2D, pymongo.GEOHAYSTACK]:
             raise TypeError("second item in each key pair must be ASCENDING, "
-                            "DESCENDING, or GEO2D")
+                            "DESCENDING, GEO2D, or GEOHAYSTACK")
         index[key] = value
     return index
 
@@ -89,7 +96,7 @@ def _unpack_response(response, cursor_id=None, as_class=dict, tz_aware=False):
                                cursor_id)
     elif response_flag & 2:
         error_object = bson.BSON(response[20:]).decode()
-        if error_object["$err"] == "not master":
+        if error_object["$err"].startswith("not master"):
             raise AutoReconnect("master has changed")
         raise OperationFailure("database error: %s" %
                                error_object["$err"])
@@ -109,8 +116,16 @@ def _check_command_response(response, reset, msg="%s", allowable_errors=[]):
             raise TimeoutError(msg % response["errmsg"])
         if not response["errmsg"] in allowable_errors:
             if response["errmsg"] == "not master":
-                reset()
+                if reset is not None:
+                    reset()
                 raise AutoReconnect("not master")
+            if response["errmsg"] == "db assertion failure":
+                ex_msg = ("db assertion failure, assertion: '%s'" %
+                          response.get("assertion", ""))
+                if "assertionCode" in response:
+                    ex_msg += (", assertionCode: %d" %
+                               (response["assertionCode"],))
+                raise OperationFailure(ex_msg, response.get("assertionCode"))
             raise OperationFailure(msg % response["errmsg"])
 
 
@@ -118,24 +133,26 @@ def _password_digest(username, password):
     """Get a password digest to use for authentication.
     """
     if not isinstance(password, str):
-        raise TypeError("password must be an instance of str")
+        raise TypeError("password must be an instance "
+                        "of %s" % (str.__name__,))
     if not isinstance(username, str):
-        raise TypeError("username must be an instance of str")
+        raise TypeError("username must be an instance "
+                        "of %s" % (str.__name__,))
 
-    md5hash = hashlib.md5()
+    md5hash = _md5func()
     data = "%s:mongo:%s" % (username, password)
     md5hash.update(data.encode('utf-8'))
-    return md5hash.hexdigest()
+    return str(md5hash.hexdigest())
 
 
 def _auth_key(nonce, username, password):
     """Get an auth key to use for authentication.
     """
     digest = _password_digest(username, password)
-    md5hash = hashlib.md5()
-    data = nonce + username + digest
+    md5hash = _md5func()
+    data = "%s%s%s" % (nonce, str(username), digest)
     md5hash.update(data.encode('utf-8'))
-    return md5hash.hexdigest()
+    return str(md5hash.hexdigest())
 
 
 def _fields_list_to_dict(fields):
@@ -150,7 +167,16 @@ def _fields_list_to_dict(fields):
     as_dict = {}
     for field in fields:
         if not isinstance(field, str):
-            raise TypeError("fields must be a list of key names as "
-                            "(string, unicode)")
+            raise TypeError("fields must be a list of key names, "
+                            "each an instance of %s" % (str.__name__,))
         as_dict[field] = 1
     return as_dict
+
+def shuffled(sequence):
+    """Returns a copy of the sequence (as a :class:`list`) which has been
+    shuffled by :func:`random.shuffle`.
+    """
+    out = list(sequence)
+    random.shuffle(out)
+    return out
+

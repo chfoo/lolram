@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,8 +54,10 @@ class GridFS(object):
         self.__collection = database[collection]
         self.__files = self.__collection.files
         self.__chunks = self.__collection.chunks
-        self.__chunks.ensure_index([("files_id", ASCENDING), ("n", ASCENDING)],
-                                   unique=True)
+        if not database.slave_okay and not database.read_preference:
+            self.__chunks.ensure_index([("files_id", ASCENDING),
+                                        ("n", ASCENDING)],
+                                       unique=True)
 
     def new_file(self, **kwargs):
         """Create a new file in GridFS.
@@ -78,22 +80,22 @@ class GridFS(object):
     def put(self, data, **kwargs):
         """Put data in GridFS as a new file.
 
-        Equivalent to doing:
+        Equivalent to doing::
 
-        >>> f = new_file(**kwargs)
-        >>> try:
-        >>>     f.write(data)
-        >>> finally:
-        >>>     f.close()
+          try:
+              f = new_file(**kwargs)
+              f.write(data)
+          finally
+              f.close()
 
-        `data` can be either an instance of :class:`str` or a
-        file-like object providing a :meth:`read` method. If an
-        `encoding` keyword argument is passed, `data` can also be a
-        :class:`unicode` instance, which will be encoded as `encoding`
-        before being written. Any keyword arguments will be passed
-        through to the created file - see
-        :meth:`~gridfs.grid_file.GridIn` for possible
-        arguments. Returns the ``"_id"`` of the created file.
+        `data` can be either an instance of :class:`str` (:class:`bytes`
+        in python 3) or a file-like object providing a :meth:`read` method.
+        If an `encoding` keyword argument is passed, `data` can also be a
+        :class:`unicode` (:class:`str` in python 3) instance, which will
+        be encoded as `encoding` before being written. Any keyword arguments
+        will be passed through to the created file - see
+        :meth:`~gridfs.grid_file.GridIn` for possible arguments. Returns the
+        ``"_id"`` of the created file.
 
         If the ``"_id"`` of the file is manually specified, it must
         not already exist in GridFS. Otherwise
@@ -129,13 +131,18 @@ class GridFS(object):
         """
         return GridOut(self.__collection, file_id)
 
-    def get_version(self, filename, version=-1):
-        """Get a file from GridFS by ``"filename"``.
+    def get_version(self, filename=None, version=-1, **kwargs):
+        """Get a file from GridFS by ``"filename"`` or metadata fields.
 
-        Returns a version of the file in GridFS with the name
-        `filename` as an instance of
-        :class:`~gridfs.grid_file.GridOut`. Version ``-1`` will be the
-        most recently uploaded, ``-2`` the second most recently
+        Returns a version of the file in GridFS whose filename matches
+        `filename` and whose metadata fields match the supplied keyword
+        arguments, as an instance of :class:`~gridfs.grid_file.GridOut`.
+
+        Version numbering is a convenience atop the GridFS API provided
+        by MongoDB. If more than one file matches the query (either by
+        `filename` alone, by metadata fields, or by a combination of
+        both), then version ``-1`` will be the most recently uploaded
+        matching file, ``-2`` the second most recently
         uploaded, etc. Version ``0`` will be the first version
         uploaded, ``1`` the second version, etc. So if three versions
         have been uploaded, then version ``0`` is the same as version
@@ -150,16 +157,27 @@ class GridFS(object):
         time.
 
         :Parameters:
-          - `filename`: ``"filename"`` of the file to get
+          - `filename`: ``"filename"`` of the file to get, or `None`
           - `version` (optional): version of the file to get (defualts
             to -1, the most recent version uploaded)
+          - `**kwargs` (optional): find files by custom metadata.
 
+        .. versionchanged:: 1.11
+           `filename` defaults to None;
+        .. versionadded:: 1.11
+           Accept keyword arguments to find files by custom metadata.
         .. versionadded:: 1.9
         """
-        self.__files.ensure_index([("filename", ASCENDING),
-                                   ("uploadDate", DESCENDING)])
+        database = self.__database
+        if not database.slave_okay and not database.read_preference:
+            self.__files.ensure_index([("filename", ASCENDING),
+                                       ("uploadDate", DESCENDING)])
 
-        cursor = self.__files.find({"filename": filename})
+        query = kwargs
+        if filename is not None:
+            query["filename"] = filename
+
+        cursor = self.__files.find(query)
         if version < 0:
             skip = abs(version) - 1
             cursor.limit(-1).skip(skip).sort("uploadDate", DESCENDING)
@@ -167,22 +185,29 @@ class GridFS(object):
             cursor.limit(-1).skip(version).sort("uploadDate", ASCENDING)
         try:
             grid_file = next(cursor)
-            return GridOut(self.__collection, grid_file["_id"])
+            return GridOut(self.__collection, file_document=grid_file)
         except StopIteration:
             raise NoFile("no version %d for filename %r" % (version, filename))
 
-    def get_last_version(self, filename):
-        """Get the most recent version of a file in GridFS by ``"filename"``.
+    def get_last_version(self, filename=None, **kwargs):
+        """Get the most recent version of a file in GridFS by ``"filename"``
+        or metadata fields.
 
         Equivalent to calling :meth:`get_version` with the default
         `version` (``-1``).
 
         :Parameters:
-          - `filename`: ``"filename"`` of the file to get
+          - `filename`: ``"filename"`` of the file to get, or `None`
+          - `**kwargs` (optional): find files by custom metadata.
 
+        .. versionchanged:: 1.11
+           `filename` defaults to None;
+        .. versionadded:: 1.11
+           Accept keyword arguments to find files by custom metadata. See
+           :meth:`get_version`.
         .. versionadded:: 1.6
         """
-        return self.get_version(filename)
+        return self.get_version(filename=filename, **kwargs)
 
     # TODO add optional safe mode for chunk removal?
     def delete(self, file_id):

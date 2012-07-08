@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,18 @@
 import datetime
 import math
 import os
-from io import BytesIO
+import sys
+
+if sys.version_info[0] == 3:
+    from io import BytesIO as StringIO
+else:
+    # 2to3 will turn cStringIO into io. That's okay
+    # since we'll never get here under python3.
+    from io import StringIO
 
 from bson.binary import Binary
 from bson.objectid import ObjectId
+from bson.py3compat import b, binary_type, string_types, text_type
 from gridfs.errors import (CorruptGridFile,
                            FileExists,
                            NoFile,
@@ -39,6 +47,8 @@ except AttributeError:
     _SEEK_CUR = 1
     _SEEK_END = 2
 
+EMPTY = b("")
+NEWLN = b("\n")
 
 """Default chunk size, in bytes."""
 DEFAULT_CHUNK_SIZE = 256 * 1024
@@ -52,6 +62,9 @@ def _create_property(field_name, docstring,
         if closed_only and not self._closed:
             raise AttributeError("can only get %r on a closed file" %
                                  field_name)
+        # Protect against PHP-237
+        if field_name == 'length':
+            return self._file.get(field_name, 0)
         return self._file.get(field_name, None)
 
     def setter(self, value):
@@ -103,9 +116,11 @@ class GridIn(object):
           - ``"chunkSize"`` or ``"chunk_size"``: size of each of the
             chunks, in bytes (default: 256 kb)
 
-          - ``"encoding"``: encoding used for this file - any
-            :class:`unicode` that is written to the file will be
-            converted to a :class:`str` with this encoding
+          - ``"encoding"``: encoding used for this file. In Python 2,
+            any :class:`unicode` that is written to the file will be
+            converted to a :class:`str`. In Python 3, any :class:`str`
+            that is written to the file will be converted to
+            :class:`bytes`.
 
         :Parameters:
           - `root_collection`: root collection to write to
@@ -131,7 +146,7 @@ class GridIn(object):
         object.__setattr__(self, "_coll", root_collection)
         object.__setattr__(self, "_chunks", root_collection.chunks)
         object.__setattr__(self, "_file", kwargs)
-        object.__setattr__(self, "_buffer", BytesIO())
+        object.__setattr__(self, "_buffer", StringIO())
         object.__setattr__(self, "_position", 0)
         object.__setattr__(self, "_chunk_number", 0)
         object.__setattr__(self, "_closed", False)
@@ -188,7 +203,7 @@ class GridIn(object):
         """
         self.__flush_data(self._buffer.getvalue())
         self._buffer.close()
-        self._buffer = BytesIO()
+        self._buffer = StringIO()
 
     def __flush(self):
         """Flush the file to the database.
@@ -215,7 +230,7 @@ class GridIn(object):
         """
         if not self._closed:
             self.__flush()
-            self._closed = True
+            object.__setattr__(self, "_closed", True)
 
     def write(self, data):
         """Write data to the file. There is no return value.
@@ -223,16 +238,17 @@ class GridIn(object):
         `data` can be either a string of bytes or a file-like object
         (implementing :meth:`read`). If the file has an
         :attr:`encoding` attribute, `data` can also be a
-        :class:`unicode` instance, which will be encoded as
-        :attr:`encoding` before being written.
+        :class:`unicode` (:class:`str` in python 3) instance, which
+        will be encoded as :attr:`encoding` before being written.
 
         Due to buffering, the data may not actually be written to the
         database until the :meth:`close` method is called. Raises
         :class:`ValueError` if this file is already closed. Raises
         :class:`TypeError` if `data` is not an instance of
-        :class:`str`, a file-like object, or an instance of
-        :class:`unicode` (only allowed if the file has an
-        :attr:`encoding` attribute).
+        :class:`str` (:class:`bytes` in python 3), a file-like object,
+        or an instance of :class:`unicode` (:class:`str` in python 3).
+        Unicode data is only allowed if the file has an :attr:`encoding`
+        attribute.
 
         :Parameters:
           - `data`: string of bytes or file-like object to be written
@@ -245,40 +261,35 @@ class GridIn(object):
         if self._closed:
             raise ValueError("cannot write to a closed file")
 
-        # file-like
         try:
-            if self._buffer.tell() > 0:
-                space = self.chunk_size - self._buffer.tell()
-                self._buffer.write(data.read(space))
-                self.__flush_buffer()
-            to_write = data.read(self.chunk_size)
-            while to_write and len(to_write) == self.chunk_size:
-                self.__flush_data(to_write)
-                to_write = data.read(self.chunk_size)
-            self._buffer.write(to_write)
-        # string
+            # file-like
+            read = data.read
         except AttributeError:
-            if not isinstance(data, (str, bytes)):
-                raise TypeError(
-                    "can only write strings, bytes or file-like objects")
-
+            # string
+            if not isinstance(data, string_types):
+                raise TypeError("can only write strings or file-like objects")
             if isinstance(data, str):
                 try:
                     data = data.encode(self.encoding)
                 except AttributeError:
                     raise TypeError("must specify an encoding for file in "
-                                    "order to write unicode")
+                                    "order to write %s" % (text_type.__name__,))
+            read = StringIO(data).read
 
-            while data:
-                space = self.chunk_size - self._buffer.tell()
-
-                if len(data) <= space:
-                    self._buffer.write(data)
-                    break
-                else:
-                    self._buffer.write(data[:space])
-                    self.__flush_buffer()
-                    data = data[space:]
+        if self._buffer.tell() > 0:
+            # Make sure to flush only when _buffer is complete
+            space = self.chunk_size - self._buffer.tell()
+            if space:
+                to_write = read(space)
+                self._buffer.write(to_write)
+                if len(to_write) < space:
+                    return # EOF or incomplete
+            self.__flush_buffer()
+        to_write = read(self.chunk_size)
+        while to_write and len(to_write) == self.chunk_size:
+            self.__flush_data(to_write)
+            to_write = read(self.chunk_size)
+        self._buffer.write(to_write)
 
     def writelines(self, sequence):
         """Write a sequence of strings to the file.
@@ -340,7 +351,7 @@ class GridOut(object):
             raise NoFile("no file in gridfs collection %r with _id %r" %
                          (files, file_id))
 
-        self.__buffer = b""
+        self.__buffer = EMPTY
         self.__position = 0
 
     _id = _create_property("_id", "The ``'_id'`` value for this file.", True)
@@ -364,14 +375,14 @@ class GridOut(object):
     def __getattr__(self, name):
         if name in self._file:
             return self._file[name]
-        raise AttributeError("GridIn object has no attribute '%s'" % name)
+        raise AttributeError("GridOut object has no attribute '%s'" % name)
 
     def read(self, size=-1):
         """Read at most `size` bytes from the file (less if there
         isn't enough data).
 
-        The bytes are returned as an instance of :class:`str`. If
-        `size` is negative or omitted all data is read.
+        The bytes are returned as an instance of :class:`str` (:class:`bytes`
+        in python 3). If `size` is negative or omitted all data is read.
 
         :Parameters:
           - `size` (optional): the number of bytes to read
@@ -402,7 +413,7 @@ class GridOut(object):
             chunks.append(chunk_data)
             chunk_number += 1
 
-        data = b"".join([self.__buffer] + chunks)
+        data = EMPTY.join([self.__buffer] + chunks)
         self.__position += size
         to_return = data[:size]
         self.__buffer = data[size:]
@@ -416,11 +427,11 @@ class GridOut(object):
 
         .. versionadded:: 1.9
         """
-        bytes = b""
+        bytes = EMPTY
         while len(bytes) != size:
             byte = self.read(1)
             bytes += byte
-            if byte == b"" or byte == b"\n":
+            if byte == EMPTY or byte == NEWLN:
                 break
         return bytes
 
@@ -454,16 +465,33 @@ class GridOut(object):
             raise IOError(22, "Invalid value for `pos` - must be positive")
 
         self.__position = new_pos
-        self.__buffer = b""
+        self.__buffer = EMPTY
 
     def __iter__(self):
         """Return an iterator over all of this file's data.
 
         The iterator will return chunk-sized instances of
-        :class:`str`. This can be useful when serving files using a
-        webserver that handles such an iterator efficiently.
+        :class:`str` (:class:`bytes` in python 3). This can be
+        useful when serving files using a webserver that handles
+        such an iterator efficiently.
         """
         return GridOutIterator(self, self.__chunks)
+
+    def close(self):
+        """Make GridOut more generically file-like."""
+        pass
+
+    def __enter__(self):
+        """Makes it possible to use :class:`GridOut` files
+        with the context manager protocol.
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Makes it possible to use :class:`GridOut` files
+        with the context manager protocol.
+        """
+        return False
 
 
 class GridOutIterator(object):
@@ -471,7 +499,8 @@ class GridOutIterator(object):
         self.__id = grid_out._id
         self.__chunks = chunks
         self.__current_chunk = 0
-        self.__max_chunk = math.ceil(grid_out.length / grid_out.chunk_size)
+        self.__max_chunk = math.ceil(float(grid_out.length) /
+                                     grid_out.chunk_size)
 
     def __iter__(self):
         return self
@@ -484,7 +513,7 @@ class GridOutIterator(object):
         if not chunk:
             raise CorruptGridFile("no chunk #%d" % self.__current_chunk)
         self.__current_chunk += 1
-        return bytes(chunk["data"])
+        return binary_type(chunk["data"])
 
 
 class GridFile(object):

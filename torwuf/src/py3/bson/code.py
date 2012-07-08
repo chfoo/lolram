@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,12 @@
 """Tools for representing JavaScript code in BSON.
 """
 
-
 class Code(str):
     """BSON's JavaScript code type.
 
     Raises :class:`TypeError` if `code` is not an instance of
-    :class:`str` or `scope` is not ``None`` or an instance of
-    :class:`dict`.
+    :class:`basestring` (:class:`str` in python 3) or `scope`
+    is not ``None`` or an instance of :class:`dict`.
 
     Scope variables can be set by passing a dictionary as the `scope`
     argument or by using keyword arguments. If a variable is set as a
@@ -42,7 +41,8 @@ class Code(str):
 
     def __new__(cls, code, scope=None, **kwargs):
         if not isinstance(code, str):
-            raise TypeError("code must be an instance of str")
+            raise TypeError("code must be an "
+                            "instance of %s" % (str.__name__,))
 
         self = str.__new__(cls, code)
 

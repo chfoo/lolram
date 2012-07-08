@@ -41,7 +41,7 @@ recommended to call::
 
 before closing the `IOLoop`.
 
-This module has been tested with Twisted versions 11.0.0 and 11.1.0.
+This module has been tested with Twisted versions 11.0.0, 11.1.0, and 12.0.0
 """
 
 
@@ -67,6 +67,11 @@ import collections
 
 class TornadoDelayedCall(object):
     """DelayedCall object for Tornado."""
+    # Note that zope.interface.implements is deprecated in
+    # zope.interface 4.0, because it cannot work in python 3.  The
+    # replacement is a class decorator, which cannot work on python
+    # 2.5.  So when twisted supports python 3, we'll need to drop 2.5
+    # support on this module to make it work.
     implements(IDelayedCall)
 
     def __init__(self, reactor, seconds, f, *args, **kw):
@@ -108,6 +113,7 @@ class TornadoDelayedCall(object):
     def active(self):
         return self._active
 
+
 class TornadoReactor(PosixReactorBase):
     """Twisted reactor built on the Tornado IOLoop.
 
@@ -126,7 +132,7 @@ class TornadoReactor(PosixReactorBase):
         self._io_loop = io_loop
         self._readers = {}  # map of reader objects to fd
         self._writers = {}  # map of writer objects to fd
-        self._fds = {} # a map of fd to a (reader, writer) tuple
+        self._fds = {}  # a map of fd to a (reader, writer) tuple
         self._delayedCalls = {}
         PosixReactorBase.__init__(self)
 
@@ -296,6 +302,7 @@ class TornadoReactor(PosixReactorBase):
         if self._stopped:
             self.fireSystemEvent("shutdown")
 
+
 class _TestReactor(TornadoReactor):
     """Subclass of TornadoReactor for use in unittests.
 
@@ -318,7 +325,6 @@ class _TestReactor(TornadoReactor):
             interface = '127.0.0.1'
         return super(_TestReactor, self).listenUDP(
             port, protocol, interface=interface, maxPacketSize=maxPacketSize)
-
 
 
 def install(io_loop=None):

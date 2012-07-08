@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,24 +16,34 @@
 <http://dochub.mongodb.org/core/objectids>`_.
 """
 
-from hashlib import md5
-from binascii import hexlify
+import binascii
 import calendar
 import datetime
+try:
+    import hashlib
+    _md5func = hashlib.md5
+except ImportError:  # for Python < 2.5
+    import md5
+    _md5func = md5.new
 import os
+import random
 import socket
 import struct
 import threading
 import time
 
 from bson.errors import InvalidId
+from bson.py3compat import (PY3, b, binary_type, text_type,
+                            bytes_from_hex, string_types)
 from bson.tz_util import utc
 
+EMPTY = b("")
+ZERO  = b("\x00")
 
 def _machine_bytes():
     """Get the machine portion of an ObjectId.
     """
-    machine_hash = md5()
+    machine_hash = _md5func()
     machine_hash.update(socket.gethostname().encode())
     return machine_hash.digest()[0:3]
 
@@ -42,18 +52,20 @@ class ObjectId(object):
     """A MongoDB ObjectId.
     """
 
-    _inc = 0
+    _inc = random.randint(0, 0xFFFFFF)
     _inc_lock = threading.Lock()
 
     _machine_bytes = _machine_bytes()
+
+    __slots__ = ('__id')
 
     def __init__(self, oid=None):
         """Initialize a new ObjectId.
 
         If `oid` is ``None``, create a new (unique) ObjectId. If `oid`
-        is an instance of (``str``, ``bytes``, :class:`ObjectId`) validate
-        it and use that.  Otherwise, a :class:`TypeError` is
-        raised. If `oid` is invalid,
+        is an instance of (:class:`basestring` (:class:`str` or :class:`bytes`
+        in python 3), :class:`ObjectId`) validate it and use that.  Otherwise,
+        a :class:`TypeError` is raised. If `oid` is invalid,
         :class:`~bson.errors.InvalidId` is raised.
 
         :Parameters:
@@ -108,13 +120,13 @@ class ObjectId(object):
         if generation_time.utcoffset() is not None:
             generation_time = generation_time - generation_time.utcoffset()
         ts = calendar.timegm(generation_time.timetuple())
-        oid = struct.pack(">i", int(ts)) + b"\x00" * 8
+        oid = struct.pack(">i", int(ts)) + ZERO * 8
         return cls(oid)
 
     def __generate(self):
         """Generate a new value for this ObjectId.
         """
-        oid = b""
+        oid = EMPTY
 
         # 4 bytes current time
         oid += struct.pack(">i", int(time.time()))
@@ -136,30 +148,33 @@ class ObjectId(object):
     def __validate(self, oid):
         """Validate and use the given id for this ObjectId.
 
-        Raises TypeError if id is not an instance of (str, ObjectId) and
-        InvalidId if it is not a valid ObjectId.
+        Raises TypeError if id is not an instance of
+        (:class:`basestring` (:class:`str` or :class:`bytes`
+        in python 3), ObjectId) and InvalidId if it is not a
+        valid ObjectId.
 
         :Parameters:
           - `oid`: a valid ObjectId
         """
         if isinstance(oid, ObjectId):
             self.__id = oid.__id
-        elif isinstance(oid, bytes):
+        elif isinstance(oid, string_types):
             if len(oid) == 12:
-                self.__id = oid
-            else:
-                raise InvalidId("%s is not a valid ObjectId" % oid)
-        elif isinstance(oid, str):
-            if len(oid) == 24:
+                if isinstance(oid, binary_type):
+                    self.__id = oid
+                else:
+                    raise InvalidId("%s is not a valid ObjectId" % oid)
+            elif len(oid) == 24:
                 try:
-                    self.__id = bytes.fromhex(oid)
-                except:
+                    self.__id = bytes_from_hex(oid)
+                except (TypeError, ValueError):
                     raise InvalidId("%s is not a valid ObjectId" % oid)
             else:
                 raise InvalidId("%s is not a valid ObjectId" % oid)
         else:
-            raise TypeError("id must be an instance of (str, ObjectId), "
-                            "not %s" % type(oid))
+            raise TypeError("id must be an instance of (%s, %s, ObjectId), "
+                            "not %s" % (binary_type.__name__,
+                                        text_type.__name__, type(oid)))
 
     @property
     def binary(self):
@@ -184,15 +199,63 @@ class ObjectId(object):
         t = struct.unpack(">i", self.__id[0:4])[0]
         return datetime.datetime.fromtimestamp(t, utc)
 
+    def __getstate__(self):
+        """return value of object for pickling.
+        needed explicitly because __slots__() defined.
+        """
+        return self.__id
+
+    def __setstate__(self, value):
+        """explicit state set from pickling
+        """
+        # Provide backwards compatability with OIDs
+        # pickled with pymongo-1.9 or older.
+        if isinstance(value, dict):
+            oid = value["_ObjectId__id"]
+        else:
+            oid = value
+        # ObjectIds pickled in python 2.x used `str` for __id.
+        # In python 3.x this has to be converted to `bytes`
+        # by encoding latin-1.
+        if PY3 and isinstance(oid, text_type):
+            self.__id = oid.encode('latin-1')
+        else:
+            self.__id = oid
+
     def __str__(self):
-        return hexlify(self.__id).decode()
+        return binascii.hexlify(self.__id).decode()
 
     def __repr__(self):
-        return "ObjectId('%s')" % str(self)
+        return "ObjectId('%s')" % (str(self),)
 
     def __eq__(self, other):
         if isinstance(other, ObjectId):
             return self.__id == other.__id
+        return NotImplemented
+
+    def __ne__(self,other):
+        if isinstance(other, ObjectId):
+            return self.__id != other.__id
+        return NotImplemented
+
+    def __lt__(self, other):
+        if isinstance(other, ObjectId):
+            return self.__id < other.__id
+        return NotImplemented
+
+    def __le__(self, other):
+        if isinstance(other, ObjectId):
+            return self.__id <= other.__id
+        return NotImplemented
+
+    def __gt__(self, other):
+        if isinstance(other, ObjectId):
+            return self.__id > other.__id
+        return NotImplemented
+
+    def __ge__(self, other):
+        if isinstance(other, ObjectId):
+            return self.__id >= other.__id
         return NotImplemented
 
     def __hash__(self):

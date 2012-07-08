@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ Regular dictionaries can be used instead of SON objects, but not when the order
 of keys is important. A SON object can be used just like a normal Python
 dictionary."""
 
+import copy
+
 
 class SON(dict):
     """SON data.
@@ -33,7 +35,8 @@ class SON(dict):
     ===================================  =============  ===================
     None                                 null           both
     bool                                 boolean        both
-    int                                  number (int)   both
+    int [#int]_                          int32 / int64  py -> bson
+    long                                 int64          both
     float                                number (real)  both
     string                               string         py -> bson
     unicode                              string         both
@@ -48,16 +51,25 @@ class SON(dict):
     unicode                              code           bson -> py
     `bson.code.Code`                     code           py -> bson
     unicode                              symbol         bson -> py
+    bytes (Python 3) [#bytes]_           binary         both
     ===================================  =============  ===================
 
     Note that to save binary data it must be wrapped as an instance of
     `bson.binary.Binary`. Otherwise it will be saved as a BSON string
     and retrieved as unicode.
 
+    .. [#int] A Python int will be saved as a BSON int32 or BSON int64 depending
+       on its size. A BSON int32 will always decode to a Python int. In Python 2.x
+       a BSON int64 will always decode to a Python long. In Python 3.x a BSON
+       int64 will decode to a Python int since there is no longer a long type.
     .. [#dt] datetime.datetime instances will be rounded to the nearest
        millisecond when saved
     .. [#dt2] all datetime.datetime instances are treated as *naive*. clients
        should always use UTC.
+    .. [#bytes] The bytes type from Python 3.x is encoded as BSON binary with
+       subtype 0. In Python 3.x it will be decoded back to bytes. In Python 2.x
+       it will be decoded to an instance of :class:`~bson.binary.Binary` with
+       subtype 0.
     """
 
     def __init__(self, data=None, **kwargs):
@@ -65,6 +77,11 @@ class SON(dict):
         dict.__init__(self)
         self.update(data)
         self.update(kwargs)
+
+    def __new__(cls, *args, **kwargs):
+        instance = super(SON, cls).__new__(cls, *args, **kwargs)
+        instance.__keys = []
+        return instance
 
     def __repr__(self):
         result = []
@@ -119,7 +136,7 @@ class SON(dict):
         return [v for _, v in self.items()]
 
     def items(self):
-        return list(SON.iteritems(self))
+        return [(key, self[key]) for key in self]
 
     def clear(self):
         for key in list(self.keys()):
@@ -147,7 +164,7 @@ class SON(dict):
 
     def popitem(self):
         try:
-            k, v = next(self.iteritems())
+            k, v = next(iter(self.items()))
         except StopIteration:
             raise KeyError('container is empty')
         del self[k]
@@ -175,6 +192,12 @@ class SON(dict):
         except KeyError:
             return default
 
+    def __eq__(self, other):
+        if isinstance(other, SON):
+            return (len(self) == len(other) and
+                    dict(list(self.items())) == dict(list(other.items())))
+        return dict(list(self.items())) == other
+
     def __len__(self):
         return len(list(self.keys()))
 
@@ -196,3 +219,9 @@ class SON(dict):
             return value
 
         return transform_value(dict(self))
+
+    def __deepcopy__(self, memo):
+        out = SON()
+        for k, v in self.items():
+            out[k] = copy.deepcopy(v, memo)
+        return out

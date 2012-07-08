@@ -1,4 +1,4 @@
-# Copyright 2009-2010 10gen, Inc.
+# Copyright 2009-2012 10gen, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -93,4 +93,10 @@ class InvalidURI(ConfigurationError):
     """Raised when trying to parse an invalid mongodb URI.
 
     .. versionadded:: 1.5
+    """
+
+class UnsupportedOption(ConfigurationError):
+    """Exception for unsupported options.
+
+    .. versionadded:: 2.0
     """
