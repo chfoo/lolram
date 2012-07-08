@@ -1,6 +1,6 @@
 '''Binary search'''
 # Taken from Python 3.2 (2011-09-05) documentation
-# © Copyright 1990-2011, Python Software Foundation.F
+# © Copyright 1990-2011, Python Software Foundation.
 
 from bisect import bisect_left, bisect_right
 
