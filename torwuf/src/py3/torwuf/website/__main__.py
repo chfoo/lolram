@@ -28,15 +28,14 @@ import torwuf.website.main
 
 
 class LegacyAppLauncher(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(name='legacy_app')
+    def __init__(self, args):
+        threading.Thread.__init__(self)
+        self.name = 'legacy_app'
         self.daemon = True
+        self.args = args
 
     def run(self):
-        p = subprocess.Popen(['python3',
-            '/usr/share/torwuf/python3/torwuf/deprecated',
-            '--rpc-server',
-            '--python-2-path', '/usr/share/torwuf/python2/'])
+        p = subprocess.Popen(['python3'] + self.args)
         p.wait()
 
 
@@ -48,10 +47,13 @@ def main():
     arg_parser.add_argument('--config-glob', metavar='PATTERN',
         default='/etc/torwuf/torwuf2.*.conf',
         dest='config_glob')
+    arg_parser.add_argument('--legacy-args',
+        default='',
+        dest='legacy_args')
 
     args = arg_parser.parse_args()
 
-    legacy_app = LegacyAppLauncher()
+    legacy_app = LegacyAppLauncher(args.legacy_args.split())
     legacy_app.start()
 
     config_parser = configparser.ConfigParser()

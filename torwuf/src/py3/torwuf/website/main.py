@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Torwuf.  If not, see <http://www.gnu.org/licenses/>.
 #
-import logging
+import logging.handlers
 import os.path
 
 __docformat__ = 'restructuredtext en'
