@@ -1,5 +1,5 @@
-torwuf (0.0-upstream20120719043111) UNRELEASED; urgency=low
+torwuf (0.0-upstream20120828024614) UNRELEASED; urgency=low
 
-  * Scripted build. Revision main 104
+  * Scripted build. Revision main 105
 
- -- Christopher Foo <chris.foo@gmail.com>  Thu, 19 Jul 2012 00:31:13 -0400
+ -- Christopher Foo <chris.foo@gmail.com>  Mon, 27 Aug 2012 22:46:15 -0400
