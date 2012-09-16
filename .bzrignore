@@ -32,3 +32,4 @@ torwuf/debian/*changelog
 .bzr.retired.*
 torwuf*.changes
 torwuf*.deb
+build/
