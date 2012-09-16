@@ -56,4 +56,4 @@ make-auto-changelog:
 deb-clean-packages:
 	rm ../torwuf*.deb
 	rm ../torwuf*.changes
-
+	rm ../torwuf*.build
