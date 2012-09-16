@@ -43,7 +43,7 @@ install-data:
 	cp -r share/* ${DESTDIR}/usr/share/torwuf-data
 
 deb-package: clean-unneeded-files make-auto-changelog
-	dpkg-buildpackage -b -uc
+	debuild -b -uc -us
 
 MESSAGE="Scripted build. Revision `(bzr nick && bzr revno) || (git name-rev --name-only HEAD && git rev-parse HEAD)`"
 make-auto-changelog:
