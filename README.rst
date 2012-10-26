@@ -11,6 +11,8 @@ Python web framework and utilities
 About
 =====
 
+:Notice: ✻ The project has been superseded by PyWheel (https://launchpad.net/pywheel) ✻
+
 Lolram is a collection of Python web framework and utilities that powers 
 www.torwuf.com.
 
