@@ -1,0 +1,5 @@
+Except where noted: 
+
+Copyright © 2012 Christopher Foo <chris.foo@gmail.com>
+Licensed under GNU General Public License Version 3. See GPLv3.txt or visit
+<http://www.gnu.org/licenses/>.
