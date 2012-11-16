@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% for result in results %}
+<section>
+<aside class="pacs-edit-link">
+<a href="{{ reverse_url('pacs_view_single', str(result['_id']).lower()) }}" title="View">_</a>
+</aside>
+<pre>{{ result[PacsCollection.TEXT] }}</pre>
+</section>
+
+{% end %}
+
+<nav>
+{% for tag_name, tag_count in tag_dict.items() %}
+	<a href="{{ reverse_url('pacs_list_by_tag', tag_name).replace('+', '%20') }}">{{ tag_name }} ({{ int(tag_count) }})</a>
+	
+{% end %}
+</nav>
+
+{% end %}

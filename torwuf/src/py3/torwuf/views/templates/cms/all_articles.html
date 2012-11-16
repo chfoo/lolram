@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block layout_title %}
+	All Articles
+{% end %}
+
+{% block content %}
+{% import torwuf.controllers.base %}
+	<ul>
+		{% for article in articles %}
+			<li>
+				<a href="{{ reverse_url('cms_unique_item', 
+					torwuf.controllers.base.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes)) }}">
+					{{ article.get(ArticleCollection.TITLE) or '(untitled)' }}
+				</a>
+			</li>
+		{% end %}
+	</ul>
+	
+{% end %}
