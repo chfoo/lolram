@@ -6,7 +6,7 @@
 		<title>
 			<data:blog.pageTitle/>
 		</title>
-		<link href='http://www.torwuf.com/static/styles.css' rel='stylesheet'/>
+		<link href='http://www.torwuf.com/resource/styles.css' rel='stylesheet'/>
 		<link href='http://www.torwuf.com/favicon.ico' rel='shortcut icon'/>
 		<b:include data='blog' name='all-head-content'/>
 		<b:skin>
@@ -15,7 +15,9 @@
 		</b:skin>
 	</head>
 	<body>
-
+		<b:section class='navbar' id='navbar' maxwidgets='1' showaddelement='no'>
+			<b:widget id='Navbar1' locked='true' title='Navbar' type='Navbar'/>
+		</b:section>
 		<header id='site-header'>
 			<a href='/'>
 				<div id='site-banner'/>
@@ -41,13 +43,14 @@
 			</aside>
 
 		</div>
-		<br/>
 		<footer id='site-footer'>
 			<nav id='site-nav'>
 				<a href='http://www.torwuf.com/'>TORWUF Home</a>
 				<a href='http://www.torwuf.com/site_map'>Site Map</a>
 			</nav>
 			<section id='site_copyright_notice'>Copyright &#169; 2010-2012 Christopher Foo</section>
+
 		</footer>
+
 	</body>
 </html>

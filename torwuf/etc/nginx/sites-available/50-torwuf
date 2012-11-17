@@ -22,6 +22,6 @@ server {
 	
 	location /uploads/ {
 		internal;
-		root /home/www-torwuf/torwuf-service;
+		root /home/www-torwuf/torwuf-service/databases;
 	}
 }

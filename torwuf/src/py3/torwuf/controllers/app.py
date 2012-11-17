@@ -50,7 +50,7 @@ class Application(tornado.web.Application):
 
         self.root_path = conf['application']['root-path']
         self.db_path = os.path.join(self.root_path, 'databases')
-        self.upload_path = os.path.join(self.root_path, 'uploads')
+        self.upload_path = os.path.join(self.db_path, 'uploads')
         self.xkcd_geocities = XKCDGeocitiesController(os.path.join(
             self.db_path, 'xkcd_geocities'))
         self.pacs_controller = PacsController(self)

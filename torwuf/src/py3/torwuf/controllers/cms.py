@@ -302,7 +302,8 @@ class ResizeHandler(BaseRequestHandler, HandlerMixin,):
             filename = article[ArticleCollection.FILENAME]
 
             if filename.endswith('.svg'):
-                self.set_header('Content-Type', 'image/svg+xml')
+#                self.set_header('Content-Type', 'image/svg+xml')
+                self.set_header('Content-Type', 'image/png')
 
                 dest_path += '.svg.png'
             else:
