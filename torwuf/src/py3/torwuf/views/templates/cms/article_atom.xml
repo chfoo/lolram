@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-	{% import torwuf.web.utils %}
+	{% import torwuf.controllers.base %}
 
 	<title>Torwuf Articles</title>
 	<link href="{{ request.protocol + '://' + request.host }}" />
@@ -16,7 +16,7 @@
 		<title>{{ article[ArticleCollection.TITLE] }}</title>
 		<link href="{{ request.protocol + '://' + request.host 
 			}}{{ reverse_url('cms_unique_item', 
-					torwuf.web.utils.bytes_to_b32low_str(
+					torwuf.controllers.base.bytes_to_b32low_str(
 					article[ArticleCollection.UUID].bytes)) }}" />
 		<id>{{ article[ArticleCollection.UUID].urn }}</id>
 		<updated>{{ article[ArticleCollection.PUBLICATION_DATE] }}</updated>

@@ -8,21 +8,21 @@ all: build
 clean: clean-bytecode clean-backup-files
 
 clean-bytecode:
-	find src/py2/ -name '*.py[co]' -delete
+#	find src/py2/ -name '*.py[co]' -delete
 	find src/py3/ -type d -name '__pycache__' -exec rm -r {} +
 
 clean-destdir:
 	rm -R ${DESTDIR}
 
 clean-backup-files:
-	find src/py2/ -name '*~' -delete
+#	find src/py2/ -name '*~' -delete
 	find src/py3/ -name '*~' -delete
 
 clean-unneeded-files: clean-bytecode clean-backup-files
 
 build:
 
-install: install-python2-torwuf install-python3-torwuf install-service install-data
+install: install-python3-torwuf install-service install-data
 
 install-python3-torwuf:
 	mkdir -p ${DESTDIR}/usr/share/torwuf/python3

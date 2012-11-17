@@ -1,15 +1,15 @@
 <section>
-{% import torwuf.web.utils %}
+{% import torwuf.controllers.base %}
 {% import mimetypes %}
 
 {% if str(mimetypes.guess_type(article[ArticleCollection.FILENAME])[0]).startswith('image') %}
 <img src="{{ reverse_url('cms_resize', 
-	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes), 'thumbnail') }}"
+	torwuf.controllers.base.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes), 'thumbnail') }}"
 	alt="{{ article[ArticleCollection.TITLE] }}"
 />
 {% end %}
 <a href="{{ reverse_url('cms_unique_item', 
-	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes)) }}">
+	torwuf.controllers.base.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes)) }}">
 	{{ article[ArticleCollection.TITLE] }}
 </a>
 </section>

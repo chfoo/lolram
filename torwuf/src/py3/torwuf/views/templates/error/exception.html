@@ -5,4 +5,13 @@
 <p><strong>An exceptional request was made thus no page could be served.</strong></p>
 
 {% include 'fragments/help.html' %}
+
+<hr>
+<p>Status Code: {{ status_code }}</p>
+<p>Additional Information:
+	<code>
+		{{ ''.join(traceback_msg) or '(none)' }}
+	</code>
+</p>
+
 {% end %}

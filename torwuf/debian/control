@@ -8,14 +8,16 @@ Standards-Version: 3.9.2
 
 Package: torwuf
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, python, python3, python3-lolram
+Depends: ${shlibs:Depends}, ${misc:Depends}, python, python3, python3-docutils
 Recommends: torwuf-service, torwuf-data
 Description: python files that power torwuf
+ .
+ Additional PyPI packages needed: PyWheel, Tornado, PyMongo, isodate
 
 Package: torwuf-service
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, torwuf, lighttpd, loggerhead, python-pastedeploy, mongodb | mongodb-10gen, python-openid, python-pymongo, sqlite3, imagemagick
-Description: torwuf fastcgi server
+Depends: ${shlibs:Depends}, ${misc:Depends}, torwuf, lighttpd, loggerhead, mongodb | mongodb-10gen, sqlite3, imagemagick, nginx
+Description: torwuf http server
 
 Package: torwuf-data
 Architecture: all

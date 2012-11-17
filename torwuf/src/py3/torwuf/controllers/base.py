@@ -5,16 +5,26 @@ from tornado.web import RequestHandler, HTTPError
 import base64
 import functools
 import http.client
+import traceback
 
 
 class BaseRequestHandler(RequestHandler):
-    def write_error(self, status_code, **kwargs):
+    def write_error(self, status_code, exc_info=None, **kwargs):
         if status_code == http.client.NOT_FOUND:
             self.render('error/not_found.html')
-        elif status_code // 100 == 5:
-            self.render('error/error.html')
+            return
+
+        if exc_info:
+            traceback_msg = traceback.format_exception(*exc_info)
         else:
-            self.render('error/exception.html')
+            traceback_msg = ''
+
+        if status_code // 100 == 5:
+            self.render('error/error.html', status_code=status_code,
+                traceback_msg=traceback_msg)
+        else:
+            self.render('error/exception.html', status_code=status_code,
+                traceback_msg=traceback_msg)
 
     def get_current_user(self):
         if self.application.testing_key \

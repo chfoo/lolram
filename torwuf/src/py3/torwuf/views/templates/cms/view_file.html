@@ -11,7 +11,7 @@
 {% end %}
 
 {% block content %}
-	{% import torwuf.web.utils %}
+	{% import torwuf.controllers.base %}
 	
 	{% module Template('cms/modules/file_detail.html', article=article, 
 		ArticleCollection=ArticleCollection) %}
@@ -19,13 +19,13 @@
 	<nav>
 		{% if prev_article %}
 		<a href="{{ reverse_url('cms_unique_item', 
-			torwuf.web.utils.bytes_to_b32low_str(
+			torwuf.controllers.base.bytes_to_b32low_str(
 			prev_article[ArticleCollection.UUID].bytes)) }}">Previous</a>
 		{% end %}
 		
 		{% if next_article %}
 		<a href="{{ reverse_url('cms_unique_item', 
-			torwuf.web.utils.bytes_to_b32low_str(
+			torwuf.controllers.base.bytes_to_b32low_str(
 			next_article[ArticleCollection.UUID].bytes)) }}">Next</a>
 		{% end %}
 	
@@ -36,7 +36,7 @@
 		<p>Related: 
 			{% for related_article in related_articles %}
 			<a href="{{ reverse_url('cms_unique_item', 
-				torwuf.web.utils.bytes_to_b32low_str(
+				torwuf.controllers.base.bytes_to_b32low_str(
 				related_article[ArticleCollection.UUID].bytes)) }}"
 			>{{ related_article[ArticleCollection.TITLE] }}</a>
 			
@@ -60,7 +60,7 @@
 
 {% block cms_menu %}
 	<a href="{{ reverse_url('cms_download', 
-		torwuf.web.utils.bytes_to_b32low_str(
+		torwuf.controllers.base.bytes_to_b32low_str(
 			article[ArticleCollection.UUID].bytes)) }}">Download</a>
 			
 	{% if current_user %}

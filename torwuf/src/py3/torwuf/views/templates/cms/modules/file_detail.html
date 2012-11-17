@@ -1,4 +1,4 @@
-{% import torwuf.web.utils %}
+{% import torwuf.controllers.base %}
 {% import mimetypes %}
 
 <article>
@@ -6,12 +6,12 @@
 
 {% if str(mimetypes.guess_type(article[ArticleCollection.FILENAME])[0]).startswith('image') %}
 <img src="{{ reverse_url('cms_resize', 
-	torwuf.web.utils.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes), 'large') }}"
+	torwuf.controllers.base.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes), 'large') }}"
 	alt="{{ article[ArticleCollection.TITLE] }}"
 />
 {% else %}
 	<a href="{{ reverse_url('cms_download', 
-			torwuf.web.utils.bytes_to_b32low_str(
+			torwuf.controllers.base.bytes_to_b32low_str(
 				article[ArticleCollection.UUID].bytes)) }}">
 		Download “{{ article[ArticleCollection.FILENAME] }}”
 	</a>

@@ -12,6 +12,8 @@ from torwuf.controllers.xkcd_geocities import XKCDGeocitiesController
 from torwuf.views import templates_dir
 import logging
 import os.path
+import threading
+import time
 import tornado.web
 import torwuf.views
 
@@ -68,6 +70,7 @@ class Application(tornado.web.Application):
             return False
 
         self._session_controller = SessionController(self.db['sessions'])
+        self._session_cleaner = SessionCleaner(self._session_controller)
         return True
 
     @property
@@ -87,3 +90,21 @@ class Application(tornado.web.Application):
     @property
     def session(self):
         return self._session_controller
+
+
+class SessionCleaner(threading.Thread):
+    def __init__(self, session_controller):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self._session = session_controller
+
+        self.start()
+
+    def run(self):
+        while True:
+            try:
+                self._session.clean()
+            except:
+                _logger.exception('Error during session clean')
+
+            time.sleep(86400 * 2)

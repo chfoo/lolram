@@ -15,6 +15,7 @@ import bson
 import datetime
 import hashlib
 import http.client
+import io
 import isodate
 import logging
 import mimetypes
@@ -93,6 +94,11 @@ class HandlerMixin(object):
         hash_str = hash_str.lower()
         return os.path.join(self.application.upload_path, 'cms',
             hash_str[0:2], hash_str[2:4], hash_str[4:6], hash_str)
+
+    def serve_nginx_file(self, path):
+        file_path = path.replace(self.application.upload_path, '').lstrip('/')
+        file_path = '/uploads/{}'.format(file_path)
+        self.set_header('X-Accel-Redirect', file_path)
 
 
 class UniqueItemHandler(BaseRequestHandler, HandlerMixin):
@@ -237,7 +243,8 @@ class DownloadHandler(BaseRequestHandler, HandlerMixin):
 #            include_body=include_body)
         self.set_header('Content-Disposition',
             'attachment; filename={}'.format(filename.strip('\r\n')))
-        self.set_header('X-Sendfile', self.get_disk_file_path(path))
+#        self.set_header('X-Sendfile', self.get_disk_file_path(path))
+        self.serve_nginx_file(self.get_disk_file_path(path))
 
 
 class ResizeHandler(BaseRequestHandler, HandlerMixin,):
@@ -309,7 +316,8 @@ class ResizeHandler(BaseRequestHandler, HandlerMixin,):
 
         # FIXME:
 #        self.serve_file(dest_path, include_body=include_body)
-        self.set_header('X-Sendfile', dest_path)
+#        self.set_header('X-Sendfile', dest_path)
+        self.serve_nginx_file(dest_path)
 
     def resize(self, source_path, dest_path, size):
         _logger.debug('Attempt convert %s to %s size %s', source_path,
@@ -576,8 +584,8 @@ class BaseEditFileHandler(BaseRequestHandler, HandlerMixin):
         uuid_obj = uuid.UUID(self.get_argument('uuid'))
 
         if object_id is None:
-            file_obj = self.request.field_storage['file'].file
-            filename = self.request.field_storage['file'].filename
+            file_obj = io.BytesIO(self.request.files['file'][0].body)
+            filename = self.request.files['file'][0].filename
             sha1 = self.save_to_disk(file_obj)
 
             if not title:
@@ -601,10 +609,10 @@ class BaseEditFileHandler(BaseRequestHandler, HandlerMixin):
                 ArticleCollection.UUID: uuid_obj,
             }
 
-            if 'file' in self.request.field_storage \
-            and self.request.field_storage['file'].filename:
-                file_obj = self.request.field_storage['file'].file
-                filename = self.request.field_storage['file'].filename
+            if 'file' in self.request.files \
+            and self.request.files['file'][0].filename:
+                file_obj = io.BytesIO(self.request.files['file'][0].body)
+                filename = self.request.files['file'][0].filename
                 sha1 = self.save_to_disk(file_obj)
 
                 update_dict[ArticleCollection.FILENAME] = filename
@@ -614,7 +622,7 @@ class BaseEditFileHandler(BaseRequestHandler, HandlerMixin):
                 {'$set': update_dict}
             )
 
-        self.controller.generate_tag_count_collection()
+        self.application.cms.generate_tag_count_collection()
         # FIXME:
 #        self.add_message('File saved')
         self.redirect(self.reverse_url(UniqueItemHandler.name,
