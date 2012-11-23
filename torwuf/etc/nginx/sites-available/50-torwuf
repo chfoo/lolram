@@ -1,4 +1,4 @@
-upstream frontends {
+upstream torwuf_frontends {
 	server 127.0.0.1:8798;
 }
 
@@ -17,7 +17,7 @@ server {
 		proxy_redirect off;
 		proxy_set_header X-Real-IP $remote_addr;
 		proxy_set_header X-Scheme $scheme;
-		proxy_pass http://frontends;
+		proxy_pass http://torwuf_frontends;
 	}
 	
 	location /uploads/ {
