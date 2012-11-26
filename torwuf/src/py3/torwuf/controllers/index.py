@@ -41,12 +41,18 @@ class MissingStaticFilesHandler(BaseRequestHandler):
             'Static file directory missing? Not in production mode?')
 
 
+class CatSignalHandler(BaseRequestHandler):
+    def get(self):
+        self.render('index/catsignal.html')
+
+
 url_specs = (
     (r'/', IndexHandler),
     (r'/about', AboutHandler),
     (r'/projects', ProjectsHandler),
     (r'/site_map', SiteMapHandler),
     (r'/simple_google_login', SimpleGoogleLoginHandler),
+    (r'/cat-signal', CatSignalHandler),
     (r'/z/(.*)', MissingStaticFilesHandler,)
     # Catch all is added by application at the end
 )

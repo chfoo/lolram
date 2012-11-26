@@ -1,0 +1,41 @@
+{% extends '../base/layout.html' %}
+
+{% block layout_title %}
+Cat Signal
+{% end %}
+
+{% block layout_content %}
+
+<h1>Cat Signal</h1>
+
+<p>
+	This page is dedicated to the signaling function of the Internet Defense Leaguge.
+</p>
+<p>
+	When an important message is broadcasted, information should overlay this page. Javascript is required for this function.
+</p>
+
+<p>
+	<a href="http://internetdefenseleague.org"> <img src="http://internetdefenseleague.org/images/badges/final/super_badge.png" alt="Member of The Internet Defense League" > </a>
+</p>
+
+<noscript>
+	<p>
+		Javascript is disabled.
+	</p>
+</noscript>
+
+<script>document.write("<p>Javascript is enabled.</p>");</script>
+
+<script type="text/javascript">
+	window._idl = {};
+	_idl.variant = "modal";
+	(function() {
+		var idl = document.createElement('script');
+		idl.type = 'text/javascript';
+		idl.async = true;
+		idl.src = ('https:' == document.location.protocol ? 'https://' : 'http://') + 'members.internetdefenseleague.org/include/?url=' + (_idl.url || '') + '&campaign=' + (_idl.campaign || '') + '&variant=' + (_idl.variant || 'banner');
+		document.getElementsByTagName('body')[0].appendChild(idl);
+	})(); 
+</script>
+{% end %}
