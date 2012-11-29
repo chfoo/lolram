@@ -533,7 +533,7 @@ class RepoRequestHandler(BzrBaseRequestHandler):
     @tornado.web.asynchronous
     def post(self, *args):
         self._make_connection(args[0], 'POST',
-            self.request.environ["wsgi.input"])
+            self.request.body)
 
     def _on_response(self, response):
         self._set_response_headers(response)
