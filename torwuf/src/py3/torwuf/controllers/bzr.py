@@ -537,8 +537,10 @@ class RepoRequestHandler(BzrBaseRequestHandler):
 
     def _on_response(self, response):
         self._set_response_headers(response)
+        
+        if response.code != 304:
+            self.write(response.body)
 
-        self.write(response.body)
         self.finish()
 
 
