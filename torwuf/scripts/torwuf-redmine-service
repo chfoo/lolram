@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# this is an example of a /etc/sv/redmine_default/run file,
+# as would be used by runit
+# To spawn the fcgi instance, it uses spawn-fcgi.
+# To monitor multiple instances bound to only one socket,
+# it uses multiwatch
+
+RAILS_RELATIVE_URL_ROOT="/redmine" \
+X_DEBIAN_SITEID="torwuf" \
+RAILS_ENV="production" \
+/usr/bin/spawn-fcgi -n -s /tmp/redmine-torwuf-fcgi.socket \
+-M 640 -u www-data -- \
+/usr/bin/multiwatch -f 2 /usr/share/redmine/public/dispatch.fcgi
+

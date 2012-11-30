@@ -23,3 +23,8 @@ Package: torwuf-data
 Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: static files for torwuf
+
+Package: torwuf-redmine-service
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, torwuf-service, spawn-fcgi, multiwatch
+Description: torwuf redmine server

@@ -5,6 +5,9 @@ mkdir -p $DIR/backup/
 
 sqlite3 $DIR/bzr_users.db .dump | gzip > $DIR/backup/bzr_users.db.sql.gz
 
+sqlite3 /var/lib/dbconfig-common/sqlite3/redmine/instances/torwuf/redmine_torwuf | gzip > $DIR/backup/redmine_torwuf.db.sql.gz
+tar -cpzf $DIR/backup/redmine_files.tar.gz /var/lib/redmine/torwuf/files
+
 PY="
 import configparser
 config_parser = configparser.ConfigParser()

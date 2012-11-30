@@ -2,6 +2,10 @@ upstream torwuf_frontends {
 	server 127.0.0.1:8798;
 }
 
+upstream redmine_torwuf {
+	server unix:/tmp/redmine-torwuf-fcgi.socket;
+}
+
 server {
 	listen 127.0.0.1:8797;
 	server_name www.torwuf.com;
@@ -24,4 +28,21 @@ server {
 		internal;
 		root /home/www-torwuf/torwuf-service/databases;
 	}
+	
+	location /redmine {
+		proxy_pass_header Server;
+		proxy_set_header Host $http_host;
+		proxy_redirect off;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Scheme $scheme;
+        alias      /usr/share/redmine/public;
+        try_files $uri @fcgi;
+    }
+    
+    location @fcgi {
+        include /etc/nginx/fastcgi_params;
+        fastcgi_param   SCRIPT_FILENAME /usr/share/redmine/public/$fastcgi_script_name;
+        fastcgi_pass    redmine_torwuf;
+        fastcgi_index   index.html;
+    }
 }

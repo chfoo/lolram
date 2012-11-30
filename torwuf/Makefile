@@ -34,7 +34,7 @@ install-python2-torwuf:
 
 install-service:
 	mkdir -p ${DESTDIR}/usr/sbin/
-	cp scripts/torwuf-service* ${DESTDIR}/usr/sbin/
+	cp scripts/torwuf-*service* ${DESTDIR}/usr/sbin/
 	mkdir -p ${DESTDIR}/etc/
 	cp -r etc/* ${DESTDIR}/etc/
 
