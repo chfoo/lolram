@@ -6,6 +6,10 @@ upstream redmine_torwuf {
 	server unix:/tmp/redmine-torwuf-fcgi.socket;
 }
 
+upstream gitlab_torwuf {
+	server unix:/home/gitlab/gitlab/tmp/sockets/gitlab.socket;
+}
+
 server {
 	listen 127.0.0.1:8797;
 	server_name www.torwuf.com;
@@ -39,10 +43,36 @@ server {
         try_files $uri @fcgi;
     }
     
+	location /gitlab {
+		proxy_pass_header Server;
+		proxy_set_header Host $http_host;
+		proxy_redirect off;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Scheme $scheme;
+
+		# serve static files from defined root folder;.
+		# @gitlab is a named location for the upstream fallback, see below
+		try_files $uri $uri/index.html $uri.html @gitlab;
+	}
+    
     location @fcgi {
         include /etc/nginx/fastcgi_params;
         fastcgi_param   SCRIPT_FILENAME /usr/share/redmine/public/$fastcgi_script_name;
         fastcgi_pass    redmine_torwuf;
         fastcgi_index   index.html;
     }
+    
+	# if a file, which is not found in the root folder is requested,
+	# then the proxy pass the request to the upsteam (gitlab unicorn)
+	location @gitlab {
+		proxy_read_timeout 300; # https://github.com/gitlabhq/gitlabhq/issues/694
+		proxy_connect_timeout 300; # https://github.com/gitlabhq/gitlabhq/issues/694
+		proxy_redirect     off;
+
+		proxy_set_header   X-Forwarded-Proto $scheme;
+		proxy_set_header   Host              $http_host;
+		proxy_set_header   X-Real-IP         $remote_addr;
+
+		proxy_pass http://gitlab_torwuf;
+	}
 }

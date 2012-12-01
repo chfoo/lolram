@@ -28,3 +28,8 @@ Package: torwuf-redmine-service
 Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, torwuf-service, spawn-fcgi, multiwatch
 Description: torwuf redmine server
+
+Package: torwuf-gitlab-service
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: torwuf gitlab server
