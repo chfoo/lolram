@@ -11,5 +11,6 @@ X_DEBIAN_SITEID="torwuf" \
 RAILS_ENV="production" \
 /usr/bin/spawn-fcgi -n -s /tmp/redmine-torwuf-fcgi.socket \
 -M 640 -u www-data -- \
-/usr/bin/multiwatch -f 1 /usr/share/redmine/public/dispatch.fcgi
+#/usr/bin/multiwatch -f 1 /usr/share/redmine/public/dispatch.fcgi
+/usr/share/redmine/public/dispatch.fcgi
 

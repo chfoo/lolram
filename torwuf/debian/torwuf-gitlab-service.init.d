@@ -16,7 +16,7 @@
 
 
 APP_ROOT="/home/gitlab/gitlab"
-DAEMON_OPTS="-c $APP_ROOT/config/unicorn.rb -E production"
+DAEMON_OPTS="--path /gitlab -c $APP_ROOT/config/unicorn.rb -E production"
 PID_PATH="$APP_ROOT/tmp/pids"
 UNICORN_PID="$PID_PATH/unicorn.pid"
 RESQUE_PID="$PID_PATH/resque_worker.pid"
@@ -43,7 +43,7 @@ start() {
   else
     if [ `whoami` = root ]; then
       sudo -u gitlab -H sh -l -c "nohup bundle1.9.3 exec unicorn_rails $DAEMON_OPTS  > /dev/null  2>&1 &"
-      sudo -u gitlab -H sh -l -c "mkdir -p $PID_PATH && nohup bundle1.9.3 exec rake environment resque:work QUEUE=post_receive,mailer,system_hook RAILS_ENV=production RAILS_RELATIVE_URL_ROOT=\"/gitlab\" PIDFILE=$RESQUE_PID  > /dev/null  2>&1 &"
+      sudo -u gitlab -H sh -l -c "mkdir -p $PID_PATH && nohup bundle1.9.3 exec rake environment resque:work QUEUE=post_receive,mailer,system_hook RAILS_ENV=production PIDFILE=$RESQUE_PID  > /dev/null  2>&1 &"
       echo "$DESC started"
     fi
   fi
@@ -62,7 +62,7 @@ stop() {
   else
     ## Program is not running, exit with error.
     echo "Error! $DESC not started!"
-    exit 1
+    #exit 1
   fi
 }
 
