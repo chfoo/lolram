@@ -46,6 +46,7 @@ class Application(tornado.web.Application):
             template_path=templates_dir,
             static_path=os.path.join(os.path.dirname(torwuf.views.__file__),
                 'resources'),
+            debug=bootstrap.args.debug,
         )
 
         self.root_path = conf['application']['root-path']

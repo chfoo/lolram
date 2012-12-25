@@ -19,6 +19,7 @@ torwuf/debian/*.substvars
 torwuf/debian/torwuf
 torwuf/debian/torwuf-service
 torwuf/debian/torwuf-data
+torwuf/debian/torwuf*service/
 torwuf/debian/tmp/
 torwuf/debian/*.debhelper
 torwuf/debian/files

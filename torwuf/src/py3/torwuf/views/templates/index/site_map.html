@@ -3,33 +3,7 @@
 {% block layout_title %}Torwuf Site Map{% end %}
 
 {% block layout_content %}
-<ul>
-	<li>
-		<a href="/about">About &amp; Contact Info</a>
-	</li>
-	<li>
-		<a href="http://blog.torwuf.com">Blog</a>
-	</li>
-	<li>
-		<a href="/cms/articles">Articles (Stuff)</a>
-	</li>
-	<li>
-		<a href="http://sites.google.com/site/chrisfoo/">Pages (Stuff)</a>
-	</li>
-	<li>
-		<a href="/projects">Projects (Psuedo-Portfolio)</a>
-	</li>
-	<li>
-		<a href="http://thoowoof.blogspot.ca/">Comics</a>
-	</li>
-	<li>
-		<a href="/cat-signal">Cat Signal</a> (Emergency use only)
-	</li>
-	<li>
-		<a href="/xkcd-geocities/">xkcd Geocities working mirror</a>
-	</li>
-	<li>
-		<a href="/z/">Stuff (More Stuff)</a>
-	</li>
-</ul>
+
+{% include 'site_map_fragment.html' %}
+
 {% end %}

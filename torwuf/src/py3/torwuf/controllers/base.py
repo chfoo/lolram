@@ -32,6 +32,9 @@ class BaseRequestHandler(RequestHandler):
         == self.application.testing_key:
             return 'test:localhost'
 
+        if not hasattr(self.application, '_session_controller'):
+            return
+
         with self.application.session(self, save=False) as s:
             if 'user_email' in s:
                 return 'email:{}'.format(s['user_email'])

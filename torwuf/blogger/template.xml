@@ -14,7 +14,7 @@
 			]]>
 		</b:skin>
 	</head>
-	<body>
+	<body id="blogger-body">
 		<b:section class='navbar' id='navbar' maxwidgets='1' showaddelement='no'>
 			<b:widget id='Navbar1' locked='true' title='Navbar' type='Navbar'/>
 		</b:section>
@@ -30,22 +30,22 @@
 			<b:section class='main' id='main' showaddelement='no'>
 				<b:widget id='Blog1' locked='true' title='Blog Posts' type='Blog'/>
 			</b:section>
-			<aside>
-				<b:section class='sidebar' id='sidebar' preferred='yes'>
-					<b:widget id='BlogArchive1' locked='false' title='Blog Archive' type='BlogArchive'/>
-					<b:widget id='Label1' locked='false' title='Labels' type='Label'/>
-					<b:widget id='Subscribe1' locked='false' title='Subscribe To' type='Subscribe'/>
-					<b:widget id='HTML1' locked='false' title='Twitter' type='HTML'/>
-					<b:widget id='Profile1' locked='false' title='About Me' type='Profile'/>
-					<b:widget id='LinkList1' locked='false' title='Links' type='LinkList'/>
-					<b:widget id='Followers1' locked='false' title='Followers' type='Followers'/>
-				</b:section>
-			</aside>
-
 		</div>
+		<aside id="blogger-aside">
+			<b:section class='sidebar' id='sidebar' preferred='yes'>
+				<b:widget id='BlogArchive1' locked='false' title='Blog Archive' type='BlogArchive'/>
+				<b:widget id='Label1' locked='false' title='Labels' type='Label'/>
+				<b:widget id='Subscribe1' locked='false' title='Subscribe To' type='Subscribe'/>
+				<b:widget id='HTML1' locked='false' title='Twitter' type='HTML'/>
+				<b:widget id='Profile1' locked='false' title='About Me' type='Profile'/>
+				<b:widget id='LinkList1' locked='false' title='Links' type='LinkList'/>
+				<b:widget id='Followers1' locked='false' title='Followers' type='Followers'/>
+			</b:section>
+		</aside>
 		<footer id='site-footer'>
 			<nav id='site-nav'>
 				<a href='http://www.torwuf.com/'>TORWUF Home</a>
+				<a href='http://www.torwuf.com/about_me'>About the Author</a>
 				<a href='http://www.torwuf.com/site_map'>Site Map</a>
 			</nav>
 			<section id='site_copyright_notice'>Copyright &#169; 2010-2012 Christopher Foo</section>

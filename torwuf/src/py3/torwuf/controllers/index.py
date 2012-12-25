@@ -46,11 +46,23 @@ class CatSignalHandler(BaseRequestHandler):
         self.render('index/catsignal.html')
 
 
+class AboutMeHandler(BaseRequestHandler):
+    def get(self):
+        self.render('index/about_me.html')
+
+
+class StuffHandler(BaseRequestHandler):
+    def get(self):
+        self.render('index/stuff.html')
+
+
 url_specs = (
     (r'/', IndexHandler),
     (r'/about', AboutHandler),
+    (r'/about_me', AboutMeHandler),
     (r'/projects', ProjectsHandler),
     (r'/site_map', SiteMapHandler),
+    (r'/stuff', StuffHandler),
     (r'/simple_google_login', SimpleGoogleLoginHandler),
     (r'/cat-signal', CatSignalHandler),
     (r'/z/(.*)', MissingStaticFilesHandler,)

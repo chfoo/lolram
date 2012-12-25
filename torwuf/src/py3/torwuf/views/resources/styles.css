@@ -120,8 +120,26 @@ textarea {
 	}
 	
 }
+/* site map */
+.homepage_content_block {
+	display: inline-block;
+	margin: .25em;
+	border: .1em solid #2B5285;
+	padding: .25em;
+
+}
 
 /* Blogger */
+body#blogger-body *#site-content {
+	float: left;
+}
+body#blogger-body *#blogger-aside {
+	float: right;
+	max-width: 20em;
+}
+body#blogger-body *#site-footer {
+	clear: both;
+}
 .post-footer {
 	margin-top: 1em;
 }
