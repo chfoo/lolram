@@ -13,8 +13,13 @@ Pac-Man Text Art (“ascii-pacs”)
 
 <nav>
 <a href="{{ reverse_url('pacs_list_all') }}">Pacs</a>
+
+{% if current_user %}
 <a href="{{ reverse_url('pacs_new') }}">New</a>
 <a href="{{ reverse_url('pacs_mass_new') }}">Mass New</a>
+{% else %}
+<a href="/simple_google_login">Sign in to edit</a>
+{% end %}
 </nav>
 
 

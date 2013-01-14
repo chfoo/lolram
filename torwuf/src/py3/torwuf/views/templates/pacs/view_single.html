@@ -4,9 +4,11 @@
 <section>
 <pre>{{ result[PacsCollection.TEXT] }}</pre>
 
+{% if current_user %}
 <aside>
 <a href="{{ reverse_url('pacs_edit', result['_id']) }}" title="Edit">Edit</a>
 </aside>
+{% end %}
 </section>
 
 
