@@ -10,16 +10,35 @@ upstream gitlab_torwuf {
 	server unix:/home/gitlab/gitlab/tmp/sockets/gitlab.socket;
 }
 
+upstream compfacts {
+	server 127.0.0.1:8795;
+}
+
 server {
-	listen 127.0.0.1:8797;
+	listen 80;
+	listen 443 ssl;
+	server_name torwuf.com;
+	ssl_certificate /etc/torwuf/server.crt;
+	ssl_certificate_key /etc/torwuf/server.key;
+	return 301 $scheme://www.torwuf.com$request_uri;
+}
+
+server {
+	listen 80;
+	listen 443 ssl;
 	server_name www.torwuf.com;
+	ssl_certificate /etc/torwuf/server.crt;
+	ssl_certificate_key /etc/torwuf/server.key;
 	
 	client_max_body_size 50M;
 	
-	set_real_ip_from 127.0.0.1;
-	real_ip_header X-Forwarded-For;
-	
 	location / {
+		index  index.html index.htm;
+		try_files $uri $uri/ @torwuf;
+	}
+	
+	location @torwuf {
+		proxy_next_upstream error;
 		proxy_pass_header Server;
 		proxy_set_header Host $http_host;
 		proxy_redirect off;
@@ -31,6 +50,20 @@ server {
 	location /uploads/ {
 		internal;
 		root /home/www-torwuf/torwuf-service/databases;
+	}
+	
+	location /z/ {
+		alias /home/www-torwuf/torwuf-service/www/z/;
+		autoindex  on;
+		autoindex_exact_size off;
+	}
+	
+	location /z/r {
+		alias /usr/local/torwuf/share/www/static/;
+	}
+	
+	location ~ "^/z/kitabyte/.*woff$" {
+		add_header Access-Control-Allow-Origin *;
 	}
 	
 	location /redmine {

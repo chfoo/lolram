@@ -1,0 +1,4 @@
+#
+# Regular cron jobs for the torwuf-service package
+#
+0 4	* * *	www-torwuf	[ -x /usr/local/torwuf/sbin/torwuf-service-backup ] && /usr/local/torwuf/sbin/torwuf-service-backup

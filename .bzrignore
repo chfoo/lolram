@@ -14,17 +14,9 @@ debian.upstream/files
 debian.upstream/source
 debian.upstream/*changelog
 .change_hash.*
-torwuf/debian/*.log
-torwuf/debian/*.substvars
-torwuf/debian/torwuf
-torwuf/debian/torwuf-service
-torwuf/debian/torwuf-data
-torwuf/debian/torwuf*service/
-torwuf/debian/tmp/
-torwuf/debian/*.debhelper
-torwuf/debian/files
-torwuf/debian/source
 torwuf/etc/torwuf/*.pem
+torwuf/etc/torwuf/*.key
+torwuf/etc/torwuf/*.crt
 torwuf/etc/torwuf/*.private.conf
 *.bak
 torwuf/tests/*.private.conf
@@ -34,3 +26,6 @@ torwuf/debian/*changelog
 torwuf*.changes
 torwuf*.deb
 build/
+destdir/
+download-cache/
+build-*/
