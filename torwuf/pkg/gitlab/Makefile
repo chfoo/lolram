@@ -11,7 +11,7 @@ package:
 	chmod 0755 destdir/etc/init.d/torwuf-gitlab-service
 	
 	fpm -C destdir/ -t deb -s dir -n torwuf-gitlab-service -v \
-		`cat -s ../../VERSION` \
+		1.0 \
 		--config-files /etc/init.d/torwuf-gitlab-service \
 		--after-install after_install.sh \
 		--before-remove before_remove.sh \

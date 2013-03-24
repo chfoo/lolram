@@ -56,15 +56,16 @@ server {
 		alias /home/www-torwuf/torwuf-service/www/z/;
 		autoindex  on;
 		autoindex_exact_size off;
+
+		location ~ "^/z/kitabyte/.*woff$" {
+			add_header Access-Control-Allow-Origin *;
+		}
 	}
 	
 	location /z/r {
 		alias /usr/local/torwuf/share/www/static/;
 	}
 	
-	location ~ "^/z/kitabyte/.*woff$" {
-		add_header Access-Control-Allow-Origin *;
-	}
 	
 	location /redmine {
 		proxy_pass_header Server;

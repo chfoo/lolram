@@ -1,3 +1,3 @@
 #!/bin/sh -e
 
-stop torwuf-redmine-service
+stop torwuf-redmine-service || true

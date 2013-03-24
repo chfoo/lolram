@@ -5,5 +5,5 @@
 mkdir -p /var/run/torwuf-service/
 chown www-torwuf:www-torwuf /var/run/torwuf-service/
 sudo -u www-torwuf -g www-torwuf \
-	/usr/local/torwuf/bin/python3 -m torwuf \
+	/opt/torwuf/bin/python3 -m torwuf \
 	--config /etc/torwuf/torwuf.conf --config /etc/torwuf/torwuf.private.conf

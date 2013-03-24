@@ -11,7 +11,7 @@ package:
 	chmod 0644 destdir/etc/init/torwuf-redmine-service.conf
 	
 	fpm -C destdir/ -t deb -s dir -n torwuf-redmine-service -v \
-		`cat -s ../../VERSION` \
+		1.0 \
 		--config-files /etc/init/torwuf-redmine-service.conf \
 		--after-install after_install.sh \
 		--before-remove before_remove.sh \
