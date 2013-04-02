@@ -10,8 +10,8 @@ upstream gitlab_torwuf {
 	server unix:/home/gitlab/gitlab/tmp/sockets/gitlab.socket;
 }
 
-upstream compfacts {
-	server 127.0.0.1:8795;
+upstream compfacts_server {
+	server 127.0.0.1:8796;
 }
 
 server {
@@ -63,9 +63,22 @@ server {
 	}
 	
 	location /z/r {
-		alias /usr/local/torwuf/share/www/static/;
+		alias /opt/torwuf/share/www/static/;
 	}
 	
+	location /compfacts {
+		try_files $uri @compfacts;
+	}
+	
+	location @compfacts {
+		proxy_next_upstream error;
+		proxy_pass_header Server;
+		proxy_set_header Host $http_host;
+		proxy_redirect off;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Scheme $scheme;
+		proxy_pass http://compfacts_server;
+	}
 	
 	location /redmine {
 		proxy_pass_header Server;
