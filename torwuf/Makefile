@@ -60,6 +60,7 @@ package:
 	rm -rf destdir/
 	$(MAKE) build install DESTDIR=$(DESTDIR) PREFIX=$(PREFIX)
 	fpm -C $(DESTDIR) -t deb -s dir -n torwuf -v `cat -s VERSION` \
+		--deb-user root --deb-group root \
 		-d python3 \
 		-d python3-docutils \
 		-d loggerhead \
