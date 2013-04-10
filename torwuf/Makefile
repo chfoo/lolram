@@ -26,6 +26,7 @@ install:
 	cp etc/torwuf/*[!~] $(DESTDIR)/etc/torwuf/
 	cp etc/cron.d/*[!~] $(DESTDIR)/etc/cron.d/
 	cp sbin/torwuf-service $(DESTDIR)/$(PREFIX)/sbin/
+	cp sbin/torwuf-service-backup $(DESTDIR)/$(PREFIX)/sbin/
 	cp -r share/* $(DESTDIR)/$(PREFIX)/share/
 	cp etc/init/torwuf-service.conf $(DESTDIR)/etc/init/
 
