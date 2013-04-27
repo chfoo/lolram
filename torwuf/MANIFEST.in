@@ -1,1 +1,1 @@
-global-include *.*[!~]
+recursive-include src/ *.*[!~]

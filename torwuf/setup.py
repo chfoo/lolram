@@ -2,7 +2,7 @@ from distutils.core import setup
 import sys
 import os
 
-assert sys.version_info[0] == 3
+#assert sys.version_info[0] == 3
 
 with open('VERSION') as f:
     __version__ = f.read().strip()
@@ -27,7 +27,7 @@ setup(
         'isodate',
     ],
     package_dir={
-        'torwuf': 'src/py3/torwuf',
+#        'torwuf': 'src/py3/torwuf',
     },
     package_data={
         'torwuf.views': [

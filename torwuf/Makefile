@@ -1,21 +1,18 @@
 PREFIX?=/usr/local
 DESTDIR?=
-PYTHON3?=python3.2
-PIP3?=pip-3.2
+PYTHON3?=python3
+PIP3?=pip3
 
-.PHONY: all clean build install package package-lib
+.PHONY: all clean build install package package-lib build/torwuf.pybundle
 
 all: build
 
 clean:
-	$(PYTHON3) setup.py clean --all
 	rm -rf build/ build-bundle/ build-bundle[0-9]/ destdir/
 
 build:
-	$(PYTHON3) setup.py build
 
-install:
-	$(PYTHON3) setup.py install --prefix $(DESTDIR)/$(PREFIX)
+install: build/torwuf.pybundle
 	mkdir -p $(DESTDIR)/etc/nginx/sites-available/ \
 		$(DESTDIR)/$(PREFIX)/sbin/ \
 		$(DESTDIR)/$(PREFIX)/share/ \
@@ -29,6 +26,13 @@ install:
 	cp sbin/torwuf-service-backup $(DESTDIR)/$(PREFIX)/sbin/
 	cp -r share/* $(DESTDIR)/$(PREFIX)/share/
 	cp etc/init/torwuf-service.conf $(DESTDIR)/etc/init/
+	cp build/torwuf.pybundle $(DESTDIR)/$(PREFIX)/share/
+
+build/torwuf.pybundle:
+	mkdir -p build/torwuf_sdist/
+	cp -r src/py3/torwuf/ build/torwuf_sdist/
+	cp setup.py VERSION build/torwuf_sdist/
+	$(PIP3) bundle build/torwuf.pybundle build/torwuf_sdist/
 
 build/torwuf_lib.pybundle: requirements.txt
 	mkdir -p build/

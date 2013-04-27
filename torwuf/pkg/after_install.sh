@@ -10,6 +10,8 @@ sudo -u www-torwuf ln -f -s /opt/torwuf/share/www/favicon.ico /home/www-torwuf/t
 chmod +x /opt/torwuf/sbin/*
 chmod 644 /etc/cron.d/torwuf-service
 
+/opt/torwuf/bin/python3 -m pip install /opt/torwuf/share/torwuf.pybundle
+
 start torwuf-service
 echo "after_install script done"
 
