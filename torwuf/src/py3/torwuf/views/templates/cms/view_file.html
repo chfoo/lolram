@@ -56,6 +56,34 @@
 	</section>
 	{% end %}
 	
+    <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+    <script src="http://code.jquery.com/jquery-migrate-1.1.1.min.js"></script>
+    <script type="text/javascript" src="http://jqueryrotate.googlecode.com/svn/trunk/jQueryRotate.js"></script>
+    <script>
+        $(document).ready(function() {
+            $(".cms_file_image")
+                .after('<br><button class="rotate_left">Rotate Left</button>' +
+                '<button class="rotate_right">Rotate Right</button>'
+            );
+            $(".cms_file_image").css('display', 'block').css('margin', 'auto');
+          
+            $('.rotate_left').click(function() {
+                var target = $(".cms_file_image");
+                var angle = parseInt(target.attr('data-angle') || 0);
+                angle -= 10;
+                target.rotate({animateTo: angle});
+                target.attr('data-angle', angle);
+            });
+            
+            $('.rotate_right').click(function() {
+                var target = $(".cms_file_image");
+                var angle = parseInt(target.attr('data-angle') || 0);
+                angle += 10;
+                target.rotate({animateTo: angle});
+                target.attr('data-angle', angle);
+            });
+        });
+    </script>
 {% end %}
 
 {% block cms_menu %}

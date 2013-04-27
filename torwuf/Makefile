@@ -1,6 +1,6 @@
 PREFIX?=/usr/local
 DESTDIR?=
-PYTHON3?=python3
+PYTHON3?=python3.2
 PIP3?=pip-3.2
 
 .PHONY: all clean build install package package-lib

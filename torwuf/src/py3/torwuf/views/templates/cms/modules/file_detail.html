@@ -8,6 +8,7 @@
 <img src="{{ reverse_url('cms_resize', 
 	torwuf.controllers.base.bytes_to_b32low_str(article[ArticleCollection.UUID].bytes), 'large') }}"
 	alt="{{ article[ArticleCollection.TITLE] }}"
+	class="cms_file_image"
 />
 {% else %}
 	<a href="{{ reverse_url('cms_download', 
