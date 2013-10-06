@@ -41,7 +41,7 @@ build/torwuf_lib.pybundle: requirements.txt
 
 download-cache/virtualenv-1.9.1.tar.gz:
 	mkdir -p download-cache/
-	curl - https://pypi.python.org/packages/source/v/virtualenv/virtualenv-1.9.1.tar.gz \
+	curl https://pypi.python.org/packages/source/v/virtualenv/virtualenv-1.9.1.tar.gz \
 		-o download-cache/virtualenv-1.9.1.tar.gz
 
 package-lib: build/torwuf_lib.pybundle download-cache/virtualenv-1.9.1.tar.gz
@@ -53,7 +53,8 @@ package-lib: build/torwuf_lib.pybundle download-cache/virtualenv-1.9.1.tar.gz
 	tar --extract --strip-components=1 \
 		--file=download-cache/virtualenv-1.9.1.tar.gz \
 		-C $(DESTDIR)/$(PREFIX)/share/ virtualenv-1.9.1/virtualenv.py
-	fpm -C $(DESTDIR) -t deb -s dir -n torwuf-lib -v 1.0 \
+	fpm -C $(DESTDIR) -t deb -s dir -n torwuf-lib -v 1.1 \
+		--deb-user root --deb-group root \
 		-d build-essential \
 		-d python3-dev \
 		--after-install pkg/lib/after_install.sh \
@@ -69,7 +70,7 @@ package:
 		-d python3 \
 		-d python3-docutils \
 		-d loggerhead \
-		-d mongodb \
+		-d mongodb-10gen \
 		-d sqlite3 \
 		-d imagemagick \
 		-d nginx \
